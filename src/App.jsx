@@ -171,6 +171,25 @@ const keyboardMap = [
   { name: 'right', keys: ['ArrowRight', 'd', 'D'] },
 ]
 
+function CameraReset({ isLandingPage }) {
+  const { camera } = useThree();
+  
+  useEffect(() => {
+    if (isLandingPage) {
+      // Dollhouse view (zoomed out, up, side)
+      // Halfway between original [0, 0, 10] and previous wide attempt [15, 10, 25]
+      camera.position.set(7.5, 5, 17.5);
+      camera.lookAt(0, 0, 0);
+    } else {
+      // Room view (closer)
+      camera.position.set(0, 0, 10);
+      camera.lookAt(0, 0, 0);
+    }
+  }, [isLandingPage, camera]);
+
+  return null;
+}
+
 export default function App() {
   const [isLandingPage, setIsLandingPage] = useState(true);
   const [roomIndex, setRoomIndex] = useState(() => Math.floor(Math.random() * rooms.length));
@@ -314,13 +333,19 @@ export default function App() {
       )}
 
       <KeyboardControls map={keyboardMap}>
-        <Canvas shadows camera={{ position: [0, 0, 10], fov: 50 }} style={{ cursor: 'none' }}>
+        <Canvas shadows camera={{ position: [7.5, 5, 17.5], fov: 47.5 }} style={{ cursor: 'none' }}>
           {isLandingPage && <color attach="background" args={['#fff']} />}
           <Suspense fallback={<Loader isLandingPage={isLandingPage} />}>
-            <Stage environment="city" intensity={0.5} contactShadows={{ opacity: 0.7, blur: 2 }}>
+            <Stage 
+              environment="city" 
+              intensity={0.5} 
+              contactShadows={{ opacity: 0.7, blur: 2 }}
+              adjustCamera={false}
+            >
               <Model url={isLandingPage ? 'dollhouse.glb' : rooms[roomIndex]} isLandingPage={isLandingPage} />
             </Stage>
             <Controls />
+            <CameraReset isLandingPage={isLandingPage} />
           </Suspense>
         </Canvas>
       </KeyboardControls>
