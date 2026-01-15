@@ -47,7 +47,7 @@ function CustomCursor({ isLandingPage }) {
       transform: `translate(${position.x}px, ${position.y}px) translate(-15%, -85%)`,
     }}>
       <img 
-        src="/assets/key.png" 
+        src="assets/key.png" 
         style={{ 
           width: '100%', 
           height: '100%', 
@@ -61,7 +61,7 @@ function CustomCursor({ isLandingPage }) {
 }
 
 function Model({ url, isLandingPage }) {
-  const { scene } = useGLTF(isLandingPage ? `/assets/${url}` : `/rooms/${url}`);
+  const { scene } = useGLTF(isLandingPage ? `assets/${url}` : `rooms/${url}`);
   return <primitive object={scene} />;
 }
 
@@ -344,7 +344,7 @@ export default function App() {
       }}
       >
         <img 
-          src="/assets/home.png" 
+          src="assets/home.png" 
           style={{ 
             width: '64px', 
             height: '64px', 
