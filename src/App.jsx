@@ -26,11 +26,20 @@ const rooms = [
 
 function CustomCursor({ isLandingPage }) {
   const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isHovering, setIsHovering] = useState(false);
 
   useEffect(() => {
     const handleMouseMove = (e) => {
       setPosition({ x: e.clientX, y: e.clientY });
+      
+      // Check if hovering over something clickable
+      const target = e.target;
+      const isClickable = target.closest('button, a, [onClick], [role="button"]') || 
+                         target.style.cursor === 'pointer' ||
+                         (target.tagName === 'DIV' && (target.onclick || target.style.cursor === 'none' && target.innerText.length < 20 && target.innerText.length > 0));
+      setIsHovering(!!isClickable);
     };
+    
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
@@ -44,7 +53,8 @@ function CustomCursor({ isLandingPage }) {
       height: '60px',
       pointerEvents: 'none',
       zIndex: 10000,
-      transform: `translate(${position.x}px, ${position.y}px) translate(-15%, -85%)`,
+      transform: `translate(${position.x}px, ${position.y}px) translate(-15%, -85%) scale(${isHovering ? 1.2 : 1})`,
+      transition: 'transform 0.1s ease-out',
     }}>
       <img 
         src="assets/key.png" 
@@ -52,7 +62,7 @@ function CustomCursor({ isLandingPage }) {
           width: '100%', 
           height: '100%', 
           objectFit: 'contain',
-          filter: isLandingPage ? 'grayscale(1) brightness(0)' : 'none'
+          filter: isLandingPage ? 'grayscale(1) brightness(0)' : 'none',
         }} 
         alt="key cursor" 
       />
@@ -182,7 +192,7 @@ export default function App() {
     color: primaryColor,
     fontWeight: '600',
     fontSize: '18px',
-    cursor: 'pointer',
+    cursor: 'none',
     zIndex: 10,
     padding: '30px',
     userSelect: 'none',
@@ -256,7 +266,7 @@ export default function App() {
         <div style={modalOverlayStyle} onClick={() => setActiveModal(null)}>
           <div style={modalContentStyle} onClick={(e) => e.stopPropagation()}>
             <div 
-              style={{ position: 'absolute', top: '20px', right: '20px', cursor: 'pointer', fontSize: '24px' }}
+              style={{ position: 'absolute', top: '20px', right: '20px', cursor: 'none', fontSize: '24px' }}
               onClick={() => setActiveModal(null)}
             >
               ×
@@ -293,9 +303,9 @@ export default function App() {
                 <h2 style={{ marginTop: 0 }}>knock knock...</h2>
                 <p>Who's there?</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
-                  <input type="text" placeholder="Your Name" style={{ background: 'transparent', border: `1px solid ${primaryColor}`, padding: '10px', color: primaryColor, borderRadius: '5px' }} />
-                  <textarea placeholder="Tell me about your room..." rows="4" style={{ background: 'transparent', border: `1px solid ${primaryColor}`, padding: '10px', color: primaryColor, borderRadius: '5px' }} />
-                  <button style={{ background: primaryColor, color: bgColor, border: 'none', padding: '10px', borderRadius: '5px', fontWeight: 'bold' }}>Send message</button>
+                  <input type="text" placeholder="Your Name" style={{ background: 'transparent', border: `1px solid ${primaryColor}`, padding: '10px', color: primaryColor, borderRadius: '5px', cursor: 'none' }} />
+                  <textarea placeholder="Tell me about your room..." rows="4" style={{ background: 'transparent', border: `1px solid ${primaryColor}`, padding: '10px', color: primaryColor, borderRadius: '5px', cursor: 'none' }} />
+                  <button style={{ background: primaryColor, color: bgColor, border: 'none', padding: '10px', borderRadius: '5px', fontWeight: 'bold', cursor: 'none' }}>Send message</button>
                 </div>
               </div>
             )}
@@ -304,7 +314,7 @@ export default function App() {
       )}
 
       <KeyboardControls map={keyboardMap}>
-        <Canvas shadows camera={{ position: [0, 0, 10], fov: 50 }}>
+        <Canvas shadows camera={{ position: [0, 0, 10], fov: 50 }} style={{ cursor: 'none' }}>
           {isLandingPage && <color attach="background" args={['#fff']} />}
           <Suspense fallback={<Loader isLandingPage={isLandingPage} />}>
             <Stage environment="city" intensity={0.5} contactShadows={{ opacity: 0.7, blur: 2 }}>
@@ -323,7 +333,7 @@ export default function App() {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        cursor: 'pointer',
+        cursor: 'none',
         backgroundColor: 'transparent',
         padding: '12px',
         color: primaryColor,
