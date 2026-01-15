@@ -239,7 +239,7 @@ export default function App() {
         onMouseEnter={(e) => e.currentTarget.style.opacity = '0.7'}
         onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
       >
-        Publications
+        Works
       </div>
 
       <div 
@@ -264,26 +264,26 @@ export default function App() {
 
             {activeModal === 'cv' && (
               <div>
-                <h2 style={{ marginTop: 0 }}>shelestvetrovki</h2>
-                <p><strong>Digital Architect & Multidisciplinary Artist</strong></p>
-                <p>Specializing in the creation of virtual spaces and architectural memories. Exploring the intersection of dollhouse aesthetics and digital permanence.</p>
+                <h2 style={{ marginTop: 0 }}>[NAME/TITLE]</h2>
+                <p><strong>[PROFESSIONAL TITLE]</strong></p>
+                <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
                 <h3 style={{ borderBottom: '1px solid' }}>Experience</h3>
                 <ul style={{ listStyleType: 'none', padding: 0 }}>
-                  <li>• Virtual Room Designer (2022–Present)</li>
-                  <li>• Texture Alchemist (2020–2022)</li>
-                  <li>• Memory Map Creator @ Nana Project</li>
+                  <li>• [Position Name] (20XX–Present)</li>
+                  <li>• [Position Name] (20XX–20XX)</li>
+                  <li>• [Position Name] (20XX–20XX)</li>
                 </ul>
               </div>
             )}
 
             {activeModal === 'publications' && (
               <div>
-                <h2 style={{ marginTop: 0 }}>Publications</h2>
+                <h2 style={{ marginTop: 0 }}>Works</h2>
                 <ul style={{ listStyleType: 'none', padding: 0, lineHeight: '2' }}>
-                  <li><em>"The Echo of Geometry"</em> — Cyber Arts Quarterly</li>
-                  <li><em>"Rooms of the Mind: A Study in GLB"</em> — Digital Space Journal</li>
-                  <li><em>"Digital Dollhouses & The New Domesticity"</em> — Virtual Vernacular</li>
-                  <li><em>"shelestvetrovki: Collected Spaces"</em> — Nana Editions (2025)</li>
+                  <li><em>"[Project/Work Title]"</em> — [Venue/Publisher], [Year]</li>
+                  <li><em>"[Project/Work Title]"</em> — [Venue/Publisher], [Year]</li>
+                  <li><em>"[Project/Work Title]"</em> — [Venue/Publisher], [Year]</li>
+                  <li><em>"[Project/Work Title]"</em> — [Venue/Publisher], [Year]</li>
                 </ul>
               </div>
             )}
