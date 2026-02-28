@@ -1,168 +1,7 @@
-import React, { useState, Suspense, useEffect, useRef } from 'react'
+import React, { useState, Suspense, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls, Stage, useGLTF, Environment, ContactShadows, Html, useProgress, KeyboardControls, useKeyboardControls } from '@react-three/drei'
+import { OrbitControls, Stage, useGLTF, KeyboardControls, useKeyboardControls } from '@react-three/drei'
 import * as THREE from 'three'
-
-const rooms = [
-  "AIKO DETAILS WEB.glb",
-  "AIKO WEB.glb",
-  "ANDREA WEB.glb",
-  "EIKO WEB.glb",
-  "JASMINE WEB.glb",
-  "KAORI WEB.glb",
-  "KUMO&MUKI WEB.glb",
-  "MEG WEB.glb",
-  "MIMI WEB.glb",
-  "MOENE WEB.glb",
-  "MOMOCO WEB.glb",
-  "PARDIS WEB.glb",
-  "REI WEB.glb",
-  "SAKURA WEB.glb",
-  "SUZUNE DETAILS WEB.glb",
-  "SUZUNE WEB.glb",
-  "YUNA WEB.glb",
-  "YURIA WEB.glb"
-];
-
-function CustomCursor({ isLandingPage }) {
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [isHovering, setIsHovering] = useState(false);
-
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      setPosition({ x: e.clientX, y: e.clientY });
-      
-      // Check if hovering over something clickable
-      const target = e.target;
-      const isClickable = target.closest('button, a, [onClick], [role="button"]') || 
-                         target.style.cursor === 'pointer' ||
-                         (target.tagName === 'DIV' && (target.onclick || target.style.cursor === 'none' && target.innerText.length < 20 && target.innerText.length > 0));
-      setIsHovering(!!isClickable);
-    };
-    
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
-
-  return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      width: '60px',
-      height: '60px',
-      pointerEvents: 'none',
-      zIndex: 10000,
-      transform: `translate(${position.x}px, ${position.y}px) translate(-15%, -85%) scale(${isHovering ? 1.2 : 1})`,
-      transition: 'transform 0.1s ease-out',
-    }}>
-      <img 
-        src="assets/key.png" 
-        style={{ 
-          width: '100%', 
-          height: '100%', 
-          objectFit: 'contain',
-          filter: isLandingPage ? 'grayscale(1) brightness(0)' : 'none',
-        }} 
-        alt="key cursor" 
-      />
-    </div>
-  );
-}
-
-function Model({ url, isLandingPage }) {
-  const { scene } = useGLTF(isLandingPage ? `assets/${url}` : `rooms/${url}`);
-  return <primitive object={scene} />;
-}
-
-function Loader({ isLandingPage }) {
-  const { progress } = useProgress()
-  const primaryColor = isLandingPage ? '#000' : 'rgb(235, 83, 159)';
-  return (
-    <Html center>
-      <div style={{
-        color: isLandingPage ? '#000' : 'white',
-        background: isLandingPage ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)',
-        padding: '20px',
-        borderRadius: '15px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '10px',
-        minWidth: '150px',
-        border: isLandingPage ? '1px solid #000' : 'none'
-      }}>
-        <div style={{
-          width: '100%',
-          height: '4px',
-          background: isLandingPage ? '#eee' : '#333',
-          borderRadius: '2px',
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            width: `${progress}%`,
-            height: '100%',
-            background: primaryColor,
-            transition: 'width 0.3s ease'
-          }} />
-        </div>
-        <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
-          Loading {Math.round(progress)}%
-        </div>
-      </div>
-    </Html>
-  )
-}
-
-function Controls() {
-  const [, get] = useKeyboardControls()
-  const { camera } = useThree()
-  const controlsRef = useRef()
-  const moveSpeed = 0.2 // Increased sensitivity for arrow buttons
-
-  useFrame(() => {
-    const { forward, backward, left, right } = get()
-    
-    if (forward || backward || left || right) {
-      // Get the forward direction relative to the camera
-      const forwardDir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion)
-      forwardDir.y = 0 // Keep movement on the horizontal plane
-      forwardDir.normalize()
-
-      // Get the right direction relative to the camera
-      const rightDir = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion)
-      rightDir.y = 0
-      rightDir.normalize()
-
-      const moveDir = new THREE.Vector3(0, 0, 0)
-      if (forward) moveDir.add(forwardDir)
-      if (backward) moveDir.sub(forwardDir)
-      if (left) moveDir.sub(rightDir)
-      if (right) moveDir.add(rightDir)
-
-      if (moveDir.length() > 0) {
-        moveDir.normalize().multiplyScalar(moveSpeed)
-        camera.position.add(moveDir)
-        if (controlsRef.current) {
-          controlsRef.current.target.add(moveDir)
-          controlsRef.current.update()
-        }
-      }
-    }
-  })
-
-  return (
-    <OrbitControls 
-      ref={controlsRef} 
-      makeDefault 
-      rotateSpeed={0.4} 
-      zoomSpeed={0.4} 
-      panSpeed={0.4}
-      enableDamping={true}
-      dampingFactor={0.05}
-    />
-  )
-}
 
 const keyboardMap = [
   { name: 'forward', keys: ['ArrowUp', 'w', 'W'] },
@@ -171,52 +10,243 @@ const keyboardMap = [
   { name: 'right', keys: ['ArrowRight', 'd', 'D'] },
 ]
 
-function CameraReset({ isLandingPage }) {
-  const { camera } = useThree();
-  
-  useEffect(() => {
-    if (isLandingPage) {
-      // Dollhouse view (zoomed out, up, side)
-      // Halfway between original [0, 0, 10] and previous wide attempt [15, 10, 25]
-      camera.position.set(7.5, 5, 17.5);
-      camera.lookAt(0, 0, 0);
-    } else {
-      // Room view (closer)
-      camera.position.set(0, 0, 10);
-      camera.lookAt(0, 0, 0);
-    }
-  }, [isLandingPage, camera]);
+const LANDING_CAMERA_POSITION = [-0.55, 0.24, 0.48]
 
-  return null;
+const DOOR_LINKS = [
+  {
+    id: 'door-1',
+    label: 'Door 1',
+    roomIndex: 0,
+    corners: [
+      [0.154, 0.129, 0.028],
+      [0.103, 0.131, -0.02],
+      [0.106, 0.011, -0.018],
+      [0.153, 0.01, 0.027],
+    ],
+  },
+  {
+    id: 'door-2',
+    label: 'Door 2',
+    roomIndex: 1,
+    corners: [
+      [-0.083, 0.126, 0.157],
+      [-0.035, 0.126, 0.108],
+      [-0.034, 0.009, 0.113],
+      [-0.084, 0.008, 0.161],
+    ],
+  },
+  {
+    id: 'door-3',
+    label: 'Door 3',
+    roomIndex: 2,
+    corners: [
+      [-0.161, 0.13, -0.019],
+      [-0.131, 0.133, 0.047],
+      [-0.138, 0.005, 0.045],
+      [-0.167, 0.012, -0.017],
+    ],
+  },
+  {
+    id: 'door-4',
+    label: 'Door 4',
+    roomIndex: 3,
+    corners: [
+      [-0.018, 0.012, -0.087],
+      [0.026, 0.01, -0.133],
+      [0.028, 0.124, -0.125],
+      [-0.021, 0.118, -0.082],
+    ],
+  },
+]
+
+function Model({ url, children }) {
+  const { scene } = useGLTF(`assets/${url}`)
+  return <primitive object={scene}>{children}</primitive>
+}
+
+function Controls() {
+  const [, get] = useKeyboardControls()
+  const { camera } = useThree()
+  const controlsRef = useRef()
+  const moveSpeed = 0.2
+
+  useFrame(() => {
+    const { forward, backward, left, right } = get()
+
+    if (!(forward || backward || left || right)) return
+
+    const forwardDir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion)
+    forwardDir.y = 0
+    forwardDir.normalize()
+
+    const rightDir = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion)
+    rightDir.y = 0
+    rightDir.normalize()
+
+    const moveDir = new THREE.Vector3(0, 0, 0)
+    if (forward) moveDir.add(forwardDir)
+    if (backward) moveDir.sub(forwardDir)
+    if (left) moveDir.sub(rightDir)
+    if (right) moveDir.add(rightDir)
+
+    if (moveDir.length() === 0) return
+
+    moveDir.normalize().multiplyScalar(moveSpeed)
+    camera.position.add(moveDir)
+
+    if (controlsRef.current) {
+      controlsRef.current.target.add(moveDir)
+      controlsRef.current.update()
+    }
+  })
+
+  return (
+    <OrbitControls
+      ref={controlsRef}
+      makeDefault
+      rotateSpeed={0.4}
+      zoomSpeed={0.4}
+      panSpeed={0.4}
+      enableDamping
+      dampingFactor={0.05}
+    />
+  )
+}
+
+function CameraReset() {
+  const camera = useThree((state) => state.camera)
+  const controls = useThree((state) => state.controls)
+
+  useLayoutEffect(() => {
+    camera.position.set(...LANDING_CAMERA_POSITION)
+    if (controls?.target) {
+      controls.target.set(0, 0, 0)
+      controls.update()
+    } else {
+      camera.lookAt(0, 0, 0)
+    }
+  }, [camera, controls])
+
+  return null
+}
+
+function DoorLinkArea({ door, onOpenRoom }) {
+  const corners = Array.isArray(door.corners) ? door.corners : []
+
+  const geometry = useMemo(() => {
+    if (corners.length !== 4) return null
+
+    const vertices = new Float32Array([
+      ...corners[0],
+      ...corners[1],
+      ...corners[2],
+      ...corners[0],
+      ...corners[2],
+      ...corners[3],
+    ])
+
+    const next = new THREE.BufferGeometry()
+    next.setAttribute('position', new THREE.BufferAttribute(vertices, 3))
+    next.computeVertexNormals()
+    return next
+  }, [corners])
+
+  useEffect(() => () => geometry?.dispose(), [geometry])
+
+  if (!geometry) return null
+
+  return (
+    <mesh
+      geometry={geometry}
+      renderOrder={1000}
+      onPointerDown={(event) => {
+        event.stopPropagation()
+      }}
+      onClick={(event) => {
+        event.stopPropagation()
+        onOpenRoom(door.roomIndex + 1)
+      }}
+    >
+      <meshBasicMaterial transparent opacity={0} side={THREE.DoubleSide} depthTest={false} depthWrite={false} />
+    </mesh>
+  )
+}
+
+function DoorLinks({ doors, onOpenRoom }) {
+  return (
+    <group>
+      {doors.map((door) => (
+        <DoorLinkArea key={door.id} door={door} onOpenRoom={onOpenRoom} />
+      ))}
+    </group>
+  )
+}
+
+function RoomPage({ roomNumber, onBack }) {
+  return (
+    <div
+      style={{
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: '#fff',
+        color: '#000',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+      }}
+    >
+      <button
+        type="button"
+        onClick={onBack}
+        style={{
+          position: 'absolute',
+          top: '24px',
+          left: '24px',
+          border: '1px solid #000',
+          borderRadius: '8px',
+          background: '#fff',
+          color: '#000',
+          padding: '8px 12px',
+          fontFamily: 'monospace',
+          cursor: 'auto',
+        }}
+      >
+        home
+      </button>
+      <h1 style={{ margin: 0, fontFamily: 'monospace', fontSize: '48px', fontWeight: 600 }}>room {roomNumber}</h1>
+    </div>
+  )
 }
 
 export default function App() {
-  const [isLandingPage, setIsLandingPage] = useState(true);
-  const [roomIndex, setRoomIndex] = useState(() => Math.floor(Math.random() * rooms.length));
-  const [activeModal, setActiveModal] = useState(null);
+  const [activeModal, setActiveModal] = useState(null)
+  const [activeRoom, setActiveRoom] = useState(null)
 
-  const nextRoom = () => {
-    if (isLandingPage) {
-      setIsLandingPage(false);
-    } else {
-      setRoomIndex((prev) => (prev + 1) % rooms.length);
-    }
-  };
+  const openRoom = useCallback((roomNumber) => {
+    setActiveModal(null)
+    setActiveRoom(roomNumber)
+  }, [])
 
-  const primaryColor = isLandingPage ? '#000' : 'rgb(235, 83, 159)';
-  const bgColor = isLandingPage ? '#fff' : '#000';
+  const closeRoom = useCallback(() => {
+    setActiveRoom(null)
+  }, [])
+
+  if (activeRoom !== null) {
+    return <RoomPage roomNumber={activeRoom} onBack={closeRoom} />
+  }
 
   const cornerStyle = {
     position: 'absolute',
-    color: primaryColor,
+    color: '#000',
     fontWeight: '600',
     fontSize: '18px',
-    cursor: 'none',
+    cursor: 'auto',
     zIndex: 10,
     padding: '30px',
     userSelect: 'none',
     transition: 'opacity 0.2s',
-  };
+  }
 
   const modalOverlayStyle = {
     position: 'fixed',
@@ -224,68 +254,66 @@ export default function App() {
     left: 0,
     width: '100vw',
     height: '100vh',
-    backgroundColor: isLandingPage ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.85)',
+    backgroundColor: 'rgba(255,255,255,0.85)',
     zIndex: 1000,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: primaryColor,
+    color: '#000',
     backdropFilter: 'blur(5px)',
-  };
+  }
 
   const modalContentStyle = {
     maxWidth: '600px',
     padding: '40px',
-    border: `1px solid ${primaryColor}`,
+    border: '1px solid #000',
     borderRadius: '20px',
     position: 'relative',
-    backgroundColor: bgColor,
-  };
+    backgroundColor: '#fff',
+  }
 
   return (
-    <div style={{ 
-      width: '100vw', 
-      height: '100vh', 
-      position: 'relative',
-      cursor: 'none',
-      backgroundColor: bgColor
-    }}>
-      <CustomCursor isLandingPage={isLandingPage} />
-      
-      {/* Corner Links */}
-      <div 
+    <div
+      style={{
+        width: '100vw',
+        height: '100vh',
+        position: 'relative',
+        cursor: 'auto',
+        backgroundColor: '#fff',
+      }}
+    >
+      <div
         style={{ ...cornerStyle, top: 0, left: 0 }}
         onClick={() => setActiveModal('cv')}
-        onMouseEnter={(e) => e.currentTarget.style.opacity = '0.7'}
-        onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+        onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}
+        onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
       >
         CV
       </div>
 
-      <div 
+      <div
         style={{ ...cornerStyle, top: 0, right: 0 }}
         onClick={() => setActiveModal('publications')}
-        onMouseEnter={(e) => e.currentTarget.style.opacity = '0.7'}
-        onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+        onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}
+        onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
       >
         Works
       </div>
 
-      <div 
+      <div
         style={{ ...cornerStyle, bottom: 0, right: 0 }}
         onClick={() => setActiveModal('knock')}
-        onMouseEnter={(e) => e.currentTarget.style.opacity = '0.7'}
-        onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+        onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}
+        onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
       >
         knock knock
       </div>
 
-      {/* Modals */}
       {activeModal && (
         <div style={modalOverlayStyle} onClick={() => setActiveModal(null)}>
           <div style={modalContentStyle} onClick={(e) => e.stopPropagation()}>
-            <div 
-              style={{ position: 'absolute', top: '20px', right: '20px', cursor: 'none', fontSize: '24px' }}
+            <div
+              style={{ position: 'absolute', top: '20px', right: '20px', cursor: 'auto', fontSize: '24px' }}
               onClick={() => setActiveModal(null)}
             >
               ×
@@ -294,8 +322,14 @@ export default function App() {
             {activeModal === 'cv' && (
               <div>
                 <h2 style={{ marginTop: 0 }}>[NAME/TITLE]</h2>
-                <p><strong>[PROFESSIONAL TITLE]</strong></p>
-                <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+                <p>
+                  <strong>[PROFESSIONAL TITLE]</strong>
+                </p>
+                <p>
+                  Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore
+                  et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut
+                  aliquip ex ea commodo consequat.
+                </p>
                 <h3 style={{ borderBottom: '1px solid' }}>Experience</h3>
                 <ul style={{ listStyleType: 'none', padding: 0 }}>
                   <li>• [Position Name] (20XX–Present)</li>
@@ -309,10 +343,18 @@ export default function App() {
               <div>
                 <h2 style={{ marginTop: 0 }}>Works</h2>
                 <ul style={{ listStyleType: 'none', padding: 0, lineHeight: '2' }}>
-                  <li><em>"[Project/Work Title]"</em> — [Venue/Publisher], [Year]</li>
-                  <li><em>"[Project/Work Title]"</em> — [Venue/Publisher], [Year]</li>
-                  <li><em>"[Project/Work Title]"</em> — [Venue/Publisher], [Year]</li>
-                  <li><em>"[Project/Work Title]"</em> — [Venue/Publisher], [Year]</li>
+                  <li>
+                    <em>"[Project/Work Title]"</em> — [Venue/Publisher], [Year]
+                  </li>
+                  <li>
+                    <em>"[Project/Work Title]"</em> — [Venue/Publisher], [Year]
+                  </li>
+                  <li>
+                    <em>"[Project/Work Title]"</em> — [Venue/Publisher], [Year]
+                  </li>
+                  <li>
+                    <em>"[Project/Work Title]"</em> — [Venue/Publisher], [Year]
+                  </li>
                 </ul>
               </div>
             )}
@@ -322,9 +364,43 @@ export default function App() {
                 <h2 style={{ marginTop: 0 }}>knock knock...</h2>
                 <p>Who's there?</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
-                  <input type="text" placeholder="Your Name" style={{ background: 'transparent', border: `1px solid ${primaryColor}`, padding: '10px', color: primaryColor, borderRadius: '5px', cursor: 'none' }} />
-                  <textarea placeholder="Tell me about your room..." rows="4" style={{ background: 'transparent', border: `1px solid ${primaryColor}`, padding: '10px', color: primaryColor, borderRadius: '5px', cursor: 'none' }} />
-                  <button style={{ background: primaryColor, color: bgColor, border: 'none', padding: '10px', borderRadius: '5px', fontWeight: 'bold', cursor: 'none' }}>Send message</button>
+                  <input
+                    type="text"
+                    placeholder="Your Name"
+                    style={{
+                      background: 'transparent',
+                      border: '1px solid #000',
+                      padding: '10px',
+                      color: '#000',
+                      borderRadius: '5px',
+                      cursor: 'auto',
+                    }}
+                  />
+                  <textarea
+                    placeholder="Tell me about your room..."
+                    rows="4"
+                    style={{
+                      background: 'transparent',
+                      border: '1px solid #000',
+                      padding: '10px',
+                      color: '#000',
+                      borderRadius: '5px',
+                      cursor: 'auto',
+                    }}
+                  />
+                  <button
+                    style={{
+                      background: '#000',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '10px',
+                      borderRadius: '5px',
+                      fontWeight: 'bold',
+                      cursor: 'auto',
+                    }}
+                  >
+                    Send message
+                  </button>
                 </div>
               </div>
             )}
@@ -333,70 +409,19 @@ export default function App() {
       )}
 
       <KeyboardControls map={keyboardMap}>
-        <Canvas shadows camera={{ position: [7.5, 5, 17.5], fov: 47.5 }} style={{ cursor: 'none' }}>
-          {isLandingPage && <color attach="background" args={['#fff']} />}
-          <Suspense fallback={<Loader isLandingPage={isLandingPage} />}>
-            <Stage 
-              environment="city" 
-              intensity={0.5} 
-              contactShadows={{ opacity: 0.7, blur: 2 }}
-              adjustCamera={false}
-            >
-              <Model url={isLandingPage ? 'dollhouse.glb' : rooms[roomIndex]} isLandingPage={isLandingPage} />
+        <Canvas shadows camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'auto' }}>
+          <color attach="background" args={['#fff']} />
+          <Suspense fallback={null}>
+            <Stage environment="city" intensity={0.5} contactShadows={{ opacity: 0.7, blur: 2 }} adjustCamera={false}>
+              <Model url="home.glb">
+                <DoorLinks doors={DOOR_LINKS} onOpenRoom={openRoom} />
+              </Model>
             </Stage>
             <Controls />
-            <CameraReset isLandingPage={isLandingPage} />
+            <CameraReset />
           </Suspense>
         </Canvas>
       </KeyboardControls>
-
-      {/* UI Overlay */}
-      <div style={{
-        position: 'absolute',
-        bottom: '30px',
-        left: '30px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        cursor: 'none',
-        backgroundColor: 'transparent',
-        padding: '12px',
-        color: primaryColor,
-        fontWeight: '600',
-        userSelect: 'none',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        zIndex: 10,
-        gap: '8px'
-      }}
-      onClick={nextRoom}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'scale(1.05)';
-        e.currentTarget.style.opacity = '0.8';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'scale(1)';
-        e.currentTarget.style.opacity = '1';
-      }}
-      >
-        <img 
-          src="assets/home.png" 
-          style={{ 
-            width: '64px', 
-            height: '64px', 
-            objectFit: 'contain',
-            filter: isLandingPage ? 'grayscale(1) brightness(0)' : 'none'
-          }} 
-          alt="home" 
-        />
-        <span style={{ fontSize: '16px', letterSpacing: '0.5px' }}>
-          {isLandingPage ? 'first room' : 'next room'}
-        </span>
-      </div>
     </div>
-  );
+  )
 }
-
-// Preload next model for smoother transitions
-// This is optional but improves UX
-// rooms.forEach(room => useGLTF.preload(`/rooms/${room}`));
-
