@@ -23,8 +23,7 @@ const HOME_HASH = '#home'
 const ABOUT_HASH = '#about'
 const ROOM_HASH_PREFIX = 'room-'
 const FOLDER_HASH_PREFIX = 'folder-'
-const MAC_LIGHT_FONT_STACK =
-  "'Helvetica Neue', 'HelveticaNeue-Light', 'Helvetica Neue Light', 'Lucida Grande', Helvetica, Arial, sans-serif"
+const MAC_LIGHT_FONT_STACK = "'Helvetica', Arial, sans-serif"
 const DEFAULT_ABOUT_HTML = `Anastasiia Pishchanska is a Ukrainian-born, Tokyo-based artist, filmmaker, and art director. She is the co-founder of the established Ukrainian art print publication localstickerbook (<a href="https://localgr0up.com/" target="_blank" rel="noreferrer">local.group</a>), which curates exhibitions, events, and fundraisers worldwide, presenting contemporary artists through the lens of post-internet culture. In 2023, following the full-scale invasion of Ukraine, she was awarded a research scholarship at...
 
 <br><br>Her practice moves between moving image, installation, and art direction, focusing on digital memory, migration, and cultural identity.`
