@@ -23,6 +23,27 @@ const HOME_HASH = '#home'
 const ABOUT_HASH = '#about'
 const ROOM_HASH_PREFIX = 'room-'
 const FOLDER_HASH_PREFIX = 'folder-'
+const MAC_LIGHT_FONT_STACK =
+  "'Helvetica Neue', 'HelveticaNeue-Light', 'Helvetica Neue Light', 'Lucida Grande', Helvetica, Arial, sans-serif"
+const DEFAULT_ABOUT_TEXT = `hello from nana,
+
+this is a little textedit window.
+you can scroll and you can type here.
+
+notes:
+- update this copy whenever you want
+- keep sketches, links, or dates here
+- this area is intentionally editable
+
+lorem ipsum dolor sit amet, consectetur adipiscing elit.
+vestibulum et lectus nec urna congue ullamcorper.
+sed at sem non lorem ultricies aliquet.
+nullam id sem a lorem congue fermentum.
+curabitur volutpat finibus velit, id placerat enim.
+maecenas consequat suscipit est in bibendum.
+donec vel purus vitae dolor faucibus suscipit.
+integer aliquam arcu id libero porta, at eleifend sem porta.
+`
 
 const FOLDER_DEFINITIONS = [
   {
@@ -292,9 +313,9 @@ function RoomPage({ roomNumber, roomFile, onBack }) {
           background: 'transparent',
           color: '#fff',
           padding: 0,
-          fontFamily: 'monospace',
+          fontFamily: MAC_LIGHT_FONT_STACK,
           fontSize: '18px',
-          fontWeight: 600,
+          fontWeight: 300,
           zIndex: 20,
           cursor: 'auto',
         }}
@@ -319,6 +340,64 @@ function RoomPage({ roomNumber, roomFile, onBack }) {
 }
 
 function AboutPage({ onBackHome, onOpenFolder }) {
+  const [selectedFolderId, setSelectedFolderId] = useState(null)
+  const [aboutNoteText, setAboutNoteText] = useState(DEFAULT_ABOUT_TEXT)
+  const editorTextareaRef = useRef(null)
+  const [editorScrollbar, setEditorScrollbar] = useState({ top: 0, height: 100, enabled: false })
+
+  const folderArcLayout = [
+    { id: 'performance', left: '15%', top: '60%' },
+    { id: 'writing', left: '30%', top: '34%' },
+    { id: 'press', left: '52%', top: '12%' },
+    { id: 'filmmaking', left: '73%', top: '40%' },
+    { id: 'cv', left: '89%', top: '63%' },
+  ]
+  const rightStageWidth = 'min(88.8vw, 1344px)'
+
+  const updateEditorScrollbar = useCallback(() => {
+    const textarea = editorTextareaRef.current
+    if (!textarea) return
+
+    const { scrollTop, scrollHeight, clientHeight } = textarea
+    const maxScroll = Math.max(scrollHeight - clientHeight, 0)
+
+    const next = maxScroll > 0
+      ? {
+          top: (scrollTop / maxScroll) * (100 - Math.max((clientHeight / scrollHeight) * 100, 12)),
+          height: Math.max((clientHeight / scrollHeight) * 100, 12),
+          enabled: true,
+        }
+      : {
+          top: 0,
+          height: 100,
+          enabled: false,
+        }
+
+    setEditorScrollbar((prev) => {
+      if (
+        Math.abs(prev.top - next.top) < 0.2 &&
+        Math.abs(prev.height - next.height) < 0.2 &&
+        prev.enabled === next.enabled
+      ) {
+        return prev
+      }
+      return next
+    })
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const frame = window.requestAnimationFrame(updateEditorScrollbar)
+    return () => window.cancelAnimationFrame(frame)
+  }, [aboutNoteText, updateEditorScrollbar])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const onResize = () => updateEditorScrollbar()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [updateEditorScrollbar])
+
   return (
     <div
       style={{
@@ -329,165 +408,322 @@ function AboutPage({ onBackHome, onOpenFolder }) {
         position: 'relative',
         overflow: 'hidden',
       }}
+      onClick={() => setSelectedFolderId(null)}
     >
       <div
         style={{
           position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
+          left: '24px',
+          top: '88px',
+          zIndex: 21,
+          width: 'min(36vw, 410px)',
           display: 'flex',
-          justifyContent: 'center',
-          zIndex: 10,
-          pointerEvents: 'none',
+          flexDirection: 'column',
+          gap: '12px',
         }}
+        onClick={(event) => event.stopPropagation()}
       >
         <img
-          src="assets/nana_tabs.png"
-          alt="nana tabs"
+          src="assets/nana_welcome.jpeg"
+          alt="welcome to my page"
           style={{
-            width: '100%',
-            maxWidth: '1200px',
+            width: '240px',
+            maxWidth: '100%',
             height: 'auto',
             objectFit: 'contain',
           }}
         />
+
+        <div
+          style={{
+            position: 'relative',
+            width: '100%',
+            boxShadow: '0 10px 24px rgba(0,0,0,0.15)',
+            borderRadius: '10px',
+            overflow: 'hidden',
+          }}
+        >
+          <img
+            src="assets/nana_editor.png"
+            alt="editor"
+            style={{
+              width: '100%',
+              height: 'auto',
+              objectFit: 'contain',
+              display: 'block',
+            }}
+          />
+
+          <textarea
+            ref={editorTextareaRef}
+            className="classic-textedit-scroll"
+            value={aboutNoteText}
+            onChange={(event) => setAboutNoteText(event.target.value)}
+            onScroll={updateEditorScrollbar}
+            style={{
+              position: 'absolute',
+              left: '1.4%',
+              right: '1.4%',
+              top: '24.8%',
+              bottom: '1.5%',
+              border: 'none',
+              outline: 'none',
+              resize: 'none',
+              background: 'transparent',
+              color: '#1a1a1a',
+              fontFamily: MAC_LIGHT_FONT_STACK,
+              fontSize: '15px',
+              fontWeight: 300,
+              lineHeight: 1.4,
+              padding: '8px 24px 8px 12px',
+              boxSizing: 'border-box',
+            }}
+          />
+
+          <div
+            style={{
+              position: 'absolute',
+              top: '24.8%',
+              bottom: '1.5%',
+              right: '0.65%',
+              width: '14px',
+              pointerEvents: 'none',
+              opacity: editorScrollbar.enabled ? 1 : 0.55,
+            }}
+          >
+            <img
+              src="assets/nana_scroll.png"
+              alt=""
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                top: `${editorScrollbar.top}%`,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: '14px',
+                height: `${editorScrollbar.height}%`,
+                objectFit: 'fill',
+              }}
+            />
+          </div>
+        </div>
       </div>
 
       <div
         style={{
           position: 'absolute',
-          top: '24px',
-          right: '24px',
-          zIndex: 20,
+          left: '34px',
+          bottom: '34px',
+          zIndex: 21,
           display: 'flex',
           flexDirection: 'column',
+          gap: '6px',
           alignItems: 'center',
-          gap: '8px',
+          width: '330px',
+        }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <img
+            src="assets/nana_radio.jpeg"
+            alt="radio"
+            style={{
+              width: '58px',
+              height: 'auto',
+              objectFit: 'contain',
+              borderRadius: '6px',
+            }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <img
+            src="assets/nana_player_bg.png"
+            alt="Player"
+            style={{
+              width: '330px',
+              height: 'auto',
+              objectFit: 'contain',
+              borderRadius: '6px',
+            }}
+          />
+        </div>
+      </div>
+
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          width: rightStageWidth,
+          height: '100%',
+          zIndex: 8,
         }}
       >
-        <img
-          src="assets/nana_house.jpeg"
-          alt="nana house"
+        <div
           style={{
-            width: '140px',
-            height: 'auto',
-            objectFit: 'contain',
-          }}
-        />
-        <button
-          type="button"
-          onClick={onBackHome}
-          style={{
-            border: 'none',
-            background: 'transparent',
-            color: '#000',
-            padding: 0,
-            fontFamily: 'monospace',
-            fontSize: '16px',
-            fontWeight: 600,
-            cursor: 'auto',
-          }}
-        >
-          back home
-        </button>
-
-        <a
-          href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('knock knock')}`}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: '100%',
+            zIndex: 10,
+            pointerEvents: 'none',
           }}
         >
           <img
-            src="assets/nana_knockknock.jpeg"
-            alt="knock knock"
+            src="assets/nana_tabs.png"
+            alt="nana tabs"
+            style={{
+              width: '100%',
+              height: 'auto',
+              objectFit: 'contain',
+            }}
+          />
+        </div>
+
+        <div
+          style={{
+            position: 'absolute',
+            top: '96px',
+            right: '20px',
+            zIndex: 22,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <img
+            src="assets/nana_house.jpeg"
+            alt="nana house"
             style={{
               width: '140px',
               height: 'auto',
               objectFit: 'contain',
             }}
           />
-        </a>
-      </div>
-
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          paddingTop: '72px',
-          boxSizing: 'border-box',
-        }}
-      >
-        <img
-          src="assets/nana_hero.jpeg"
-          alt="nana hero"
-          style={{
-            maxWidth: 'min(78vw, 980px)',
-            maxHeight: 'min(72vh, 760px)',
-            width: 'auto',
-            height: 'auto',
-            objectFit: 'contain',
-          }}
-        />
-      </div>
-
-      <div
-        style={{
-          position: 'absolute',
-          left: '24px',
-          bottom: '24px',
-          zIndex: 20,
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '20px 24px',
-          maxWidth: '520px',
-        }}
-      >
-        {FOLDER_DEFINITIONS.map((folder) => (
           <button
-            key={folder.id}
             type="button"
-            onClick={() => onOpenFolder(folder.id)}
+            onClick={onBackHome}
             style={{
               border: 'none',
               background: 'transparent',
+              color: '#000',
               padding: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '6px',
-              width: '84px',
+              fontFamily: MAC_LIGHT_FONT_STACK,
+              fontSize: '16px',
+              fontWeight: 300,
               cursor: 'auto',
             }}
           >
+            back home
+          </button>
+
+          <a
+            href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('knock knock')}`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginTop: '10px',
+            }}
+          >
             <img
-              src="assets/folder-icon-macos.webp"
-              alt={`${folder.label} folder`}
+              src="assets/nana_knockknock.jpeg"
+              alt="knock knock"
               style={{
-                width: '64px',
-                height: '52px',
+                width: '140px',
+                height: 'auto',
                 objectFit: 'contain',
               }}
             />
-            <span
+          </a>
+        </div>
+
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingTop: '72px',
+            boxSizing: 'border-box',
+          }}
+        >
+          <img
+            src="assets/nana_hero.jpeg"
+            alt="nana hero"
+            style={{
+              maxWidth: 'min(48vw, 700px)',
+              maxHeight: 'min(56vh, 520px)',
+              width: 'auto',
+              height: 'auto',
+              objectFit: 'contain',
+            }}
+          />
+        </div>
+
+        {folderArcLayout.map((placement) => {
+          const folder = FOLDER_MAP.get(placement.id)
+          if (!folder) return null
+          const isSelected = selectedFolderId === folder.id
+
+          return (
+            <button
+              key={folder.id}
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                setSelectedFolderId(folder.id)
+              }}
+              onDoubleClick={(event) => {
+                event.stopPropagation()
+                onOpenFolder(folder.id)
+              }}
               style={{
-                fontFamily: 'monospace',
-                fontSize: '13px',
-                fontWeight: 600,
-                color: '#111',
-                textAlign: 'center',
-                lineHeight: 1.1,
+                position: 'absolute',
+                left: placement.left,
+                top: placement.top,
+                transform: 'translate(-50%, -50%)',
+                zIndex: 25,
+                border: isSelected ? '1px solid rgba(24, 126, 255, 0.95)' : '1px solid transparent',
+                background: isSelected ? 'rgba(24, 126, 255, 0.22)' : 'transparent',
+                borderRadius: '3px',
+                padding: '6px 8px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '6px',
+                width: '92px',
+                cursor: 'auto',
+                userSelect: 'none',
               }}
             >
-              {folder.label}
-            </span>
-          </button>
-        ))}
+              <img
+                src="assets/folder-icon-macos.webp"
+                alt={`${folder.label} folder`}
+                style={{
+                  width: '68px',
+                  height: '56px',
+                  objectFit: 'contain',
+                }}
+              />
+              <span
+                style={{
+                  fontFamily: MAC_LIGHT_FONT_STACK,
+                  fontSize: '13px',
+                  fontWeight: 300,
+                  color: '#111',
+                  textAlign: 'center',
+                  lineHeight: 1.1,
+                }}
+              >
+                {folder.label}
+              </span>
+            </button>
+          )
+        })}
       </div>
     </div>
   )
@@ -546,7 +782,7 @@ function FolderPage({ folder, onBackToAbout }) {
             <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#febc2e' }} />
             <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#28c840' }} />
           </div>
-          <span style={{ fontFamily: 'monospace', fontSize: '13px', fontWeight: 600, color: '#333' }}>
+          <span style={{ fontFamily: MAC_LIGHT_FONT_STACK, fontSize: '13px', fontWeight: 400, color: '#333' }}>
             {folder.title}
           </span>
           <button
@@ -556,9 +792,9 @@ function FolderPage({ folder, onBackToAbout }) {
               border: 'none',
               background: 'transparent',
               color: '#333',
-              fontFamily: 'monospace',
+              fontFamily: MAC_LIGHT_FONT_STACK,
               fontSize: '13px',
-              fontWeight: 600,
+              fontWeight: 300,
               cursor: 'auto',
             }}
           >
@@ -575,11 +811,15 @@ function FolderPage({ folder, onBackToAbout }) {
             overflow: 'auto',
           }}
         >
-          <h1 style={{ margin: 0, fontFamily: 'monospace', fontSize: '34px', fontWeight: 700 }}>{folder.title}</h1>
-          <p style={{ margin: 0, fontFamily: 'monospace', fontSize: '16px', color: '#555' }}>{folder.description}</p>
+          <h1 style={{ margin: 0, fontFamily: MAC_LIGHT_FONT_STACK, fontSize: '34px', fontWeight: 400 }}>
+            {folder.title}
+          </h1>
+          <p style={{ margin: 0, fontFamily: MAC_LIGHT_FONT_STACK, fontSize: '16px', fontWeight: 300, color: '#555' }}>
+            {folder.description}
+          </p>
           <ul style={{ margin: 0, paddingLeft: '22px', display: 'grid', gap: '10px' }}>
             {folder.items.map((item) => (
-              <li key={item} style={{ fontFamily: 'monospace', fontSize: '16px', color: '#222' }}>
+              <li key={item} style={{ fontFamily: MAC_LIGHT_FONT_STACK, fontSize: '16px', fontWeight: 300, color: '#222' }}>
                 {item}
               </li>
             ))}
@@ -702,9 +942,9 @@ export default function App() {
           background: 'transparent',
           color: '#000',
           padding: 0,
-          fontFamily: 'monospace',
+          fontFamily: MAC_LIGHT_FONT_STACK,
           fontSize: '18px',
-          fontWeight: 600,
+          fontWeight: 300,
           cursor: 'auto',
         }}
       >
