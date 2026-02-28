@@ -25,25 +25,9 @@ const ROOM_HASH_PREFIX = 'room-'
 const FOLDER_HASH_PREFIX = 'folder-'
 const MAC_LIGHT_FONT_STACK =
   "'Helvetica Neue', 'HelveticaNeue-Light', 'Helvetica Neue Light', 'Lucida Grande', Helvetica, Arial, sans-serif"
-const DEFAULT_ABOUT_TEXT = `hello from nana,
+const DEFAULT_ABOUT_HTML = `Anastasiia Pishchanska is a Ukrainian-born, Tokyo-based artist, filmmaker, and art director. She is the co-founder of the established Ukrainian art print publication localstickerbook (<a href="https://localgr0up.com/" target="_blank" rel="noreferrer">local.group</a>), which curates exhibitions, events, and fundraisers worldwide, presenting contemporary artists through the lens of post-internet culture. In 2023, following the full-scale invasion of Ukraine, she was awarded a research scholarship at...
 
-this is a little textedit window.
-you can scroll and you can type here.
-
-notes:
-- update this copy whenever you want
-- keep sketches, links, or dates here
-- this area is intentionally editable
-
-lorem ipsum dolor sit amet, consectetur adipiscing elit.
-vestibulum et lectus nec urna congue ullamcorper.
-sed at sem non lorem ultricies aliquet.
-nullam id sem a lorem congue fermentum.
-curabitur volutpat finibus velit, id placerat enim.
-maecenas consequat suscipit est in bibendum.
-donec vel purus vitae dolor faucibus suscipit.
-integer aliquam arcu id libero porta, at eleifend sem porta.
-`
+<br><br>Her practice moves between moving image, installation, and art direction, focusing on digital memory, migration, and cultural identity.`
 
 const FOLDER_DEFINITIONS = [
   {
@@ -341,8 +325,8 @@ function RoomPage({ roomNumber, roomFile, onBack }) {
 
 function AboutPage({ onBackHome, onOpenFolder }) {
   const [selectedFolderId, setSelectedFolderId] = useState(null)
-  const [aboutNoteText, setAboutNoteText] = useState(DEFAULT_ABOUT_TEXT)
-  const editorTextareaRef = useRef(null)
+  const [aboutNoteHtml, setAboutNoteHtml] = useState(DEFAULT_ABOUT_HTML)
+  const editorContentRef = useRef(null)
   const [editorScrollbar, setEditorScrollbar] = useState({ top: 0, height: 100, enabled: false })
 
   const folderArcLayout = [
@@ -355,10 +339,10 @@ function AboutPage({ onBackHome, onOpenFolder }) {
   const rightStageWidth = 'min(88.8vw, 1344px)'
 
   const updateEditorScrollbar = useCallback(() => {
-    const textarea = editorTextareaRef.current
-    if (!textarea) return
+    const editorContent = editorContentRef.current
+    if (!editorContent) return
 
-    const { scrollTop, scrollHeight, clientHeight } = textarea
+    const { scrollTop, scrollHeight, clientHeight } = editorContent
     const maxScroll = Math.max(scrollHeight - clientHeight, 0)
 
     const next = maxScroll > 0
@@ -389,7 +373,7 @@ function AboutPage({ onBackHome, onOpenFolder }) {
     if (typeof window === 'undefined') return undefined
     const frame = window.requestAnimationFrame(updateEditorScrollbar)
     return () => window.cancelAnimationFrame(frame)
-  }, [aboutNoteText, updateEditorScrollbar])
+  }, [aboutNoteHtml, updateEditorScrollbar])
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
@@ -416,10 +400,10 @@ function AboutPage({ onBackHome, onOpenFolder }) {
           left: '24px',
           top: '88px',
           zIndex: 21,
-          width: 'min(36vw, 410px)',
+          width: 'min(28.8vw, 328px)',
           display: 'flex',
           flexDirection: 'column',
-          gap: '12px',
+          gap: '8px',
         }}
         onClick={(event) => event.stopPropagation()}
       >
@@ -427,7 +411,7 @@ function AboutPage({ onBackHome, onOpenFolder }) {
           src="assets/nana_welcome.jpeg"
           alt="welcome to my page"
           style={{
-            width: '240px',
+            width: '192px',
             maxWidth: '100%',
             height: 'auto',
             objectFit: 'contain',
@@ -454,12 +438,21 @@ function AboutPage({ onBackHome, onOpenFolder }) {
             }}
           />
 
-          <textarea
-            ref={editorTextareaRef}
+          <div
+            ref={editorContentRef}
             className="classic-textedit-scroll"
-            value={aboutNoteText}
-            onChange={(event) => setAboutNoteText(event.target.value)}
+            contentEditable
+            suppressContentEditableWarning
+            dangerouslySetInnerHTML={{ __html: aboutNoteHtml }}
+            onInput={(event) => setAboutNoteHtml(event.currentTarget.innerHTML)}
             onScroll={updateEditorScrollbar}
+            onClick={(event) => {
+              const anchor = event.target.closest?.('a')
+              if (!anchor) return
+              event.preventDefault()
+              event.stopPropagation()
+              window.open(anchor.href, '_blank', 'noopener,noreferrer')
+            }}
             style={{
               position: 'absolute',
               left: '1.4%',
@@ -468,13 +461,15 @@ function AboutPage({ onBackHome, onOpenFolder }) {
               bottom: '1.5%',
               border: 'none',
               outline: 'none',
-              resize: 'none',
               background: 'transparent',
               color: '#1a1a1a',
               fontFamily: MAC_LIGHT_FONT_STACK,
               fontSize: '15px',
               fontWeight: 300,
               lineHeight: 1.4,
+              whiteSpace: 'pre-wrap',
+              overflowX: 'hidden',
+              overflowY: 'auto',
               padding: '8px 24px 8px 12px',
               boxSizing: 'border-box',
             }}
@@ -483,9 +478,9 @@ function AboutPage({ onBackHome, onOpenFolder }) {
           <div
             style={{
               position: 'absolute',
-              top: '24.8%',
-              bottom: '1.5%',
-              right: '0.65%',
+              top: 'calc(24.8% - 4.67px)',
+              bottom: 'calc(1.5% - 10.5px)',
+              right: 'calc(0.65% + 3.5px)',
               width: '14px',
               pointerEvents: 'none',
               opacity: editorScrollbar.enabled ? 1 : 0.55,
@@ -593,44 +588,18 @@ function AboutPage({ onBackHome, onOpenFolder }) {
             gap: '8px',
           }}
         >
-          <img
-            src="assets/nana_house.jpeg"
-            alt="nana house"
-            style={{
-              width: '140px',
-              height: 'auto',
-              objectFit: 'contain',
-            }}
-          />
-          <button
-            type="button"
-            onClick={onBackHome}
-            style={{
-              border: 'none',
-              background: 'transparent',
-              color: '#000',
-              padding: 0,
-              fontFamily: MAC_LIGHT_FONT_STACK,
-              fontSize: '16px',
-              fontWeight: 300,
-              cursor: 'auto',
-            }}
-          >
-            back home
-          </button>
-
           <a
-            href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('knock knock')}`}
+            href={HOME_HASH}
             style={{
-              display: 'flex',
+              padding: 0,
+              display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              marginTop: '10px',
             }}
           >
             <img
-              src="assets/nana_knockknock.jpeg"
-              alt="knock knock"
+              src="assets/nana_house.jpeg"
+              alt="back home"
               style={{
                 width: '140px',
                 height: 'auto',
@@ -639,6 +608,29 @@ function AboutPage({ onBackHome, onOpenFolder }) {
             />
           </a>
         </div>
+
+        <a
+          href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('knock knock')}`}
+          style={{
+            position: 'absolute',
+            right: '20px',
+            bottom: '20px',
+            zIndex: 22,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <img
+            src="assets/nana_knockknock.jpeg"
+            alt="knock knock"
+            style={{
+              width: '140px',
+              height: 'auto',
+              objectFit: 'contain',
+            }}
+          />
+        </a>
 
         <div
           style={{
