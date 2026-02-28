@@ -18,8 +18,50 @@ const ROOM_FILES = [
   'ANDREA WEB.glb',
   'EIKO WEB.glb',
 ]
+const CONTACT_EMAIL = 'placeholder@example.com'
 const HOME_HASH = '#home'
+const ABOUT_HASH = '#about'
 const ROOM_HASH_PREFIX = 'room-'
+const FOLDER_HASH_PREFIX = 'folder-'
+
+const FOLDER_DEFINITIONS = [
+  {
+    id: 'performance',
+    label: 'performance',
+    title: 'Performance',
+    description: 'Live works and time-based actions.',
+    items: ['Live set (placeholder)', 'Site-specific piece (placeholder)', 'Collaborative action (placeholder)'],
+  },
+  {
+    id: 'writing',
+    label: 'writing',
+    title: 'Writing',
+    description: 'Texts, essays, and notes.',
+    items: ['Essay draft (placeholder)', 'Artist note (placeholder)', 'Publication text (placeholder)'],
+  },
+  {
+    id: 'press',
+    label: 'press',
+    title: 'Press',
+    description: 'Interviews, mentions, and publications.',
+    items: ['Interview link (placeholder)', 'Press clipping (placeholder)', 'Feature mention (placeholder)'],
+  },
+  {
+    id: 'filmmaking',
+    label: 'filmmaking',
+    title: 'Filmmaking',
+    description: 'Films, shorts, and moving-image works.',
+    items: ['Short film (placeholder)', 'Behind-the-scenes note (placeholder)', 'Screening entry (placeholder)'],
+  },
+  {
+    id: 'cv',
+    label: 'cv',
+    title: 'CV',
+    description: 'Selected biography and timeline.',
+    items: ['Education (placeholder)', 'Exhibitions (placeholder)', 'Awards (placeholder)'],
+  },
+]
+const FOLDER_MAP = new Map(FOLDER_DEFINITIONS.map((folder) => [folder.id, folder]))
 
 const DOOR_LINKS = [
   {
@@ -80,6 +122,17 @@ function Model({ url, children, onLoaded }) {
 
 function parseRouteFromHash(hashValue) {
   const normalized = (hashValue || '').replace(/^#/, '')
+  if (normalized === 'about') {
+    return { type: 'about' }
+  }
+
+  if (normalized.startsWith(FOLDER_HASH_PREFIX)) {
+    const folderId = normalized.slice(FOLDER_HASH_PREFIX.length)
+    if (FOLDER_MAP.has(folderId)) {
+      return { type: 'folder', folderId }
+    }
+  }
+
   if (normalized.startsWith(ROOM_HASH_PREFIX)) {
     const roomNumber = Number(normalized.slice(ROOM_HASH_PREFIX.length))
     if (Number.isInteger(roomNumber) && roomNumber >= 1 && roomNumber <= ROOM_FILES.length) {
@@ -265,8 +318,279 @@ function RoomPage({ roomNumber, roomFile, onBack }) {
   )
 }
 
+function AboutPage({ onBackHome, onOpenFolder }) {
+  return (
+    <div
+      style={{
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: '#fff',
+        color: '#000',
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          display: 'flex',
+          justifyContent: 'center',
+          zIndex: 10,
+          pointerEvents: 'none',
+        }}
+      >
+        <img
+          src="assets/nana_tabs.png"
+          alt="nana tabs"
+          style={{
+            width: '100%',
+            maxWidth: '1200px',
+            height: 'auto',
+            objectFit: 'contain',
+          }}
+        />
+      </div>
+
+      <div
+        style={{
+          position: 'absolute',
+          top: '24px',
+          right: '24px',
+          zIndex: 20,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '8px',
+        }}
+      >
+        <img
+          src="assets/nana_house.jpeg"
+          alt="nana house"
+          style={{
+            width: '140px',
+            height: 'auto',
+            objectFit: 'contain',
+          }}
+        />
+        <button
+          type="button"
+          onClick={onBackHome}
+          style={{
+            border: 'none',
+            background: 'transparent',
+            color: '#000',
+            padding: 0,
+            fontFamily: 'monospace',
+            fontSize: '16px',
+            fontWeight: 600,
+            cursor: 'auto',
+          }}
+        >
+          back home
+        </button>
+
+        <a
+          href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('knock knock')}`}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <img
+            src="assets/nana_knockknock.jpeg"
+            alt="knock knock"
+            style={{
+              width: '140px',
+              height: 'auto',
+              objectFit: 'contain',
+            }}
+          />
+        </a>
+      </div>
+
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingTop: '72px',
+          boxSizing: 'border-box',
+        }}
+      >
+        <img
+          src="assets/nana_hero.jpeg"
+          alt="nana hero"
+          style={{
+            maxWidth: 'min(78vw, 980px)',
+            maxHeight: 'min(72vh, 760px)',
+            width: 'auto',
+            height: 'auto',
+            objectFit: 'contain',
+          }}
+        />
+      </div>
+
+      <div
+        style={{
+          position: 'absolute',
+          left: '24px',
+          bottom: '24px',
+          zIndex: 20,
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '20px 24px',
+          maxWidth: '520px',
+        }}
+      >
+        {FOLDER_DEFINITIONS.map((folder) => (
+          <button
+            key={folder.id}
+            type="button"
+            onClick={() => onOpenFolder(folder.id)}
+            style={{
+              border: 'none',
+              background: 'transparent',
+              padding: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '6px',
+              width: '84px',
+              cursor: 'auto',
+            }}
+          >
+            <img
+              src="assets/folder-icon-macos.webp"
+              alt={`${folder.label} folder`}
+              style={{
+                width: '64px',
+                height: '52px',
+                objectFit: 'contain',
+              }}
+            />
+            <span
+              style={{
+                fontFamily: 'monospace',
+                fontSize: '13px',
+                fontWeight: 600,
+                color: '#111',
+                textAlign: 'center',
+                lineHeight: 1.1,
+              }}
+            >
+              {folder.label}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function FolderPage({ folder, onBackToAbout }) {
+  const [isOpen, setIsOpen] = useState(false)
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setIsOpen(true))
+    return () => window.cancelAnimationFrame(frame)
+  }, [])
+
+  return (
+    <div
+      style={{
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: '#e9ecef',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px',
+        boxSizing: 'border-box',
+      }}
+    >
+      <div
+        style={{
+          width: 'min(980px, 94vw)',
+          height: 'min(700px, 90vh)',
+          backgroundColor: '#fff',
+          borderRadius: '14px',
+          border: '1px solid #d8d8d8',
+          boxShadow: '0 24px 60px rgba(0,0,0,0.16)',
+          overflow: 'hidden',
+          transform: isOpen ? 'scale(1) translateY(0)' : 'scale(0.94) translateY(30px)',
+          opacity: isOpen ? 1 : 0,
+          transition: 'transform 320ms ease, opacity 320ms ease',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <div
+          style={{
+            height: '44px',
+            borderBottom: '1px solid #e5e5e5',
+            background: '#f7f7f7',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0 14px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ff5f57' }} />
+            <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#febc2e' }} />
+            <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#28c840' }} />
+          </div>
+          <span style={{ fontFamily: 'monospace', fontSize: '13px', fontWeight: 600, color: '#333' }}>
+            {folder.title}
+          </span>
+          <button
+            type="button"
+            onClick={onBackToAbout}
+            style={{
+              border: 'none',
+              background: 'transparent',
+              color: '#333',
+              fontFamily: 'monospace',
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: 'auto',
+            }}
+          >
+            back
+          </button>
+        </div>
+
+        <div
+          style={{
+            padding: '32px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '18px',
+            overflow: 'auto',
+          }}
+        >
+          <h1 style={{ margin: 0, fontFamily: 'monospace', fontSize: '34px', fontWeight: 700 }}>{folder.title}</h1>
+          <p style={{ margin: 0, fontFamily: 'monospace', fontSize: '16px', color: '#555' }}>{folder.description}</p>
+          <ul style={{ margin: 0, paddingLeft: '22px', display: 'grid', gap: '10px' }}>
+            {folder.items.map((item) => (
+              <li key={item} style={{ fontFamily: 'monospace', fontSize: '16px', color: '#222' }}>
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
-  const [activeModal, setActiveModal] = useState(null)
   const [route, setRoute] = useState(() =>
     parseRouteFromHash(typeof window !== 'undefined' ? window.location.hash : ''),
   )
@@ -290,12 +614,27 @@ export default function App() {
   }, [])
 
   const openRoom = useCallback((roomNumber) => {
-    setActiveModal(null)
     navigateWithHash(`#${ROOM_HASH_PREFIX}${roomNumber}`)
   }, [])
 
   const closeRoom = useCallback(() => {
     navigateWithHash(HOME_HASH)
+  }, [])
+
+  const openAbout = useCallback(() => {
+    navigateWithHash(ABOUT_HASH)
+  }, [])
+
+  const closeAbout = useCallback(() => {
+    navigateWithHash(HOME_HASH)
+  }, [])
+
+  const openFolder = useCallback((folderId) => {
+    navigateWithHash(`#${FOLDER_HASH_PREFIX}${folderId}`)
+  }, [])
+
+  const closeFolder = useCallback(() => {
+    navigateWithHash(ABOUT_HASH)
   }, [])
 
   const handleHomeModelLoaded = useCallback(() => {
@@ -329,40 +668,16 @@ export default function App() {
     return <RoomPage roomNumber={roomNumber} roomFile={roomFile} onBack={closeRoom} />
   }
 
-  const cornerStyle = {
-    position: 'absolute',
-    color: '#000',
-    fontWeight: '600',
-    fontSize: '18px',
-    cursor: 'auto',
-    zIndex: 10,
-    padding: '30px',
-    userSelect: 'none',
-    transition: 'opacity 0.2s',
+  if (route.type === 'about') {
+    return <AboutPage onBackHome={closeAbout} onOpenFolder={openFolder} />
   }
 
-  const modalOverlayStyle = {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    width: '100vw',
-    height: '100vh',
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    zIndex: 1000,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: '#000',
-    backdropFilter: 'blur(5px)',
-  }
-
-  const modalContentStyle = {
-    maxWidth: '600px',
-    padding: '40px',
-    border: '1px solid #000',
-    borderRadius: '20px',
-    position: 'relative',
-    backgroundColor: '#fff',
+  if (route.type === 'folder') {
+    const folder = FOLDER_MAP.get(route.folderId)
+    if (!folder) {
+      return <AboutPage onBackHome={closeAbout} onOpenFolder={openFolder} />
+    }
+    return <FolderPage folder={folder} onBackToAbout={closeFolder} />
   }
 
   return (
@@ -375,131 +690,26 @@ export default function App() {
         backgroundColor: '#fff',
       }}
     >
-      <div
-        style={{ ...cornerStyle, top: 0, left: 0 }}
-        onClick={() => setActiveModal('cv')}
-        onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}
-        onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+      <button
+        type="button"
+        onClick={openAbout}
+        style={{
+          position: 'absolute',
+          top: '24px',
+          left: '24px',
+          zIndex: 20,
+          border: 'none',
+          background: 'transparent',
+          color: '#000',
+          padding: 0,
+          fontFamily: 'monospace',
+          fontSize: '18px',
+          fontWeight: 600,
+          cursor: 'auto',
+        }}
       >
-        CV
-      </div>
-
-      <div
-        style={{ ...cornerStyle, top: 0, right: 0 }}
-        onClick={() => setActiveModal('publications')}
-        onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}
-        onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-      >
-        Works
-      </div>
-
-      <div
-        style={{ ...cornerStyle, bottom: 0, right: 0 }}
-        onClick={() => setActiveModal('knock')}
-        onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.7')}
-        onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-      >
-        knock knock
-      </div>
-
-      {activeModal && (
-        <div style={modalOverlayStyle} onClick={() => setActiveModal(null)}>
-          <div style={modalContentStyle} onClick={(e) => e.stopPropagation()}>
-            <div
-              style={{ position: 'absolute', top: '20px', right: '20px', cursor: 'auto', fontSize: '24px' }}
-              onClick={() => setActiveModal(null)}
-            >
-              ×
-            </div>
-
-            {activeModal === 'cv' && (
-              <div>
-                <h2 style={{ marginTop: 0 }}>[NAME/TITLE]</h2>
-                <p>
-                  <strong>[PROFESSIONAL TITLE]</strong>
-                </p>
-                <p>
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore
-                  et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut
-                  aliquip ex ea commodo consequat.
-                </p>
-                <h3 style={{ borderBottom: '1px solid' }}>Experience</h3>
-                <ul style={{ listStyleType: 'none', padding: 0 }}>
-                  <li>• [Position Name] (20XX–Present)</li>
-                  <li>• [Position Name] (20XX–20XX)</li>
-                  <li>• [Position Name] (20XX–20XX)</li>
-                </ul>
-              </div>
-            )}
-
-            {activeModal === 'publications' && (
-              <div>
-                <h2 style={{ marginTop: 0 }}>Works</h2>
-                <ul style={{ listStyleType: 'none', padding: 0, lineHeight: '2' }}>
-                  <li>
-                    <em>"[Project/Work Title]"</em> — [Venue/Publisher], [Year]
-                  </li>
-                  <li>
-                    <em>"[Project/Work Title]"</em> — [Venue/Publisher], [Year]
-                  </li>
-                  <li>
-                    <em>"[Project/Work Title]"</em> — [Venue/Publisher], [Year]
-                  </li>
-                  <li>
-                    <em>"[Project/Work Title]"</em> — [Venue/Publisher], [Year]
-                  </li>
-                </ul>
-              </div>
-            )}
-
-            {activeModal === 'knock' && (
-              <div>
-                <h2 style={{ marginTop: 0 }}>knock knock...</h2>
-                <p>Who's there?</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
-                  <input
-                    type="text"
-                    placeholder="Your Name"
-                    style={{
-                      background: 'transparent',
-                      border: '1px solid #000',
-                      padding: '10px',
-                      color: '#000',
-                      borderRadius: '5px',
-                      cursor: 'auto',
-                    }}
-                  />
-                  <textarea
-                    placeholder="Tell me about your room..."
-                    rows="4"
-                    style={{
-                      background: 'transparent',
-                      border: '1px solid #000',
-                      padding: '10px',
-                      color: '#000',
-                      borderRadius: '5px',
-                      cursor: 'auto',
-                    }}
-                  />
-                  <button
-                    style={{
-                      background: '#000',
-                      color: '#fff',
-                      border: 'none',
-                      padding: '10px',
-                      borderRadius: '5px',
-                      fontWeight: 'bold',
-                      cursor: 'auto',
-                    }}
-                  >
-                    Send message
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+        about
+      </button>
 
       <KeyboardControls map={keyboardMap}>
         <Canvas shadows camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'auto' }}>
