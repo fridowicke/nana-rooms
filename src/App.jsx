@@ -11,6 +11,15 @@ const keyboardMap = [
 ]
 
 const LANDING_CAMERA_POSITION = [-0.55, 0.24, 0.48]
+const ROOM_CAMERA_POSITION = [0, 0, 10]
+const ROOM_FILES = [
+  'AIKO DETAILS WEB.glb',
+  'AIKO WEB.glb',
+  'ANDREA WEB.glb',
+  'EIKO WEB.glb',
+]
+const HOME_HASH = '#home'
+const ROOM_HASH_PREFIX = 'room-'
 
 const DOOR_LINKS = [
   {
@@ -59,9 +68,32 @@ const DOOR_LINKS = [
   },
 ]
 
-function Model({ url, children }) {
-  const { scene } = useGLTF(`assets/${url}`)
+function Model({ url, children, onLoaded }) {
+  const { scene } = useGLTF(url)
+
+  useEffect(() => {
+    if (onLoaded) onLoaded()
+  }, [onLoaded, scene])
+
   return <primitive object={scene}>{children}</primitive>
+}
+
+function parseRouteFromHash(hashValue) {
+  const normalized = (hashValue || '').replace(/^#/, '')
+  if (normalized.startsWith(ROOM_HASH_PREFIX)) {
+    const roomNumber = Number(normalized.slice(ROOM_HASH_PREFIX.length))
+    if (Number.isInteger(roomNumber) && roomNumber >= 1 && roomNumber <= ROOM_FILES.length) {
+      return { type: 'room', roomIndex: roomNumber - 1 }
+    }
+  }
+
+  return { type: 'home' }
+}
+
+function navigateWithHash(nextHash) {
+  if (typeof window === 'undefined') return
+  if (window.location.hash === nextHash) return
+  window.location.hash = nextHash
 }
 
 function Controls() {
@@ -105,7 +137,7 @@ function Controls() {
       ref={controlsRef}
       makeDefault
       rotateSpeed={0.4}
-      zoomSpeed={0.4}
+      zoomSpeed={1}
       panSpeed={0.4}
       enableDamping
       dampingFactor={0.05}
@@ -113,19 +145,19 @@ function Controls() {
   )
 }
 
-function CameraReset() {
+function CameraReset({ position }) {
   const camera = useThree((state) => state.camera)
   const controls = useThree((state) => state.controls)
 
   useLayoutEffect(() => {
-    camera.position.set(...LANDING_CAMERA_POSITION)
+    camera.position.set(...position)
     if (controls?.target) {
       controls.target.set(0, 0, 0)
       controls.update()
     } else {
       camera.lookAt(0, 0, 0)
     }
-  }, [camera, controls])
+  }, [camera, controls, position])
 
   return null
 }
@@ -182,7 +214,7 @@ function DoorLinks({ doors, onOpenRoom }) {
   )
 }
 
-function RoomPage({ roomNumber, onBack }) {
+function RoomPage({ roomNumber, roomFile, onBack }) {
   return (
     <div
       style={{
@@ -201,39 +233,100 @@ function RoomPage({ roomNumber, onBack }) {
         onClick={onBack}
         style={{
           position: 'absolute',
-          top: '24px',
+          bottom: '24px',
           left: '24px',
-          border: '1px solid #000',
-          borderRadius: '8px',
-          background: '#fff',
-          color: '#000',
-          padding: '8px 12px',
+          border: 'none',
+          background: 'transparent',
+          color: '#fff',
+          padding: 0,
           fontFamily: 'monospace',
+          fontSize: '18px',
+          fontWeight: 600,
+          zIndex: 20,
           cursor: 'auto',
         }}
       >
-        home
+        back
       </button>
-      <h1 style={{ margin: 0, fontFamily: 'monospace', fontSize: '48px', fontWeight: 600 }}>room {roomNumber}</h1>
+
+      <KeyboardControls map={keyboardMap}>
+        <Canvas shadows camera={{ position: ROOM_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'auto' }}>
+          <color attach="background" args={['#000']} />
+          <Suspense fallback={null}>
+            <Stage environment="city" intensity={0.5} contactShadows={{ opacity: 0.7, blur: 2 }} adjustCamera={false}>
+              <Model url={`rooms/${roomFile}`} />
+            </Stage>
+            <Controls />
+            <CameraReset position={ROOM_CAMERA_POSITION} />
+          </Suspense>
+        </Canvas>
+      </KeyboardControls>
     </div>
   )
 }
 
 export default function App() {
   const [activeModal, setActiveModal] = useState(null)
-  const [activeRoom, setActiveRoom] = useState(null)
+  const [route, setRoute] = useState(() =>
+    parseRouteFromHash(typeof window !== 'undefined' ? window.location.hash : ''),
+  )
+  const [homeModelLoaded, setHomeModelLoaded] = useState(false)
+  const roomsPreloadedRef = useRef(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+
+    if (!window.location.hash) {
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${HOME_HASH}`)
+    }
+
+    const syncFromHash = () => {
+      setRoute(parseRouteFromHash(window.location.hash))
+    }
+
+    syncFromHash()
+    window.addEventListener('hashchange', syncFromHash)
+    return () => window.removeEventListener('hashchange', syncFromHash)
+  }, [])
 
   const openRoom = useCallback((roomNumber) => {
     setActiveModal(null)
-    setActiveRoom(roomNumber)
+    navigateWithHash(`#${ROOM_HASH_PREFIX}${roomNumber}`)
   }, [])
 
   const closeRoom = useCallback(() => {
-    setActiveRoom(null)
+    navigateWithHash(HOME_HASH)
   }, [])
 
-  if (activeRoom !== null) {
-    return <RoomPage roomNumber={activeRoom} onBack={closeRoom} />
+  const handleHomeModelLoaded = useCallback(() => {
+    setHomeModelLoaded(true)
+  }, [])
+
+  useEffect(() => {
+    if (!homeModelLoaded || route.type !== 'home' || roomsPreloadedRef.current) return
+    if (typeof window === 'undefined') return
+
+    roomsPreloadedRef.current = true
+
+    const preloadRooms = () => {
+      ROOM_FILES.forEach((roomFile) => {
+        useGLTF.preload(`rooms/${roomFile}`)
+      })
+    }
+
+    if (typeof window.requestIdleCallback === 'function') {
+      const idleId = window.requestIdleCallback(preloadRooms)
+      return () => window.cancelIdleCallback?.(idleId)
+    }
+
+    const timeoutId = window.setTimeout(preloadRooms, 0)
+    return () => window.clearTimeout(timeoutId)
+  }, [homeModelLoaded, route.type])
+
+  if (route.type === 'room') {
+    const roomNumber = route.roomIndex + 1
+    const roomFile = ROOM_FILES[route.roomIndex]
+    return <RoomPage roomNumber={roomNumber} roomFile={roomFile} onBack={closeRoom} />
   }
 
   const cornerStyle = {
@@ -413,12 +506,12 @@ export default function App() {
           <color attach="background" args={['#fff']} />
           <Suspense fallback={null}>
             <Stage environment="city" intensity={0.5} contactShadows={{ opacity: 0.7, blur: 2 }} adjustCamera={false}>
-              <Model url="home.glb">
+              <Model url="assets/home.glb" onLoaded={handleHomeModelLoaded}>
                 <DoorLinks doors={DOOR_LINKS} onOpenRoom={openRoom} />
               </Model>
             </Stage>
             <Controls />
-            <CameraReset />
+            <CameraReset position={LANDING_CAMERA_POSITION} />
           </Suspense>
         </Canvas>
       </KeyboardControls>
