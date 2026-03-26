@@ -18,7 +18,7 @@ const ROOM_FILES = [
   'ANDREA WEB.glb',
   'EIKO WEB.glb',
 ]
-const CONTACT_EMAIL = 'placeholder@example.com'
+const CONTACT_EMAIL = 'shelestvetrovki@gmail.com'
 const HOME_HASH = '#home'
 const ABOUT_HASH = '#about'
 const ROOM_HASH_PREFIX = 'room-'
@@ -36,39 +36,131 @@ const SONGS = [
 
 const FOLDER_DEFINITIONS = [
   {
+    id: 'cv',
+    label: 'cv',
+    title: 'CV',
+    bio: {
+      name: 'SHELESTVETROVKI',
+      born: 'Born Anastasiia Pishchanska, 2000, Odesa Ukraine',
+      lives: 'Lives and works in Tokyo, Japan',
+    },
+    sections: [
+      {
+        heading: 'EDUCATION',
+        entries: [
+          { year: '2023 – 2024', item: 'Research Program, Media Arts; Dance&Performance, Tama Art University, Tokyo, Japan' },
+          { year: '2018 – 2022', item: 'B.F.A, Filmmaking and Screenwriting, International Humanitarian University, Odesa Ukraine' },
+          { year: '2005 – 2013', item: 'Diploma of Odesa Ballet Choreographic School, Odesa, Ukraine' },
+        ],
+      },
+      {
+        heading: 'CERTIFICATIONS',
+        entries: [
+          { year: '2021', item: 'Erasmus+ Producers Film Industry Leaders Lab, Warsaw, Poland' },
+        ],
+      },
+      {
+        heading: 'SELECTED GROUP EXHIBITIONS',
+        entries: [
+          { year: '2026', item: 'Women by Women, PhotoVogue, Biblioteca Nazionale Braidense, Milan, Italy' },
+          { year: '2025', item: "Bed doesn't ask questions, PanoramicFestival, Barcelona, Spain" },
+          { year: '', item: 'Localstickerbook, Tokyo Art Book Fair, Tokyo, Japan' },
+          { year: '', item: "Spilka Paris x Local Group, Kolektiv Radieuse, Le Corbusier's Cité Radieuse, Marseille, France" },
+          { year: '2024', item: 'MOM, POST-INTERNET IS NOT A PHASE ;(, Okay Space Gallery, Athens, Greece' },
+          { year: '', item: 'Book Exhibition, UNTITLED SPACE, Tokyo, Japan' },
+          { year: '2023', item: 'bezzvuchnodohlukhoty, National Academy of Fine Arts, Kyiv, Ukraine' },
+          { year: '', item: 'Multimedia interactive installation, Tama Art University Tokyo, Japan' },
+          { year: '', item: 'Svitlo x Moya Ridna, Photo Fundraising, Maison France-Montréal, Montreal, Québec' },
+        ],
+      },
+      {
+        heading: 'AWARDS HONORS RESIDENCIES',
+        entries: [
+          { year: '2026', item: 'Women By Women Shortlist, PhotoVogue Global' },
+          { year: '2025', item: 'Grantee, Media Arts, PanoramicFestival, Barcelona, Spain' },
+          { year: '2023 – 2026', item: 'Grantee, Artist at Risk Program, Nippon Foundation, Tokyo, Japan' },
+          { year: '2023', item: 'MEXT Scholarship, Media Arts, Research Program, Tama Art University, Tokyo, Japan' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'performance',
     label: 'performance',
     title: 'Performance',
-    description: 'Live works and time-based actions.',
-    items: ['Live set (placeholder)', 'Site-specific piece (placeholder)', 'Collaborative action (placeholder)'],
+    sections: [
+      {
+        heading: 'SELECTED ARTIST TALKS + PANELS',
+        entries: [
+          { year: '2026', item: 'Girlhood: Fantasy and the Inner Life — A conversation between Laura Pelissier, Anastasiia Pischanska, and Lean Lui, moderated by Francesca Faccani, PhotoVogue, Milan, Italy' },
+          { year: '2023', item: 'Art In The Wartime: lecture for Japanese art students between Anastasiia Pishchanska and Alisa Chen, Tama Art University, Tokyo, Japan' },
+        ],
+      },
+    ],
   },
   {
     id: 'writing',
     label: 'writing',
     title: 'Writing',
-    description: 'Texts, essays, and notes.',
-    items: ['Essay draft (placeholder)', 'Artist note (placeholder)', 'Publication text (placeholder)'],
+    sections: [
+      {
+        heading: 'PRINTED PUBLICATIONS AND WRITING',
+        entries: [
+          { year: '2024', item: '"Dialogues on CoreCore & the Contemporary Online Avant-Garde", Becoming Press Publishing' },
+          { year: '', item: '"NPC Collapse", Localstickerbook ISSUE 04, Readellion Publishing' },
+          { year: '', item: '"Spiritual Ecocides", Lexicon Of Nature, LocalGroup, Readellion Publishing' },
+        ],
+      },
+    ],
   },
   {
     id: 'press',
     label: 'press',
     title: 'Press',
-    description: 'Interviews, mentions, and publications.',
-    items: ['Interview link (placeholder)', 'Press clipping (placeholder)', 'Feature mention (placeholder)'],
+    sections: [
+      {
+        heading: 'SELECTED PRESS',
+        links: [
+          { url: 'https://www.vogue.com/article/a-project-about-gen-z-youth-in-ukraine', label: 'Vogue — A Project About Gen-Z Youth in Ukraine' },
+          { url: 'https://www.vogue.com/article/women-by-women-the-shortlist', label: 'Vogue — Women By Women: The Shortlist' },
+          { url: 'https://festivalpanoramic.cat/en/project/panoramic-review-2025/', label: 'Festival Panoramic — Panoramic Review 2025' },
+          { url: 'https://queerwararchive.com/2026/02/18/shelest-vetrovki-anastasiia-pischanska-gen-z/', label: 'Queer War Archive — Shelest Vetrovki' },
+          { url: 'https://www.yokogaomag.com/editorial/shes-so-hot-i-wanna-clean-her-room-shelestvetrovki', label: "Yokogao Mag — She's So Hot I Wanna Clean Her Room" },
+          { url: 'https://goodpress.co.uk/products/dialogues-on-corecore-the-contemporary-online-avant-garde-edited-by-0nty-onmycomputer', label: 'Good Press — Dialogues on CoreCore' },
+          { url: 'https://www.kubaparis.com/submission/469655', label: 'Kuba Paris' },
+          { url: 'https://becoming.press/dialogues-on-corecore', label: 'Becoming Press — Dialogues on CoreCore' },
+          { url: 'https://www.instagram.com/p/DDmLc2Th1PV/', label: 'Instagram' },
+          { url: 'https://www.tamabi.ac.jp/news/55772/', label: 'Tama Art University' },
+          { url: 'https://i-d.co/article/daria-svertilova-photography-ukraine/', label: 'i-D — Daria Svertilova Photography Ukraine' },
+        ],
+      },
+    ],
   },
   {
     id: 'filmmaking',
     label: 'filmmaking',
     title: 'Filmmaking',
-    description: 'Films, shorts, and moving-image works.',
-    items: ['Short film (placeholder)', 'Behind-the-scenes note (placeholder)', 'Screening entry (placeholder)'],
-  },
-  {
-    id: 'cv',
-    label: 'cv',
-    title: 'CV',
-    description: 'Selected biography and timeline.',
-    items: ['Education (placeholder)', 'Exhibitions (placeholder)', 'Awards (placeholder)'],
+    sections: [
+      {
+        heading: 'SCREENINGS',
+        entries: [
+          { year: '2025', item: '"Dream Wanders By The Window", BurningMagazine, Tokyo, Japan' },
+          { year: '', item: "SpilkaParis x Local Group, Kolektiv Radieuse, Le Corbusier's Cité Radieuse, Marseille, France" },
+          { year: '2024', item: 'Localstickerbook, Films Fundraiser, Datsuijo Gallery, Tokyo, Japan' },
+          { year: '2023', item: 'Short Poetic Film Festival, Lviv, Ukraine' },
+        ],
+      },
+      {
+        heading: 'CURATING EXHIBITIONS + SCREENINGS',
+        entries: [
+          { year: '2025', item: "SpilkaParis x Local Group, Kolektiv Radieuse, Le Corbusier's Cité Radieuse, Marseille, France" },
+          { year: '', item: 'Localstickerbook, Films fundraiser, Domicile Gallery, Tokyo, Japan' },
+          { year: '', item: 'OpenSecret x Localstickerbook, Internet Cinema, Untitled Space Gallery, Tokyo, Japan' },
+          { year: '2024', item: 'Localstickerbook, Films Fundraiser, Datsuijo Gallery, Tokyo, Japan' },
+          { year: '2022', item: 'Localstickerbook, Experimental Film Screening, Filaret 16, Bucharest, Romania' },
+        ],
+      },
+    ],
   },
 ]
 const FOLDER_MAP = new Map(FOLDER_DEFINITIONS.map((folder) => [folder.id, folder]))
@@ -380,7 +472,7 @@ function RoomPage({ roomNumber, roomFile, onBack }) {
   )
 }
 
-function TinyPlayer() {
+function TinyPlayer({ onTitleBarMouseDown }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -474,21 +566,13 @@ function TinyPlayer() {
     }
   }, [])
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const audio = audioRef.current
-      if (!audio) return
-      audio.play().then(() => setIsPlaying(true)).catch(() => {})
-    }, 3000)
-    return () => clearTimeout(timer)
-  }, [])
 
   const pct = duration > 0 ? (currentTime / duration) * 100 : 0
 
   return (
     <div style={{ width: '290px', userSelect: 'none', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.18)', fontFamily: MAC_LIGHT_FONT_STACK }}>
       {/* Title bar */}
-      <div style={{ background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid #b0b0b0' }}>
+      <div onMouseDown={onTitleBarMouseDown} style={{ background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid #b0b0b0', cursor: onTitleBarMouseDown ? 'grab' : 'default', userSelect: 'none' }}>
         <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-block' }} />
         <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d4a017', display: 'inline-block' }} />
         <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'inline-block' }} />
@@ -537,6 +621,7 @@ function TinyPlayer() {
 function AboutPage({ onBackHome, onOpenFolder }) {
   const editorContentRef = useRef(null)
   const [editorScrollbar, setEditorScrollbar] = useState({ top: 0, height: 100, enabled: false })
+  const rightStageRef = useRef(null)
 
   const folderArcLayout = [
     { id: 'performance', left: '15%', top: '60%' },
@@ -545,7 +630,71 @@ function AboutPage({ onBackHome, onOpenFolder }) {
     { id: 'filmmaking', left: '73%', top: '40%' },
     { id: 'cv', left: '89%', top: '63%' },
   ]
+  const [folderPositions, setFolderPositions] = useState(
+    () => new Map(folderArcLayout.map((p) => [p.id, { left: p.left, top: p.top }]))
+  )
   const rightStageWidth = 'min(88.8vw, 1344px)'
+
+  const [aboutWinPos, setAboutWinPos] = useState({ x: 24, y: 137 })
+  const aboutWinPosRef = useRef(aboutWinPos)
+  aboutWinPosRef.current = aboutWinPos
+
+  const [playerPos, setPlayerPos] = useState(() => ({
+    x: 24,
+    y: typeof window !== 'undefined' ? window.innerHeight - 200 : 400,
+  }))
+  const playerPosRef = useRef(playerPos)
+  playerPosRef.current = playerPos
+
+  const makeTitleBarDrag = useCallback((posRef, setPos) => (e) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    const startMx = e.clientX
+    const startMy = e.clientY
+    const startPx = posRef.current.x
+    const startPy = posRef.current.y
+    const onMove = (me) => setPos({ x: startPx + me.clientX - startMx, y: startPy + me.clientY - startMy })
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [])
+
+  const startFolderDrag = useCallback((folderId, e, onClickCb) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    e.stopPropagation()
+    const container = rightStageRef.current
+    if (!container) return
+    const containerRect = container.getBoundingClientRect()
+    const el = e.currentTarget
+    const elRect = el.getBoundingClientRect()
+    const startPx = elRect.left + elRect.width / 2 - containerRect.left
+    const startPy = elRect.top + elRect.height / 2 - containerRect.top
+    const startMx = e.clientX
+    const startMy = e.clientY
+    let moved = false
+    const onMove = (me) => {
+      const dx = me.clientX - startMx
+      const dy = me.clientY - startMy
+      if (!moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return
+      moved = true
+      setFolderPositions((prev) => {
+        const next = new Map(prev)
+        next.set(folderId, { left: startPx + dx, top: startPy + dy, isPx: true })
+        return next
+      })
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      if (!moved) onClickCb()
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [])
 
   const updateEditorScrollbar = useCallback(() => {
     const editorContent = editorContentRef.current
@@ -604,112 +753,108 @@ function AboutPage({ onBackHome, onOpenFolder }) {
         overflow: 'hidden',
       }}
     >
-      {/* ── Left column ── */}
-      <div
-        style={{
-          position: 'absolute',
-          left: '24px',
-          top: '64px',
-          zIndex: 21,
-          width: 'min(22vw, 290px)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px',
-        }}
-        onClick={(event) => event.stopPropagation()}
-      >
+      {/* ── Welcome gif (static) ── */}
+      <div style={{ position: 'absolute', left: '24px', top: '64px', zIndex: 21, pointerEvents: 'none' }}>
         <img
           src="assets/welcome.webp"
           alt="welcome to my page"
-          style={{
-            width: '160px',
-            maxWidth: '100%',
-            height: 'auto',
-            objectFit: 'contain',
-          }}
+          style={{ width: '160px', maxWidth: 'min(22vw, 290px)', height: 'auto', objectFit: 'contain' }}
         />
+      </div>
+
+      {/* ── About window (draggable) ── */}
+      <div
+        style={{
+          position: 'fixed',
+          left: aboutWinPos.x,
+          top: aboutWinPos.y,
+          zIndex: 21,
+          width: 'min(22vw, 290px)',
+        }}
+        onClick={(event) => event.stopPropagation()}
+      >
 
         <div
           style={{
-            position: 'relative',
             width: '100%',
-            boxShadow: '0 10px 24px rgba(0,0,0,0.15)',
-            borderRadius: '10px',
+            borderRadius: '8px',
             overflow: 'hidden',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+            fontFamily: MAC_LIGHT_FONT_STACK,
           }}
         >
-          <img
-            src="assets/nana_editor.png"
-            alt="editor"
-            style={{
-              width: '100%',
-              height: 'auto',
-              objectFit: 'contain',
-              display: 'block',
-            }}
-          />
-
+          {/* Title bar */}
           <div
-            ref={editorContentRef}
-            className="classic-textedit-scroll"
-            contentEditable
-            suppressContentEditableWarning
-            onInput={updateEditorScrollbar}
-            onScroll={updateEditorScrollbar}
-            onClick={(event) => {
-              const anchor = event.target.closest?.('a')
-              if (!anchor) return
-              event.preventDefault()
-              event.stopPropagation()
-              window.open(anchor.href, '_blank', 'noopener,noreferrer')
-            }}
-            style={{
-              position: 'absolute',
-              left: '1.4%',
-              right: '1.4%',
-              top: '24.8%',
-              bottom: '1.5%',
-              border: 'none',
-              outline: 'none',
-              background: 'transparent',
-              color: '#1a1a1a',
-              fontFamily: MAC_LIGHT_FONT_STACK,
-              fontSize: '15px',
-              fontWeight: 300,
-              lineHeight: 1.4,
-              whiteSpace: 'pre-wrap',
-              overflowX: 'hidden',
-              overflowY: 'auto',
-              padding: '8px 24px 8px 12px',
-              boxSizing: 'border-box',
-            }}
-          />
-
-          <div
-            style={{
-              position: 'absolute',
-              top: 'calc(24.8% - 4.67px)',
-              bottom: 'calc(1.5% - 10.5px)',
-              right: 'calc(0.65% + 3.5px)',
-              width: '14px',
-              pointerEvents: 'none',
-              opacity: editorScrollbar.enabled ? 1 : 0.55,
-            }}
+            onMouseDown={makeTitleBarDrag(aboutWinPosRef, setAboutWinPos)}
+            style={{ background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid #b0b0b0', cursor: 'grab', userSelect: 'none' }}
           >
-            <img
-              src="assets/nana_scroll.png"
-              alt=""
-              aria-hidden="true"
+            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-block' }} />
+            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d4a017', display: 'inline-block' }} />
+            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'inline-block' }} />
+            <span style={{ flex: 1, textAlign: 'center', fontSize: '11px', fontWeight: 500, color: '#333', marginRight: '30px' }}>About</span>
+          </div>
+
+          {/* Body */}
+          <div style={{ background: '#f5f5f5', position: 'relative', height: '300px' }}>
+            <div
+              ref={editorContentRef}
+              className="classic-textedit-scroll"
+              contentEditable
+              suppressContentEditableWarning
+              onInput={updateEditorScrollbar}
+              onScroll={updateEditorScrollbar}
+              onClick={(event) => {
+                const anchor = event.target.closest?.('a')
+                if (!anchor) return
+                event.preventDefault()
+                event.stopPropagation()
+                window.open(anchor.href, '_blank', 'noopener,noreferrer')
+              }}
               style={{
                 position: 'absolute',
-                top: `${editorScrollbar.top}%`,
-                left: '50%',
-                transform: 'translateX(-50%)',
-                width: '14px',
-                height: `${editorScrollbar.height}%`,
-                objectFit: 'fill',
+                inset: 0,
+                border: 'none',
+                outline: 'none',
+                background: 'transparent',
+                color: '#1a1a1a',
+                fontFamily: MAC_LIGHT_FONT_STACK,
+                fontSize: '13px',
+                fontWeight: 300,
+                lineHeight: 1.5,
+                whiteSpace: 'pre-wrap',
+                overflowX: 'hidden',
+                overflowY: 'auto',
+                padding: '8px 22px 8px 10px',
+                boxSizing: 'border-box',
               }}
             />
+
+            <div
+              style={{
+                position: 'absolute',
+                top: '2px',
+                bottom: '2px',
+                right: '3px',
+                width: '14px',
+                pointerEvents: 'none',
+                opacity: editorScrollbar.enabled ? 1 : 0.55,
+              }}
+            >
+              <img
+                src="assets/nana_scroll.png"
+                alt=""
+                aria-hidden="true"
+                style={{
+                  position: 'absolute',
+                  top: `${editorScrollbar.top}%`,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: '14px',
+                  height: `${editorScrollbar.height}%`,
+                  objectFit: 'fill',
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -724,32 +869,28 @@ function AboutPage({ onBackHome, onOpenFolder }) {
         />
       </div>
 
-      {/* ── Bottom-left: diary photo + radio + player ── */}
+      {/* ── Radio gif (static) ── */}
+      <div style={{ position: 'absolute', left: '24px', bottom: '247px', zIndex: 21, pointerEvents: 'none', width: 'min(22vw, 290px)', display: 'flex', justifyContent: 'center' }}>
+        <img src="assets/radio.gif" alt="" aria-hidden="true" style={{ width: '48px', height: 'auto', objectFit: 'contain' }} />
+      </div>
+
+      {/* ── Player (draggable) ── */}
       <div
         style={{
-          position: 'absolute',
-          left: '24px',
-          bottom: '16px',
+          position: 'fixed',
+          left: playerPos.x,
+          top: playerPos.y,
           zIndex: 21,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '4px',
-          alignItems: 'flex-start',
           width: 'min(22vw, 290px)',
         }}
         onClick={(event) => event.stopPropagation()}
       >
-        {/* radio + player */}
-        <img
-          src="assets/radio.gif"
-          alt="radio"
-          style={{ width: '48px', height: 'auto', objectFit: 'contain', alignSelf: 'center' }}
-        />
-        <TinyPlayer />
+        <TinyPlayer onTitleBarMouseDown={makeTitleBarDrag(playerPosRef, setPlayerPos)} />
       </div>
 
       {/* ── Right stage ── */}
       <div
+        ref={rightStageRef}
         style={{
           position: 'absolute',
           top: 0,
@@ -792,11 +933,25 @@ function AboutPage({ onBackHome, onOpenFolder }) {
             pointerEvents: 'none',
           }}
         >
-          <img
-            src="assets/shelestvetrovki-glitter.gif"
-            alt="shelestvetrovki"
-            style={{ width: 'min(280px, 40%)', height: 'auto', objectFit: 'contain' }}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <img
+              src="assets/zodiac.gif"
+              alt=""
+              aria-hidden="true"
+              style={{ width: '40px', height: 'auto', objectFit: 'contain' }}
+            />
+            <img
+              src="assets/shelestvetrovki-glitter.gif"
+              alt="shelestvetrovki"
+              style={{ width: 'min(280px, 40%)', height: 'auto', objectFit: 'contain' }}
+            />
+            <img
+              src="assets/7ADo.gif"
+              alt=""
+              aria-hidden="true"
+              style={{ width: '40px', height: 'auto', objectFit: 'contain' }}
+            />
+          </div>
           <span
             style={{
               fontFamily: MAC_LIGHT_FONT_STACK,
@@ -817,6 +972,7 @@ function AboutPage({ onBackHome, onOpenFolder }) {
             top: '80px',
             right: '16px',
             zIndex: 22,
+            width: '100px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -827,10 +983,11 @@ function AboutPage({ onBackHome, onOpenFolder }) {
             href={HOME_HASH}
             style={{
               padding: 0,
-              display: 'inline-flex',
+              display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               gap: '2px',
+              width: '100%',
             }}
           >
             <img
@@ -844,6 +1001,9 @@ function AboutPage({ onBackHome, onOpenFolder }) {
                 fontSize: '11px',
                 fontWeight: 300,
                 color: '#333',
+                textAlign: 'center',
+                display: 'block',
+                width: '100%',
               }}
             >
               home
@@ -859,6 +1019,7 @@ function AboutPage({ onBackHome, onOpenFolder }) {
             right: '16px',
             bottom: '16px',
             zIndex: 22,
+            width: '100px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -881,19 +1042,19 @@ function AboutPage({ onBackHome, onOpenFolder }) {
         {folderArcLayout.map((placement) => {
           const folder = FOLDER_MAP.get(placement.id)
           if (!folder) return null
+          const pos = folderPositions.get(folder.id) ?? placement
+          const posLeft = pos.isPx ? `${pos.left}px` : pos.left
+          const posTop = pos.isPx ? `${pos.top}px` : pos.top
 
           return (
             <button
               key={folder.id}
               type="button"
-              onClick={(event) => {
-                event.stopPropagation()
-                onOpenFolder(folder.id)
-              }}
+              onMouseDown={(e) => startFolderDrag(folder.id, e, () => onOpenFolder(folder.id))}
               style={{
                 position: 'absolute',
-                left: placement.left,
-                top: placement.top,
+                left: posLeft,
+                top: posTop,
                 transform: 'translate(-50%, -50%)',
                 zIndex: 25,
                 border: '1px solid transparent',
@@ -905,7 +1066,7 @@ function AboutPage({ onBackHome, onOpenFolder }) {
                 alignItems: 'center',
                 gap: '6px',
                 width: '92px',
-                cursor: 'pointer',
+                cursor: 'grab',
                 userSelect: 'none',
               }}
             >
@@ -936,100 +1097,129 @@ function AboutPage({ onBackHome, onOpenFolder }) {
 
 function FolderPage({ folder, onBackToAbout }) {
   const [isOpen, setIsOpen] = useState(false)
+  const [minimized, setMinimized] = useState(false)
+  const [enlarged, setEnlarged] = useState(false)
+  const [dotsHovered, setDotsHovered] = useState(false)
+  const [pos, setPos] = useState(() => ({
+    x: typeof window !== 'undefined' ? window.innerWidth / 2 - 230 : 200,
+    y: typeof window !== 'undefined' ? window.innerHeight / 2 - 200 : 150,
+  }))
+  const posRef = useRef(pos)
+  posRef.current = pos
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => setIsOpen(true))
     return () => window.cancelAnimationFrame(frame)
   }, [])
 
+  const onTitleBarMouseDown = useCallback((e) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    const startMx = e.clientX
+    const startMy = e.clientY
+    const startPx = posRef.current.x
+    const startPy = posRef.current.y
+    const onMove = (me) => setPos({ x: startPx + me.clientX - startMx, y: startPy + me.clientY - startMy })
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [])
+
   return (
     <div
       style={{
-        width: '100vw',
-        height: '100vh',
-        backgroundColor: '#e9ecef',
+        position: 'fixed',
+        left: pos.x,
+        top: pos.y,
+        width: enlarged ? 'min(820px, 92vw)' : '460px',
+        maxWidth: '92vw',
+        maxHeight: minimized ? 'none' : (enlarged ? '88vh' : '72vh'),
+        borderRadius: '8px',
+        overflow: 'hidden',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.22)',
+        fontFamily: MAC_LIGHT_FONT_STACK,
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '24px',
-        boxSizing: 'border-box',
+        flexDirection: 'column',
+        transform: isOpen ? 'scale(1) translateY(0)' : 'scale(0.94) translateY(12px)',
+        opacity: isOpen ? 1 : 0,
+        transition: 'transform 280ms ease, opacity 280ms ease, width 220ms ease, max-height 220ms ease',
+        pointerEvents: 'auto',
       }}
     >
+      {/* Title bar */}
       <div
-        style={{
-          width: 'min(980px, 94vw)',
-          height: 'min(700px, 90vh)',
-          backgroundColor: '#fff',
-          borderRadius: '14px',
-          border: '1px solid #d8d8d8',
-          boxShadow: '0 24px 60px rgba(0,0,0,0.16)',
-          overflow: 'hidden',
-          transform: isOpen ? 'scale(1) translateY(0)' : 'scale(0.94) translateY(30px)',
-          opacity: isOpen ? 1 : 0,
-          transition: 'transform 320ms ease, opacity 320ms ease',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
+        onMouseDown={onTitleBarMouseDown}
+        style={{ background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)', padding: '5px 8px', display: 'flex', alignItems: 'center', borderBottom: '1px solid #b0b0b0', flexShrink: 0, cursor: 'grab', userSelect: 'none' }}
       >
-        <div
-          style={{
-            height: '44px',
-            borderBottom: '1px solid #e5e5e5',
-            background: '#f7f7f7',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '0 14px',
-          }}
+        <span
+          onMouseEnter={() => setDotsHovered(true)}
+          onMouseLeave={() => setDotsHovered(false)}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ff5f57' }} />
-            <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#febc2e' }} />
-            <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#28c840' }} />
-          </div>
-          <span style={{ fontFamily: MAC_LIGHT_FONT_STACK, fontSize: '13px', fontWeight: 400, color: '#333' }}>
-            {folder.title}
-          </span>
-          <button
-            type="button"
+          <span
+            role="button"
+            tabIndex={0}
             onClick={onBackToAbout}
-            style={{
-              border: 'none',
-              background: 'transparent',
-              color: '#333',
-              fontFamily: MAC_LIGHT_FONT_STACK,
-              fontSize: '13px',
-              fontWeight: 300,
-              cursor: 'pointer',
-            }}
-          >
-            back
-          </button>
-        </div>
+            onKeyDown={(e) => e.key === 'Enter' && onBackToAbout()}
+            style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '9px', color: '#7a0c00', fontWeight: 900, lineHeight: 1 }}
+          >{dotsHovered ? '×' : ''}</span>
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={() => setMinimized((m) => !m)}
+            onKeyDown={(e) => e.key === 'Enter' && setMinimized((m) => !m)}
+            style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d4a017', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '9px', color: '#7a4800', fontWeight: 900, lineHeight: 1 }}
+          >{dotsHovered ? '−' : ''}</span>
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={() => setEnlarged((z) => !z)}
+            onKeyDown={(e) => e.key === 'Enter' && setEnlarged((z) => !z)}
+            style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '10px', color: '#0a4a0a', fontWeight: 900, lineHeight: 1 }}
+          >{dotsHovered ? (enlarged ? '⤡' : '⤢') : ''}</span>
+        </span>
+        <span style={{ flex: 1, textAlign: 'center', fontSize: '11px', fontWeight: 500, color: '#333', marginRight: '30px' }}>{folder.title}</span>
+      </div>
 
-        <div
-          style={{
-            padding: '32px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '18px',
-            overflow: 'auto',
-          }}
-        >
-          <h1 style={{ margin: 0, fontFamily: MAC_LIGHT_FONT_STACK, fontSize: '34px', fontWeight: 400 }}>
-            {folder.title}
-          </h1>
-          <p style={{ margin: 0, fontFamily: MAC_LIGHT_FONT_STACK, fontSize: '16px', fontWeight: 300, color: '#555' }}>
-            {folder.description}
-          </p>
-          <ul style={{ margin: 0, paddingLeft: '22px', display: 'grid', gap: '10px' }}>
-            {folder.items.map((item) => (
-              <li key={item} style={{ fontFamily: MAC_LIGHT_FONT_STACK, fontSize: '16px', fontWeight: 300, color: '#222' }}>
-                {item}
-              </li>
+      {/* Body */}
+      <div style={{ background: '#f5f5f5', overflowY: 'auto', flex: 1, padding: '14px 16px', display: minimized ? 'none' : undefined }}>
+        {folder.bio && (
+          <div style={{ marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #ddd' }}>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: '#1a1a1a', letterSpacing: '0.05em', marginBottom: '4px' }}>{folder.bio.name}</div>
+            <div style={{ fontSize: '11px', fontWeight: 300, color: '#555', lineHeight: 1.5 }}>{folder.bio.born}</div>
+            <div style={{ fontSize: '11px', fontWeight: 300, color: '#555', lineHeight: 1.5 }}>{folder.bio.lives}</div>
+          </div>
+        )}
+        {folder.sections.map((section) => (
+          <div key={section.heading} style={{ marginBottom: '16px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 600, color: '#888', letterSpacing: '0.08em', marginBottom: '8px', borderBottom: '1px solid #ddd', paddingBottom: '3px' }}>
+              {section.heading}
+            </div>
+            {section.entries && section.entries.map((entry, i) => (
+              // eslint-disable-next-line react/no-array-index-key
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '76px 1fr', gap: '6px', marginBottom: '5px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 300, color: '#888', lineHeight: 1.4 }}>{entry.year}</div>
+                <div style={{ fontSize: '11px', fontWeight: 300, color: '#1a1a1a', lineHeight: 1.4 }}>{entry.item}</div>
+              </div>
             ))}
-          </ul>
-        </div>
+            {section.links && section.links.map((link) => (
+              <div key={link.url} style={{ marginBottom: '5px' }}>
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  style={{ fontSize: '11px', fontWeight: 300, color: '#4a90d9', textDecoration: 'none', lineHeight: 1.6 }}
+                >
+                  {link.label}
+                </a>
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -1123,7 +1313,7 @@ export default function App() {
       <>
         <AboutPage onBackHome={closeAbout} onOpenFolder={openFolder} />
         {folder && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 200 }}>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 200, pointerEvents: 'none' }}>
             <FolderPage folder={folder} onBackToAbout={closeFolder} />
           </div>
         )}
