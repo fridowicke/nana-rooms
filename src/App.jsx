@@ -28,6 +28,12 @@ const DEFAULT_ABOUT_HTML = `Anastasiia Pishchanska is a Ukrainian-born, Tokyo-ba
 
 <br><br>Her practice moves between moving image, installation, and art direction, focusing on digital memory, migration, and cultural identity.`
 
+const SONGS = [
+  { title: 'Hysterical Love Project', artist: 'Motion Ward', src: 'assets/music/song1.mp3' },
+  { title: 'oral', artist: 'björk ft. rosalía', src: 'assets/music/song2.m4a' },
+  { title: 'love again', artist: 'DJ LOSTBOI x Young Thug', src: 'assets/music/song3.mp3' },
+]
+
 const FOLDER_DEFINITIONS = [
   {
     id: 'performance',
@@ -202,6 +208,26 @@ function Controls() {
   )
 }
 
+function CameraTracker({ onUpdate }) {
+  const { camera, controls } = useThree()
+  const lastRef = useRef('')
+
+  useFrame(() => {
+    const p = camera.position
+    const t = controls?.target
+    const str = `${p.x.toFixed(3)},${p.y.toFixed(3)},${p.z.toFixed(3)}|${t ? `${t.x.toFixed(3)},${t.y.toFixed(3)},${t.z.toFixed(3)}` : '0,0,0'}`
+    if (str !== lastRef.current) {
+      lastRef.current = str
+      onUpdate({
+        position: [p.x, p.y, p.z],
+        target: t ? [t.x, t.y, t.z] : [0, 0, 0],
+      })
+    }
+  })
+
+  return null
+}
+
 function CameraReset({ position }) {
   const camera = useThree((state) => state.camera)
   const controls = useThree((state) => state.controls)
@@ -271,7 +297,14 @@ function DoorLinks({ doors, onOpenRoom }) {
   )
 }
 
+function fmt3(v) {
+  return v.map((n) => n.toFixed(3)).join(', ')
+}
+
 function RoomPage({ roomNumber, roomFile, onBack }) {
+  const [camInfo, setCamInfo] = useState({ position: ROOM_CAMERA_POSITION, target: [0, 0, 0] })
+  const handleCamUpdate = useCallback((info) => setCamInfo(info), [])
+
   return (
     <div
       style={{
@@ -315,23 +348,200 @@ function RoomPage({ roomNumber, roomFile, onBack }) {
             </Stage>
             <Controls />
             <CameraReset position={ROOM_CAMERA_POSITION} />
+            <CameraTracker onUpdate={handleCamUpdate} />
           </Suspense>
         </Canvas>
       </KeyboardControls>
+
+      {/* Camera info overlay */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '24px',
+          right: '24px',
+          zIndex: 30,
+          background: 'rgba(0,0,0,0.65)',
+          color: '#e8e8e8',
+          fontFamily: 'monospace',
+          fontSize: '11px',
+          lineHeight: 1.6,
+          padding: '8px 12px',
+          borderRadius: '6px',
+          pointerEvents: 'none',
+          userSelect: 'text',
+          minWidth: '220px',
+        }}
+      >
+        <div style={{ color: '#aaa', marginBottom: '2px' }}>camera</div>
+        <div>pos&nbsp;&nbsp;[{fmt3(camInfo.position)}]</div>
+        <div>look [{fmt3(camInfo.target)}]</div>
+      </div>
+    </div>
+  )
+}
+
+function TinyPlayer() {
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const audioRef = useRef(null)
+
+  const song = SONGS[currentIndex]
+
+  const fmt = (s) => {
+    if (!isFinite(s) || s < 0) return '0:00'
+    const m = Math.floor(s / 60)
+    const sec = Math.floor(s % 60)
+    return `${m}:${sec.toString().padStart(2, '0')}`
+  }
+
+  const fmtNeg = (cur, dur) => {
+    if (!isFinite(dur) || dur <= 0) return '-0:00'
+    const remaining = Math.max(dur - cur, 0)
+    const m = Math.floor(remaining / 60)
+    const sec = Math.floor(remaining % 60)
+    return `-${m}:${sec.toString().padStart(2, '0')}`
+  }
+
+  const togglePlay = useCallback(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    if (isPlaying) {
+      audio.pause()
+      setIsPlaying(false)
+    } else {
+      audio.play().catch(() => {})
+      setIsPlaying(true)
+    }
+  }, [isPlaying])
+
+  const prevSong = useCallback(() => {
+    const audio = audioRef.current
+    if (audio) { audio.pause(); audio.currentTime = 0 }
+    setIsPlaying(false)
+    setCurrentTime(0)
+    setCurrentIndex((i) => (i - 1 + SONGS.length) % SONGS.length)
+  }, [])
+
+  const nextSong = useCallback(() => {
+    const audio = audioRef.current
+    if (audio) { audio.pause(); audio.currentTime = 0 }
+    setIsPlaying(false)
+    setCurrentTime(0)
+    setCurrentIndex((i) => (i + 1) % SONGS.length)
+  }, [])
+
+  const handleSeek = useCallback((e) => {
+    const audio = audioRef.current
+    if (!audio || !isFinite(duration) || duration <= 0) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    audio.currentTime = ratio * duration
+    setCurrentTime(audio.currentTime)
+  }, [duration])
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    audio.src = SONGS[currentIndex].src
+    audio.currentTime = 0
+    setCurrentTime(0)
+    setDuration(0)
+    if (isPlaying) {
+      audio.play().catch(() => {})
+    }
+  }, [currentIndex]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    const onTime = () => setCurrentTime(audio.currentTime)
+    const onDuration = () => setDuration(audio.duration)
+    const onEnded = () => {
+      setIsPlaying(false)
+      setCurrentIndex((i) => (i + 1) % SONGS.length)
+    }
+    audio.addEventListener('timeupdate', onTime)
+    audio.addEventListener('durationchange', onDuration)
+    audio.addEventListener('loadedmetadata', onDuration)
+    audio.addEventListener('ended', onEnded)
+    return () => {
+      audio.removeEventListener('timeupdate', onTime)
+      audio.removeEventListener('durationchange', onDuration)
+      audio.removeEventListener('loadedmetadata', onDuration)
+      audio.removeEventListener('ended', onEnded)
+    }
+  }, [])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const audio = audioRef.current
+      if (!audio) return
+      audio.play().then(() => setIsPlaying(true)).catch(() => {})
+    }, 3000)
+    return () => clearTimeout(timer)
+  }, [])
+
+  const pct = duration > 0 ? (currentTime / duration) * 100 : 0
+
+  return (
+    <div style={{ width: '290px', userSelect: 'none', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.18)', fontFamily: MAC_LIGHT_FONT_STACK }}>
+      {/* Title bar */}
+      <div style={{ background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid #b0b0b0' }}>
+        <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-block' }} />
+        <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d4a017', display: 'inline-block' }} />
+        <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'inline-block' }} />
+        <span style={{ flex: 1, textAlign: 'center', fontSize: '11px', fontWeight: 500, color: '#333', marginRight: '30px' }}>Tiny Player</span>
+      </div>
+
+      {/* Body */}
+      <div style={{ background: '#f5f5f5', padding: '8px 10px 6px' }}>
+        <div style={{ fontWeight: 700, fontSize: '12px', color: '#1a1a1a', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', textAlign: 'center' }}>{song.title}</div>
+        <div style={{ fontWeight: 300, fontSize: '11px', color: '#666', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', textAlign: 'center', marginTop: '1px' }}>{song.artist}</div>
+
+        {/* Transport buttons */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', margin: '7px 0 6px' }}>
+          <button type="button" aria-label="Previous" onClick={prevSong} style={{ background: 'none', border: 'none', padding: 0, fontSize: '16px', color: '#333', lineHeight: 1 }}>⏮</button>
+          <button type="button" aria-label={isPlaying ? 'Pause' : 'Play'} onClick={togglePlay} style={{ background: 'none', border: 'none', padding: 0, fontSize: '18px', color: '#333', lineHeight: 1 }}>{isPlaying ? '⏸' : '▶'}</button>
+          <button type="button" aria-label="Next" onClick={nextSong} style={{ background: 'none', border: 'none', padding: 0, fontSize: '16px', color: '#333', lineHeight: 1 }}>⏭</button>
+        </div>
+
+        {/* Seek bar */}
+        <div
+          onClick={handleSeek}
+          style={{ position: 'relative', height: '6px', background: '#ccc', borderRadius: '3px', margin: '0 2px 4px', cursor: 'pointer' }}
+        >
+          <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${pct}%`, background: '#4a90d9', borderRadius: '3px' }} />
+          <div style={{ position: 'absolute', top: '50%', left: `${pct}%`, transform: 'translate(-50%,-50%)', width: '10px', height: '10px', borderRadius: '50%', background: '#fff', border: '1.5px solid #4a90d9', pointerEvents: 'none' }} />
+        </div>
+
+        {/* Time display */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#888', padding: '0 2px' }}>
+          <span>{fmt(currentTime)}</span>
+          <span>{fmtNeg(currentTime, duration)}</span>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div style={{ background: '#e0e0e0', borderTop: '1px solid #c0c0c0', padding: '3px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', color: '#888' }}>
+        <span>320kbps</span>
+        <span>{currentIndex + 1} / {SONGS.length}</span>
+      </div>
+
+      <audio ref={audioRef} />
     </div>
   )
 }
 
 function AboutPage({ onBackHome, onOpenFolder }) {
-  const [selectedFolderId, setSelectedFolderId] = useState(null)
-  const [aboutNoteHtml, setAboutNoteHtml] = useState(DEFAULT_ABOUT_HTML)
   const editorContentRef = useRef(null)
   const [editorScrollbar, setEditorScrollbar] = useState({ top: 0, height: 100, enabled: false })
 
   const folderArcLayout = [
     { id: 'performance', left: '15%', top: '60%' },
     { id: 'writing', left: '30%', top: '34%' },
-    { id: 'press', left: '52%', top: '12%' },
+    { id: 'press', left: '52%', top: '22%' },
     { id: 'filmmaking', left: '73%', top: '40%' },
     { id: 'cv', left: '89%', top: '63%' },
   ]
@@ -369,10 +579,12 @@ function AboutPage({ onBackHome, onOpenFolder }) {
   }, [])
 
   useEffect(() => {
+    const el = editorContentRef.current
+    if (el && !el.innerHTML) el.innerHTML = DEFAULT_ABOUT_HTML
     if (typeof window === 'undefined') return undefined
     const frame = window.requestAnimationFrame(updateEditorScrollbar)
     return () => window.cancelAnimationFrame(frame)
-  }, [aboutNoteHtml, updateEditorScrollbar])
+  }, [updateEditorScrollbar])
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
@@ -391,15 +603,15 @@ function AboutPage({ onBackHome, onOpenFolder }) {
         position: 'relative',
         overflow: 'hidden',
       }}
-      onClick={() => setSelectedFolderId(null)}
     >
+      {/* ── Left column ── */}
       <div
         style={{
           position: 'absolute',
           left: '24px',
-          top: '88px',
+          top: '64px',
           zIndex: 21,
-          width: 'min(28.8vw, 328px)',
+          width: 'min(22vw, 290px)',
           display: 'flex',
           flexDirection: 'column',
           gap: '8px',
@@ -407,10 +619,10 @@ function AboutPage({ onBackHome, onOpenFolder }) {
         onClick={(event) => event.stopPropagation()}
       >
         <img
-          src="assets/nana_welcome.jpeg"
+          src="assets/welcome.webp"
           alt="welcome to my page"
           style={{
-            width: '192px',
+            width: '160px',
             maxWidth: '100%',
             height: 'auto',
             objectFit: 'contain',
@@ -442,8 +654,7 @@ function AboutPage({ onBackHome, onOpenFolder }) {
             className="classic-textedit-scroll"
             contentEditable
             suppressContentEditableWarning
-            dangerouslySetInnerHTML={{ __html: aboutNoteHtml }}
-            onInput={(event) => setAboutNoteHtml(event.currentTarget.innerHTML)}
+            onInput={updateEditorScrollbar}
             onScroll={updateEditorScrollbar}
             onClick={(event) => {
               const anchor = event.target.closest?.('a')
@@ -503,47 +714,41 @@ function AboutPage({ onBackHome, onOpenFolder }) {
         </div>
       </div>
 
+      {/* ── Safety pin (between left col and right stage) ── */}
+      <div style={{ position: 'absolute', left: 'min(25vw, 330px)', top: '36%', zIndex: 20, pointerEvents: 'none' }}>
+        <img
+          src="assets/safety-pin.gif"
+          alt=""
+          aria-hidden="true"
+          style={{ width: '56px', height: 'auto', objectFit: 'contain' }}
+        />
+      </div>
+
+      {/* ── Bottom-left: diary photo + radio + player ── */}
       <div
         style={{
           position: 'absolute',
-          left: '34px',
-          bottom: '34px',
+          left: '24px',
+          bottom: '16px',
           zIndex: 21,
           display: 'flex',
           flexDirection: 'column',
-          gap: '6px',
-          alignItems: 'center',
-          width: '330px',
+          gap: '4px',
+          alignItems: 'flex-start',
+          width: 'min(22vw, 290px)',
         }}
         onClick={(event) => event.stopPropagation()}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <img
-            src="assets/nana_radio.jpeg"
-            alt="radio"
-            style={{
-              width: '58px',
-              height: 'auto',
-              objectFit: 'contain',
-              borderRadius: '6px',
-            }}
-          />
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <img
-            src="assets/nana_player_bg.png"
-            alt="Player"
-            style={{
-              width: '330px',
-              height: 'auto',
-              objectFit: 'contain',
-              borderRadius: '6px',
-            }}
-          />
-        </div>
+        {/* radio + player */}
+        <img
+          src="assets/radio.gif"
+          alt="radio"
+          style={{ width: '48px', height: 'auto', objectFit: 'contain', alignSelf: 'center' }}
+        />
+        <TinyPlayer />
       </div>
 
+      {/* ── Right stage ── */}
       <div
         style={{
           position: 'absolute',
@@ -554,6 +759,7 @@ function AboutPage({ onBackHome, onOpenFolder }) {
           zIndex: 8,
         }}
       >
+        {/* Browser tabs */}
         <div
           style={{
             position: 'absolute',
@@ -567,24 +773,54 @@ function AboutPage({ onBackHome, onOpenFolder }) {
           <img
             src="assets/nana_tabs.png"
             alt="nana tabs"
-            style={{
-              width: '100%',
-              height: 'auto',
-              objectFit: 'contain',
-            }}
+            style={{ width: '100%', height: 'auto', objectFit: 'contain' }}
           />
         </div>
 
+        {/* Title banner + subtitle */}
         <div
           style={{
             position: 'absolute',
-            top: '96px',
-            right: '20px',
+            top: '88px',
+            left: '2%',
+            right: '8%',
+            zIndex: 12,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '3px',
+            pointerEvents: 'none',
+          }}
+        >
+          <img
+            src="assets/shelestvetrovki-glitter.gif"
+            alt="shelestvetrovki"
+            style={{ width: 'min(280px, 40%)', height: 'auto', objectFit: 'contain' }}
+          />
+          <span
+            style={{
+              fontFamily: MAC_LIGHT_FONT_STACK,
+              fontSize: '12px',
+              fontWeight: 300,
+              color: '#444',
+              letterSpacing: '0.01em',
+            }}
+          >
+            Anastasiia Pishchanska b.2000
+          </span>
+        </div>
+
+        {/* Home button */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '80px',
+            right: '16px',
             zIndex: 22,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '8px',
+            gap: '2px',
           }}
         >
           <a
@@ -592,83 +828,65 @@ function AboutPage({ onBackHome, onOpenFolder }) {
             style={{
               padding: 0,
               display: 'inline-flex',
+              flexDirection: 'column',
               alignItems: 'center',
-              justifyContent: 'center',
+              gap: '2px',
             }}
           >
             <img
-              src="assets/nana_house.jpeg"
+              src="assets/house.gif"
               alt="back home"
-              style={{
-                width: '140px',
-                height: 'auto',
-                objectFit: 'contain',
-              }}
+              style={{ width: '64px', height: 'auto', objectFit: 'contain' }}
             />
+            <span
+              style={{
+                fontFamily: MAC_LIGHT_FONT_STACK,
+                fontSize: '11px',
+                fontWeight: 300,
+                color: '#333',
+              }}
+            >
+              home
+            </span>
           </a>
         </div>
 
+        {/* Knock knock button */}
         <a
           href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('knock knock')}`}
           style={{
             position: 'absolute',
-            right: '20px',
-            bottom: '20px',
+            right: '16px',
+            bottom: '16px',
             zIndex: 22,
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
+            gap: '4px',
           }}
         >
           <img
-            src="assets/nana_knockknock.jpeg"
+            src="assets/envelope.gif"
             alt="knock knock"
-            style={{
-              width: '140px',
-              height: 'auto',
-              objectFit: 'contain',
-            }}
+            style={{ width: '56px', height: 'auto', objectFit: 'contain' }}
+          />
+          <img
+            src="assets/knock-knock.gif"
+            alt="knock knock"
+            style={{ width: '100px', height: 'auto', objectFit: 'contain' }}
           />
         </a>
 
-        <div
-          style={{
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            paddingTop: '72px',
-            boxSizing: 'border-box',
-          }}
-        >
-          <img
-            src="assets/nana_hero.jpeg"
-            alt="nana hero"
-            style={{
-              maxWidth: 'min(48vw, 700px)',
-              maxHeight: 'min(56vh, 520px)',
-              width: 'auto',
-              height: 'auto',
-              objectFit: 'contain',
-            }}
-          />
-        </div>
-
+        {/* Folders */}
         {folderArcLayout.map((placement) => {
           const folder = FOLDER_MAP.get(placement.id)
           if (!folder) return null
-          const isSelected = selectedFolderId === folder.id
 
           return (
             <button
               key={folder.id}
               type="button"
               onClick={(event) => {
-                event.stopPropagation()
-                setSelectedFolderId(folder.id)
-              }}
-              onDoubleClick={(event) => {
                 event.stopPropagation()
                 onOpenFolder(folder.id)
               }}
@@ -678,8 +896,8 @@ function AboutPage({ onBackHome, onOpenFolder }) {
                 top: placement.top,
                 transform: 'translate(-50%, -50%)',
                 zIndex: 25,
-                border: isSelected ? '1px solid rgba(24, 126, 255, 0.95)' : '1px solid transparent',
-                background: isSelected ? 'rgba(24, 126, 255, 0.22)' : 'transparent',
+                border: '1px solid transparent',
+                background: 'transparent',
                 borderRadius: '3px',
                 padding: '6px 8px',
                 display: 'flex',
@@ -687,18 +905,14 @@ function AboutPage({ onBackHome, onOpenFolder }) {
                 alignItems: 'center',
                 gap: '6px',
                 width: '92px',
-                cursor: 'auto',
+                cursor: 'pointer',
                 userSelect: 'none',
               }}
             >
               <img
                 src="assets/folder-icon-macos.webp"
                 alt={`${folder.label} folder`}
-                style={{
-                  width: '68px',
-                  height: '56px',
-                  objectFit: 'contain',
-                }}
+                style={{ width: '68px', height: '56px', objectFit: 'contain' }}
               />
               <span
                 style={{
@@ -786,7 +1000,7 @@ function FolderPage({ folder, onBackToAbout }) {
               fontFamily: MAC_LIGHT_FONT_STACK,
               fontSize: '13px',
               fontWeight: 300,
-              cursor: 'auto',
+              cursor: 'pointer',
             }}
           >
             back
@@ -905,10 +1119,16 @@ export default function App() {
 
   if (route.type === 'folder') {
     const folder = FOLDER_MAP.get(route.folderId)
-    if (!folder) {
-      return <AboutPage onBackHome={closeAbout} onOpenFolder={openFolder} />
-    }
-    return <FolderPage folder={folder} onBackToAbout={closeFolder} />
+    return (
+      <>
+        <AboutPage onBackHome={closeAbout} onOpenFolder={openFolder} />
+        {folder && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 200 }}>
+            <FolderPage folder={folder} onBackToAbout={closeFolder} />
+          </div>
+        )}
+      </>
+    )
   }
 
   return (
