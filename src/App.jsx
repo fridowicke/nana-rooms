@@ -1,6 +1,6 @@
 import React, { useState, Suspense, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { PointerLockControls, Stage, useGLTF, KeyboardControls, useKeyboardControls } from '@react-three/drei'
+import { OrbitControls, Stage, useGLTF, KeyboardControls, useKeyboardControls } from '@react-three/drei'
 import * as THREE from 'three'
 
 const keyboardMap = [
@@ -266,64 +266,69 @@ function navigateWithHash(nextHash) {
   window.location.hash = nextHash
 }
 
-function Controls({ onLockChange }) {
+function Controls() {
   const [, get] = useKeyboardControls()
-  const { camera, gl } = useThree()
+  const { camera } = useThree()
   const controlsRef = useRef()
-  const moveSpeed = 0.08
-
-  useEffect(() => {
-    const canvas = gl.domElement
-    const handleClick = () => controlsRef.current?.lock()
-    canvas.addEventListener('click', handleClick)
-    return () => canvas.removeEventListener('click', handleClick)
-  }, [gl])
+  const moveSpeed = 0.2
 
   useFrame(() => {
-    if (!controlsRef.current?.isLocked) return
     const { forward, backward, left, right } = get()
+
     if (!(forward || backward || left || right)) return
 
-    const forwardDir = new THREE.Vector3()
-    camera.getWorldDirection(forwardDir)
+    const forwardDir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion)
     forwardDir.y = 0
     forwardDir.normalize()
 
-    const rightDir = new THREE.Vector3().crossVectors(forwardDir, camera.up).normalize()
+    const rightDir = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion)
+    rightDir.y = 0
+    rightDir.normalize()
 
-    const moveDir = new THREE.Vector3()
+    const moveDir = new THREE.Vector3(0, 0, 0)
     if (forward) moveDir.add(forwardDir)
     if (backward) moveDir.sub(forwardDir)
     if (left) moveDir.sub(rightDir)
     if (right) moveDir.add(rightDir)
 
     if (moveDir.length() === 0) return
+
     moveDir.normalize().multiplyScalar(moveSpeed)
     camera.position.add(moveDir)
+
+    if (controlsRef.current) {
+      controlsRef.current.target.add(moveDir)
+      controlsRef.current.update()
+    }
   })
 
   return (
-    <PointerLockControls
+    <OrbitControls
       ref={controlsRef}
       makeDefault
-      onLock={() => onLockChange?.(true)}
-      onUnlock={() => onLockChange?.(false)}
+      rotateSpeed={0.4}
+      zoomSpeed={1}
+      panSpeed={0.4}
+      enableDamping
+      dampingFactor={0.05}
     />
   )
 }
 
 function CameraTracker({ onUpdate }) {
-  const { camera } = useThree()
+  const { camera, controls } = useThree()
   const lastRef = useRef('')
 
   useFrame(() => {
     const p = camera.position
-    const d = new THREE.Vector3()
-    camera.getWorldDirection(d)
-    const str = `${p.x.toFixed(3)},${p.y.toFixed(3)},${p.z.toFixed(3)}|${d.x.toFixed(3)},${d.y.toFixed(3)},${d.z.toFixed(3)}`
+    const t = controls?.target
+    const str = `${p.x.toFixed(3)},${p.y.toFixed(3)},${p.z.toFixed(3)}|${t ? `${t.x.toFixed(3)},${t.y.toFixed(3)},${t.z.toFixed(3)}` : '0,0,0'}`
     if (str !== lastRef.current) {
       lastRef.current = str
-      onUpdate({ position: [p.x, p.y, p.z], target: [d.x, d.y, d.z] })
+      onUpdate({
+        position: [p.x, p.y, p.z],
+        target: t ? [t.x, t.y, t.z] : [0, 0, 0],
+      })
     }
   })
 
@@ -405,7 +410,6 @@ function fmt3(v) {
 
 function RoomPage({ roomNumber, roomFile, cameraPosition, onBack }) {
   const [camInfo, setCamInfo] = useState({ position: cameraPosition, target: [0, 0, 0] })
-  const [locked, setLocked] = useState(false)
   const handleCamUpdate = useCallback((info) => setCamInfo(info), [])
 
   return (
@@ -421,31 +425,6 @@ function RoomPage({ roomNumber, roomFile, cameraPosition, onBack }) {
         position: 'relative',
       }}
     >
-      {!locked && (
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          zIndex: 10,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          pointerEvents: 'none',
-        }}>
-          <div style={{
-            fontFamily: MAC_LIGHT_FONT_STACK,
-            fontSize: '13px',
-            fontWeight: 300,
-            color: '#555',
-            background: 'rgba(255,255,255,0.82)',
-            padding: '8px 16px',
-            borderRadius: '6px',
-            backdropFilter: 'blur(4px)',
-          }}>
-            click to explore · esc to release · wasd to move
-          </div>
-        </div>
-      )}
-
       <button
         type="button"
         onClick={onBack}
@@ -474,7 +453,7 @@ function RoomPage({ roomNumber, roomFile, cameraPosition, onBack }) {
             <Stage environment="studio" intensity={0.6} contactShadows={{ opacity: 0.7, blur: 2 }} adjustCamera={false}>
               <Model url={`rooms/${roomFile}`} />
             </Stage>
-            <Controls onLockChange={setLocked} />
+            <Controls />
             <CameraReset position={cameraPosition} />
             <CameraTracker onUpdate={handleCamUpdate} />
           </Suspense>
@@ -503,7 +482,7 @@ function RoomPage({ roomNumber, roomFile, cameraPosition, onBack }) {
       >
         <div style={{ color: '#aaa', marginBottom: '2px' }}>camera</div>
         <div>pos&nbsp;&nbsp;[{fmt3(camInfo.position)}]</div>
-        <div>dir&nbsp;&nbsp;[{fmt3(camInfo.target)}]</div>
+        <div>look [{fmt3(camInfo.target)}]</div>
       </div>
     </div>
   )
