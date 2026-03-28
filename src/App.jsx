@@ -250,6 +250,16 @@ function parseRouteFromHash(hashValue) {
   return { type: 'home' }
 }
 
+function LoadingCursor() {
+  const { gl } = useThree()
+  useEffect(() => {
+    const el = gl.domElement
+    el.classList.add('cursor-working')
+    return () => el.classList.remove('cursor-working')
+  }, [gl])
+  return null
+}
+
 function navigateWithHash(nextHash) {
   if (typeof window === 'undefined') return
   if (window.location.hash === nextHash) return
@@ -458,9 +468,9 @@ function RoomPage({ roomNumber, roomFile, cameraPosition, onBack }) {
       </button>
 
       <KeyboardControls map={keyboardMap}>
-        <Canvas shadows camera={{ position: cameraPosition, fov: 47.5 }} style={{ cursor: 'auto' }} gl={{ toneMapping: THREE.NoToneMapping }}>
+        <Canvas shadows camera={{ position: cameraPosition, fov: 47.5 }} style={{ cursor: 'inherit' }} gl={{ toneMapping: THREE.NoToneMapping }}>
           <color attach="background" args={['#fff']} />
-          <Suspense fallback={null}>
+          <Suspense fallback={<LoadingCursor />}>
             <Stage environment="studio" intensity={0.6} contactShadows={{ opacity: 0.7, blur: 2 }} adjustCamera={false}>
               <Model url={`rooms/${roomFile}`} />
             </Stage>
@@ -473,6 +483,7 @@ function RoomPage({ roomNumber, roomFile, cameraPosition, onBack }) {
 
       {/* Camera info overlay */}
       <div
+        className="cursor-help"
         style={{
           position: 'absolute',
           bottom: '24px',
@@ -598,7 +609,7 @@ function TinyPlayer({ onTitleBarMouseDown }) {
   return (
     <div style={{ width: '290px', userSelect: 'none', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.18)', fontFamily: MAC_LIGHT_FONT_STACK }}>
       {/* Title bar */}
-      <div onMouseDown={onTitleBarMouseDown} style={{ background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid #b0b0b0', cursor: onTitleBarMouseDown ? 'grab' : 'default', userSelect: 'none' }}>
+      <div onMouseDown={onTitleBarMouseDown} className={onTitleBarMouseDown ? 'cursor-grab' : ''} style={{ background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid #b0b0b0', userSelect: 'none' }}>
         <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-block' }} />
         <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d4a017', display: 'inline-block' }} />
         <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'inline-block' }} />
@@ -812,7 +823,8 @@ function AboutPage({ onBackHome, onOpenFolder }) {
           {/* Title bar */}
           <div
             onMouseDown={makeTitleBarDrag(aboutWinPosRef, setAboutWinPos)}
-            style={{ background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid #b0b0b0', cursor: 'grab', userSelect: 'none' }}
+            className="cursor-grab"
+            style={{ background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid #b0b0b0', userSelect: 'none' }}
           >
             <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-block' }} />
             <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d4a017', display: 'inline-block' }} />
@@ -1077,6 +1089,7 @@ function AboutPage({ onBackHome, onOpenFolder }) {
               key={folder.id}
               type="button"
               onMouseDown={(e) => startFolderDrag(folder.id, e, () => onOpenFolder(folder.id))}
+              className="cursor-grab"
               style={{
                 position: 'absolute',
                 left: posLeft,
@@ -1092,7 +1105,7 @@ function AboutPage({ onBackHome, onOpenFolder }) {
                 alignItems: 'center',
                 gap: '6px',
                 width: '92px',
-                cursor: 'grab',
+                cursor: 'inherit',
                 userSelect: 'none',
               }}
             >
@@ -1178,7 +1191,8 @@ function FolderPage({ folder, onBackToAbout }) {
       {/* Title bar */}
       <div
         onMouseDown={onTitleBarMouseDown}
-        style={{ background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)', padding: '5px 8px', display: 'flex', alignItems: 'center', borderBottom: '1px solid #b0b0b0', flexShrink: 0, cursor: 'grab', userSelect: 'none' }}
+        className="cursor-grab"
+        style={{ background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)', padding: '5px 8px', display: 'flex', alignItems: 'center', borderBottom: '1px solid #b0b0b0', flexShrink: 0, userSelect: 'none' }}
       >
         <span
           onMouseEnter={() => setDotsHovered(true)}
@@ -1379,7 +1393,7 @@ export default function App() {
       </button>
 
       <KeyboardControls map={keyboardMap}>
-        <Canvas shadows camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'auto' }}>
+        <Canvas shadows camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'inherit' }}>
           <color attach="background" args={['#fff']} />
           <Suspense fallback={null}>
             <Stage environment="city" intensity={0.5} contactShadows={{ opacity: 0.7, blur: 2 }} adjustCamera={false}>
