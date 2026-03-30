@@ -24,11 +24,14 @@ const ROOM_FILES = [
   'MOENE WEB.glb',
 ]
 const CONTACT_EMAIL = 'shelestvetrovki@gmail.com'
+const ARTIST_NAME = 'Anastasiia Pishchanska'
 const HOME_HASH = '#home'
 const ABOUT_HASH = '#about'
 const ROOM_HASH_PREFIX = 'room-'
 const FOLDER_HASH_PREFIX = 'folder-'
 const MAC_LIGHT_FONT_STACK = "'Helvetica', Arial, sans-serif"
+const ARIAL_FONT_STACK = 'Arial, Helvetica, sans-serif'
+const HOME_PREVIEW_VIDEO = 'assets/shelestvetrovki-scan.mp4'
 const DEFAULT_ABOUT_HTML = `Anastasiia Pishchanska is a Ukrainian-born, Tokyo-based artist, filmmaker, and art director. She is the co-founder of the established Ukrainian art print publication localstickerbook (<a href="https://localgr0up.com/" target="_blank" rel="noreferrer">local.group</a>), which curates exhibitions, events, and fundraisers worldwide, presenting contemporary artists through the lens of post-internet culture. In 2023, following the full-scale invasion of Ukraine, she was awarded a research scholarship at...
 
 <br><br>Her practice moves between moving image, installation, and art direction, focusing on digital memory, migration, and cultural identity.`
@@ -312,6 +315,25 @@ function Controls() {
       enableDamping
       dampingFactor={0.05}
     />
+  )
+}
+
+function HomeScene({ onModelLoaded, onOpenRoom }) {
+  return (
+    <KeyboardControls map={keyboardMap}>
+      <Canvas shadows camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'inherit' }}>
+        <color attach="background" args={['#fff']} />
+        <Suspense fallback={null}>
+          <Stage environment="city" intensity={0.5} contactShadows={{ opacity: 0.7, blur: 2 }} adjustCamera={false}>
+            <Model url="assets/home.glb" onLoaded={onModelLoaded}>
+              <DoorLinks doors={DOOR_LINKS} onOpenRoom={onOpenRoom} />
+            </Model>
+          </Stage>
+          <Controls />
+          <CameraReset position={LANDING_CAMERA_POSITION} />
+        </Suspense>
+      </Canvas>
+    </KeyboardControls>
   )
 }
 
@@ -661,6 +683,12 @@ function AboutPage({ onBackHome, onOpenFolder }) {
   }))
   const playerPosRef = useRef(playerPos)
   playerPosRef.current = playerPos
+  const [homeWinPos, setHomeWinPos] = useState(() => ({
+    x: typeof window !== 'undefined' ? window.innerWidth / 2 - 180 : 700,
+    y: typeof window !== 'undefined' ? window.innerHeight / 2 - 110 : 320,
+  }))
+  const homeWinPosRef = useRef(homeWinPos)
+  homeWinPosRef.current = homeWinPos
 
   const makeTitleBarDrag = useCallback((posRef, setPos) => (e) => {
     if (e.button !== 0) return
@@ -982,50 +1010,64 @@ function AboutPage({ onBackHome, onOpenFolder }) {
           </span>
         </div>
 
-        {/* Home button */}
+        {/* Home window */}
         <div
           style={{
-            position: 'absolute',
-            top: '80px',
-            right: '16px',
-            zIndex: 22,
-            width: '100px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '2px',
+            position: 'fixed',
+            left: homeWinPos.x,
+            top: homeWinPos.y,
+            zIndex: 32,
+            width: 'min(40vw, 520px)',
           }}
+          onClick={(event) => event.stopPropagation()}
         >
-          <a
-            href={HOME_HASH}
+          <div
             style={{
-              padding: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '2px',
-              width: '100%',
+              borderRadius: '14px',
+              overflow: 'hidden',
+              boxShadow: '0 10px 28px rgba(0,0,0,0.18)',
+              background: '#f4f4f4',
             }}
           >
-            <img
-              src="assets/house.gif"
-              alt="back home"
-              style={{ width: '64px', height: 'auto', objectFit: 'contain' }}
-            />
-            <span
+            <div
+              onMouseDown={makeTitleBarDrag(homeWinPosRef, setHomeWinPos)}
+              className="cursor-grab"
               style={{
-                fontFamily: MAC_LIGHT_FONT_STACK,
-                fontSize: '11px',
-                fontWeight: 300,
-                color: '#333',
-                textAlign: 'center',
-                display: 'block',
-                width: '100%',
+                background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)',
+                padding: '7px 10px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                borderBottom: '1px solid #b0b0b0',
+                userSelect: 'none',
               }}
             >
-              home
-            </span>
-          </a>
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-block' }} />
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d4a017', display: 'inline-block' }} />
+              <button
+                type="button"
+                onClick={onBackHome}
+                aria-label="Back home"
+                style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'inline-block', padding: 0 }}
+              />
+              <span style={{ flex: 1, textAlign: 'center', fontSize: '14px', fontWeight: 600, color: '#333', marginRight: '20px', letterSpacing: '0.01em' }}>Home</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={onBackHome}
+              style={{
+                display: 'block',
+                width: '100%',
+                height: '320px',
+                border: 'none',
+                padding: 0,
+                background: '#fff',
+              }}
+            >
+              <HomeScene onModelLoaded={undefined} onOpenRoom={() => {}} />
+            </button>
+          </div>
         </div>
 
         {/* Knock knock button */}
@@ -1244,11 +1286,149 @@ function FolderPage({ folder, onBackToAbout }) {
   )
 }
 
+function ProjectPreviewWindow({ isOpen, onClose }) {
+  const videoRef = useRef(null)
+  const [showFallbackPlay, setShowFallbackPlay] = useState(false)
+  const [animateIn, setAnimateIn] = useState(false)
+
+  useEffect(() => {
+    if (!isOpen) {
+      const video = videoRef.current
+      if (video) {
+        video.pause()
+        video.currentTime = 0
+      }
+      setShowFallbackPlay(false)
+      setAnimateIn(false)
+      return
+    }
+
+    const frameId = window.requestAnimationFrame(() => setAnimateIn(true))
+    const video = videoRef.current
+    if (video) {
+      video.volume = 0.5
+      video.loop = true
+      video.currentTime = 0
+      const playAttempt = video.play()
+      if (playAttempt?.catch) {
+        playAttempt.catch(() => setShowFallbackPlay(true))
+      }
+    }
+
+    return () => window.cancelAnimationFrame(frameId)
+  }, [isOpen])
+
+  const handleManualPlay = useCallback(() => {
+    const video = videoRef.current
+    if (!video) return
+    video.volume = 0.5
+    video.play().then(() => setShowFallbackPlay(false)).catch(() => {})
+  }, [])
+
+  if (!isOpen) return null
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: '50%',
+        top: '52%',
+        transform: animateIn ? 'translate(-50%, -50%) scale(1)' : 'translate(-50%, -46%) scale(0.94)',
+        width: 'min(64vw, 820px)',
+        aspectRatio: '16 / 10',
+        maxHeight: '72vh',
+        borderRadius: '28px',
+        overflow: 'hidden',
+        background: 'linear-gradient(180deg, #f5f5f5 0%, #dddddd 100%)',
+        border: '1px solid rgba(0,0,0,0.08)',
+        boxShadow: '0 36px 100px rgba(0,0,0,0.28), 0 12px 40px rgba(0,0,0,0.16)',
+        opacity: animateIn ? 1 : 0,
+        transition: 'transform 360ms ease, opacity 360ms ease',
+        zIndex: 30,
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '12px 16px',
+          borderBottom: '1px solid rgba(0,0,0,0.08)',
+          background: 'linear-gradient(180deg, #efefef 0%, #dbdbdb 100%)',
+          userSelect: 'none',
+        }}
+      >
+        <button
+          type="button"
+          aria-label="Close preview"
+          onClick={onClose}
+          style={{
+            width: '12px',
+            height: '12px',
+            borderRadius: '999px',
+            background: '#ff5f57',
+            border: '1px solid #df4d43',
+            padding: 0,
+          }}
+        />
+        <span style={{ width: '12px', height: '12px', borderRadius: '999px', background: '#febc2e', border: '1px solid #d6a024' }} />
+        <span style={{ width: '12px', height: '12px', borderRadius: '999px', background: '#28c840', border: '1px solid #1ea933' }} />
+        <span style={{ flex: 1, textAlign: 'center', marginRight: '76px', fontFamily: MAC_LIGHT_FONT_STACK, fontSize: '12px', color: '#555' }}>
+          AP_shelestvetrovki_welcome_page.mp4
+        </span>
+      </div>
+
+      <div
+        style={{
+          position: 'relative',
+          width: '100%',
+          height: 'calc(100% - 49px)',
+          background: '#050505',
+        }}
+      >
+        <video
+          ref={videoRef}
+          src={HOME_PREVIEW_VIDEO}
+          playsInline
+          loop
+          preload="auto"
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+
+        {showFallbackPlay && (
+          <button
+            type="button"
+            onClick={handleManualPlay}
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              border: 'none',
+              borderRadius: '999px',
+              background: 'rgba(255,255,255,0.94)',
+              color: '#111',
+              padding: '14px 22px',
+              fontFamily: ARIAL_FONT_STACK,
+              fontSize: '14px',
+              fontWeight: 700,
+              boxShadow: '0 8px 28px rgba(0,0,0,0.22)',
+            }}
+          >
+            Play with sound
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const [route, setRoute] = useState(() =>
     parseRouteFromHash(typeof window !== 'undefined' ? window.location.hash : ''),
   )
   const [homeModelLoaded, setHomeModelLoaded] = useState(false)
+  const [isPreviewOpen, setIsPreviewOpen] = useState(true)
   const roomsPreloadedRef = useRef(false)
 
   useEffect(() => {
@@ -1293,6 +1473,15 @@ export default function App() {
 
   const handleHomeModelLoaded = useCallback(() => {
     setHomeModelLoaded(true)
+  }, [])
+
+  const closePreview = useCallback(() => {
+    setIsPreviewOpen(false)
+    navigateWithHash(ABOUT_HASH)
+  }, [])
+
+  const openPreview = useCallback(() => {
+    setIsPreviewOpen(true)
   }, [])
 
   useEffect(() => {
@@ -1348,43 +1537,55 @@ export default function App() {
         position: 'relative',
         cursor: 'auto',
         backgroundColor: '#fff',
+        overflow: 'hidden',
       }}
     >
-      <button
-        type="button"
-        onClick={openAbout}
+      <div
         style={{
           position: 'absolute',
-          top: '24px',
-          left: '24px',
-          zIndex: 20,
-          border: 'none',
-          background: 'transparent',
-          color: '#000',
-          padding: 0,
-          fontFamily: MAC_LIGHT_FONT_STACK,
-          fontSize: '18px',
-          fontWeight: 300,
-          cursor: 'auto',
+          left: '50%',
+          top: '40px',
+          transform: 'translateX(-50%)',
+          zIndex: 40,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '8px',
         }}
       >
-        about
-      </button>
+        <button
+          type="button"
+          onClick={openPreview}
+          aria-label="Open latest project preview"
+          style={{ border: 'none', background: 'transparent', padding: 0 }}
+        >
+          <img
+            src="assets/shelestvetrovki-glitter.gif"
+            alt="Open latest project preview"
+            style={{ width: 'min(260px, 34vw)', height: 'auto', display: 'block' }}
+          />
+        </button>
 
-      <KeyboardControls map={keyboardMap}>
-        <Canvas shadows camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'inherit' }}>
-          <color attach="background" args={['#fff']} />
-          <Suspense fallback={null}>
-            <Stage environment="city" intensity={0.5} contactShadows={{ opacity: 0.7, blur: 2 }} adjustCamera={false}>
-              <Model url="assets/home.glb" onLoaded={handleHomeModelLoaded}>
-                <DoorLinks doors={DOOR_LINKS} onOpenRoom={openRoom} />
-              </Model>
-            </Stage>
-            <Controls />
-            <CameraReset position={LANDING_CAMERA_POSITION} />
-          </Suspense>
-        </Canvas>
-      </KeyboardControls>
+        <button
+          type="button"
+          onClick={openAbout}
+          style={{
+            border: 'none',
+            background: 'transparent',
+            color: '#000',
+            padding: 0,
+            fontFamily: ARIAL_FONT_STACK,
+            fontSize: '28px',
+            fontWeight: 400,
+            letterSpacing: '0.01em',
+            lineHeight: 1,
+          }}
+        >
+          {ARTIST_NAME}
+        </button>
+      </div>
+
+      <ProjectPreviewWindow isOpen={isPreviewOpen} onClose={closePreview} />
     </div>
   )
 }
