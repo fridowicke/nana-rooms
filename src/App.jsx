@@ -656,7 +656,7 @@ function TinyPlayer({ onTitleBarMouseDown }) {
   )
 }
 
-function AboutPage({ onBackHome, onOpenFolder }) {
+function AboutPage({ onBackHome, onOpenFolder, onOpenRoom }) {
   const editorContentRef = useRef(null)
   const [editorScrollbar, setEditorScrollbar] = useState({ top: 0, height: 100, enabled: false })
   const rightStageRef = useRef(null)
@@ -1053,20 +1053,15 @@ function AboutPage({ onBackHome, onOpenFolder }) {
               <span style={{ flex: 1, textAlign: 'center', fontSize: '14px', fontWeight: 600, color: '#333', marginRight: '20px', letterSpacing: '0.01em' }}>Home</span>
             </div>
 
-            <button
-              type="button"
-              onClick={onBackHome}
+            <div
               style={{
-                display: 'block',
                 width: '100%',
                 height: '320px',
-                border: 'none',
-                padding: 0,
                 background: '#fff',
               }}
             >
-              <HomeScene onModelLoaded={undefined} onOpenRoom={() => {}} />
-            </button>
+              <HomeScene onModelLoaded={undefined} onOpenRoom={onOpenRoom} />
+            </div>
           </div>
         </div>
 
@@ -1512,14 +1507,14 @@ export default function App() {
   }
 
   if (route.type === 'about') {
-    return <AboutPage onBackHome={closeAbout} onOpenFolder={openFolder} />
+    return <AboutPage onBackHome={closeAbout} onOpenFolder={openFolder} onOpenRoom={openRoom} />
   }
 
   if (route.type === 'folder') {
     const folder = FOLDER_MAP.get(route.folderId)
     return (
       <>
-        <AboutPage onBackHome={closeAbout} onOpenFolder={openFolder} />
+        <AboutPage onBackHome={closeAbout} onOpenFolder={openFolder} onOpenRoom={openRoom} />
         {folder && (
           <div style={{ position: 'fixed', inset: 0, zIndex: 200, pointerEvents: 'none' }}>
             <FolderPage folder={folder} onBackToAbout={closeFolder} />
