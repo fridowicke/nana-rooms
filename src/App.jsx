@@ -20,7 +20,7 @@ const ROOM_CAMERA_POSITIONS = [
 const ROOM_FILES = [
   'YUNA WEB.glb',
   'SUZUNE WEB.glb',
-  'ANDREA WEB.glb',
+  'AIKO WEB.glb',
   'MOENE WEB.glb',
 ]
 const CONTACT_EMAIL = 'shelestvetrovki@gmail.com'
