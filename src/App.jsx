@@ -25,6 +25,7 @@ const ROOM_FILES = [
 ]
 const CONTACT_EMAIL = 'shelestvetrovki@gmail.com'
 const HOME_TITLE = 'shelest vetrovki'
+const PREVIEW_FILENAME = 'shelestvetrovki.mp4'
 const HOME_HASH = '#home'
 const ABOUT_HASH = '#about'
 const ROOM_HASH_PREFIX = 'room-'
@@ -1247,7 +1248,7 @@ function FolderPage({ folder, onBackToAbout }) {
 function ProjectPreviewWindow({ onClose }) {
   const videoRef = useRef(null)
   const [animateIn, setAnimateIn] = useState(false)
-  const [isMuted, setIsMuted] = useState(true)
+  const [isMuted, setIsMuted] = useState(false)
   const [windowPos, setWindowPos] = useState(() => ({
     x: typeof window !== 'undefined' ? window.innerWidth / 2 - 492 : 120,
     y: typeof window !== 'undefined' ? window.innerHeight / 2 - 307 : 80,
@@ -1280,8 +1281,8 @@ function ProjectPreviewWindow({ onClose }) {
     const frameId = window.requestAnimationFrame(() => setAnimateIn(true))
     const video = videoRef.current
     if (video) {
-      video.muted = true
-      video.defaultMuted = true
+      video.muted = false
+      video.defaultMuted = false
       video.volume = 0.5
       video.loop = true
       video.currentTime = 0
@@ -1350,7 +1351,7 @@ function ProjectPreviewWindow({ onClose }) {
         <span style={{ width: '12px', height: '12px', borderRadius: '999px', background: '#febc2e', border: '1px solid #d6a024' }} />
         <span style={{ width: '12px', height: '12px', borderRadius: '999px', background: '#28c840', border: '1px solid #1ea933' }} />
         <span style={{ flex: 1, textAlign: 'center', marginRight: '76px', fontFamily: MAC_LIGHT_FONT_STACK, fontSize: '12px', color: '#555' }}>
-          AP_shelestvetrovki_welcome_page.mp4
+          {PREVIEW_FILENAME}
         </span>
       </div>
 
@@ -1395,24 +1396,123 @@ function ProjectPreviewWindow({ onClose }) {
           {isMuted ? 'unmute' : 'mute'}
         </button>
 
-        {isMuted && (
+      </div>
+    </div>
+  )
+}
+
+function PreviewLauncher({ onOpen }) {
+  const [iconPos, setIconPos] = useState(() => ({
+    x: typeof window !== 'undefined' ? window.innerWidth / 2 - 220 : 180,
+    y: typeof window !== 'undefined' ? window.innerHeight / 2 - 10 : 320,
+  }))
+  const iconPosRef = useRef(iconPos)
+  iconPosRef.current = iconPos
+
+  const startDrag = useCallback((event) => {
+    if (event.button !== 0) return
+    event.preventDefault()
+    const startMx = event.clientX
+    const startMy = event.clientY
+    const startPx = iconPosRef.current.x
+    const startPy = iconPosRef.current.y
+    const onMove = (moveEvent) => {
+      setIconPos({
+        x: startPx + moveEvent.clientX - startMx,
+        y: startPy + moveEvent.clientY - startMy,
+      })
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [])
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      style={{
+        position: 'absolute',
+        left: `${iconPos.x}px`,
+        top: `${iconPos.y}px`,
+        border: 'none',
+        background: 'transparent',
+        padding: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '8px',
+        width: '120px',
+        cursor: 'pointer',
+      }}
+      onMouseDown={startDrag}
+      onDragStart={(event) => event.preventDefault()}
+    >
+      <div
+        style={{
+          position: 'relative',
+          width: '52px',
+          height: '48px',
+          imageRendering: 'pixelated',
+          background: 'linear-gradient(180deg,#d8ebff 0%,#9ecbff 100%)',
+          border: '1px solid #6e97c8',
+          boxShadow: '2px 2px 0 rgba(0,0,0,0.14)',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            top: '-1px',
+            left: '6px',
+            width: '18px',
+            height: '8px',
+            background: '#f4f8ff',
+            border: '1px solid #6e97c8',
+            borderBottom: 'none',
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            inset: '8px 6px 6px',
+            background: '#eef6ff',
+            border: '1px solid rgba(110,151,200,0.9)',
+          }}
+        >
           <div
             style={{
               position: 'absolute',
-              left: '18px',
-              bottom: '20px',
-              color: 'rgba(255,255,255,0.7)',
-              fontFamily: ARIAL_FONT_STACK,
-              fontSize: '12px',
-              letterSpacing: '0.02em',
-              pointerEvents: 'none',
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-42%, -50%)',
+              width: 0,
+              height: 0,
+              borderTop: '8px solid transparent',
+              borderBottom: '8px solid transparent',
+              borderLeft: '13px solid #285a93',
             }}
-          >
-            sound is off
-          </div>
-        )}
+          />
+        </div>
       </div>
-    </div>
+      <span
+        style={{
+          maxWidth: '120px',
+          color: '#000',
+          fontFamily: MAC_LIGHT_FONT_STACK,
+          fontSize: '13px',
+          fontWeight: 300,
+          lineHeight: 1.15,
+          textAlign: 'center',
+          textShadow: '1px 1px 0 rgba(255,255,255,0.9)',
+          wordBreak: 'break-word',
+        }}
+      >
+        {PREVIEW_FILENAME}
+      </span>
+    </button>
   )
 }
 
@@ -1420,7 +1520,8 @@ export default function App() {
   const [route, setRoute] = useState(() =>
     parseRouteFromHash(typeof window !== 'undefined' ? window.location.hash : ''),
   )
-  const [isPreviewOpen, setIsPreviewOpen] = useState(true)
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [hasOpenedPreview, setHasOpenedPreview] = useState(false)
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
@@ -1456,6 +1557,7 @@ export default function App() {
 
   const closeRoom = useCallback(() => {
     setIsPreviewOpen(false)
+    setHasOpenedPreview(true)
     navigateWithHash(HOME_HASH)
   }, [])
 
@@ -1465,6 +1567,7 @@ export default function App() {
 
   const closeAbout = useCallback(() => {
     setIsPreviewOpen(false)
+    setHasOpenedPreview(true)
     navigateWithHash(HOME_HASH)
   }, [])
 
@@ -1478,6 +1581,13 @@ export default function App() {
 
   const closePreview = useCallback(() => {
     setIsPreviewOpen(false)
+    setHasOpenedPreview(true)
+    navigateWithHash(HOME_HASH)
+  }, [])
+
+  const openPreview = useCallback(() => {
+    setHasOpenedPreview(true)
+    setIsPreviewOpen(true)
     navigateWithHash(HOME_HASH)
   }, [])
 
@@ -1516,23 +1626,47 @@ export default function App() {
         overflow: 'hidden',
       }}
     >
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          opacity: isPreviewOpen ? 0 : 1,
-          pointerEvents: isPreviewOpen ? 'none' : 'auto',
-          transition: 'opacity 180ms ease',
-        }}
-      >
-        <HomeScene onModelLoaded={undefined} onOpenRoom={openRoom} />
-      </div>
+      {hasOpenedPreview && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            opacity: isPreviewOpen ? 0 : 1,
+            pointerEvents: isPreviewOpen ? 'none' : 'auto',
+            transition: 'opacity 180ms ease',
+          }}
+        >
+          <HomeScene onModelLoaded={undefined} onOpenRoom={openRoom} />
+        </div>
+      )}
+
+      {hasOpenedPreview && !isPreviewOpen && (
+        <button
+          type="button"
+          onClick={openAbout}
+          style={{
+            position: 'absolute',
+            top: '24px',
+            left: '24px',
+            zIndex: 41,
+            border: 'none',
+            background: 'transparent',
+            color: '#000',
+            padding: 0,
+            fontFamily: MAC_LIGHT_FONT_STACK,
+            fontSize: '18px',
+            fontWeight: 300,
+          }}
+        >
+          about
+        </button>
+      )}
 
       <div
         style={{
           position: 'absolute',
           left: '50%',
-          top: '36px',
+          top: '24px',
           transform: 'translateX(-50%)',
           zIndex: 40,
           display: 'flex',
@@ -1541,29 +1675,7 @@ export default function App() {
           gap: '6px',
         }}
       >
-        {!isPreviewOpen && (
-          <button
-            type="button"
-            onClick={openAbout}
-            style={{
-              position: 'fixed',
-              top: '24px',
-              left: '24px',
-              zIndex: 41,
-              border: 'none',
-              background: 'transparent',
-              color: '#000',
-              padding: 0,
-              fontFamily: MAC_LIGHT_FONT_STACK,
-              fontSize: '18px',
-              fontWeight: 300,
-            }}
-          >
-            about
-          </button>
-        )}
-
-        {!isPreviewOpen && (
+        {hasOpenedPreview && !isPreviewOpen && (
           <img
             src={HOME_WELCOME_GIF}
             alt=""
@@ -1572,12 +1684,8 @@ export default function App() {
           />
         )}
 
-        <button
-          type="button"
-          onClick={openAbout}
+        <div
           style={{
-            border: 'none',
-            background: 'transparent',
             color: '#000',
             padding: 0,
             width: 'min(220px, 32vw)',
@@ -1591,9 +1699,10 @@ export default function App() {
           }}
         >
           {HOME_TITLE}
-        </button>
+        </div>
       </div>
 
+      {!hasOpenedPreview && !isPreviewOpen && <PreviewLauncher onOpen={openPreview} />}
       {isPreviewOpen && <ProjectPreviewWindow onClose={closePreview} />}
     </div>
   )
