@@ -36,6 +36,7 @@ const HOME_PREVIEW_VIDEO = 'assets/shelestvetrovki-scan.mp4'
 const HOME_WELCOME_GIF = 'assets/home-welcome.gif'
 const NEXT_DOOR_GIF = 'assets/next-door.gif'
 const GO_BACK_GIF = 'assets/go-back.gif'
+const ABOUT_HOME_GIF = new URL('../target/gifs/navigation buttons/home.gif', import.meta.url).href
 const CURSOR_TRAIL_GIFS = [
   new URL('../target/cursor/sparkle_a.gif', import.meta.url).href,
   new URL('../target/cursor/sparkle_b.gif', import.meta.url).href,
@@ -1233,6 +1234,31 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
             Anastasiia Pishchanska b.2000
           </span>
         </div>
+
+        <button
+          type="button"
+          onClick={onBackHome}
+          aria-label="Go back home"
+          style={{
+            position: 'absolute',
+            top: '56px',
+            right: '18px',
+            zIndex: 13,
+            border: 'none',
+            background: 'transparent',
+            padding: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+        >
+          <img
+            src={ABOUT_HOME_GIF}
+            alt="home"
+            style={{ width: '78px', height: 'auto', display: 'block', objectFit: 'contain' }}
+          />
+        </button>
 
         {/* Knock knock button */}
         <a
