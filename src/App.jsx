@@ -36,9 +36,20 @@ const HOME_PREVIEW_VIDEO = 'assets/shelestvetrovki-scan.mp4'
 const HOME_WELCOME_GIF = 'assets/home-welcome.gif'
 const NEXT_DOOR_GIF = 'assets/next-door.gif'
 const GO_BACK_GIF = 'assets/go-back.gif'
+const HOME_HEADER_TOP = 24
+const PREVIEW_WINDOW_TOP = 190
 const DEFAULT_ABOUT_HTML = `Anastasiia Pishchanska is a Ukrainian-born, Tokyo-based artist, filmmaker, and art director. She is the co-founder of the established Ukrainian art print publication localstickerbook (<a href="https://localgr0up.com/" target="_blank" rel="noreferrer">local.group</a>), which curates exhibitions, events, and fundraisers worldwide, presenting contemporary artists through the lens of post-internet culture. In 2023, following the full-scale invasion of Ukraine, she was awarded a research scholarship at...
 
 <br><br>Her practice moves between moving image, installation, and art direction, focusing on digital memory, migration, and cultural identity.`
+const ABOUT_BASE_URL = 'http://shelestvetrovki.com/'
+const ABOUT_BROWSER_TABS = [
+  { id: 'about', label: 'About', address: `${ABOUT_BASE_URL}about`, kind: 'about' },
+  { id: 'works', label: 'Works', address: `${ABOUT_BASE_URL}works`, kind: 'works' },
+  { id: 'writing', label: 'Writing', address: `${ABOUT_BASE_URL}writing`, kind: 'folder', folderId: 'writing' },
+  { id: 'press', label: 'Press', address: `${ABOUT_BASE_URL}press`, kind: 'folder', folderId: 'press' },
+  { id: 'films', label: 'Films', address: `${ABOUT_BASE_URL}filmmaking`, kind: 'folder', folderId: 'filmmaking' },
+  { id: 'cv', label: 'CV', address: `${ABOUT_BASE_URL}cv`, kind: 'folder', folderId: 'cv' },
+]
 
 const SONGS = [
   { title: 'Hysterical Love Project', artist: 'Motion Ward', src: 'assets/music/song1.mp3' },
@@ -271,6 +282,158 @@ function navigateWithHash(nextHash) {
   if (typeof window === 'undefined') return
   if (window.location.hash === nextHash) return
   window.location.hash = nextHash
+}
+
+function getAboutAddress(folderId, tabId = 'about') {
+  if (folderId && FOLDER_MAP.has(folderId)) {
+    return `${ABOUT_BASE_URL}${folderId}`
+  }
+
+  const tab = ABOUT_BROWSER_TABS.find((item) => item.id === tabId)
+  return tab?.address ?? ABOUT_BROWSER_TABS[0].address
+}
+
+function getAboutTabId(folderId) {
+  if (!folderId) return 'about'
+  if (folderId === 'filmmaking') return 'films'
+  if (ABOUT_BROWSER_TABS.some((tab) => tab.id === folderId)) return folderId
+  return 'works'
+}
+
+function AboutBrowserChrome({ activeTabId, addressValue, onSelectTab }) {
+  return (
+    <div
+      style={{
+        width: '100%',
+        padding: '6px 10px 8px',
+        background: 'linear-gradient(180deg, #efefef 0%, #cfcfcf 58%, #bcbcbc 100%)',
+        borderBottom: '1px solid #8f8f8f',
+        boxSizing: 'border-box',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.85)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', overflow: 'hidden' }}>
+        {ABOUT_BROWSER_TABS.map((tab) => {
+          const isActive = tab.id === activeTabId
+
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => onSelectTab(tab)}
+              style={{
+                border: '1px solid #7f7f7f',
+                borderBottom: isActive ? '1px solid #e9e9e9' : '1px solid #707070',
+                borderTopLeftRadius: '6px',
+                borderTopRightRadius: '6px',
+                background: isActive
+                  ? 'linear-gradient(180deg, #fdfdfd 0%, #ebebeb 100%)'
+                  : 'linear-gradient(180deg, #c8c8c8 0%, #a9a9a9 100%)',
+                boxShadow: isActive
+                  ? 'inset 0 1px 0 rgba(255,255,255,0.95)'
+                  : 'inset 0 1px 0 rgba(255,255,255,0.45)',
+                color: '#222',
+                padding: '4px 10px 5px',
+                fontFamily: MAC_LIGHT_FONT_STACK,
+                fontSize: '11px',
+                fontWeight: 400,
+                lineHeight: 1,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
+
+      <div
+        style={{
+          marginTop: '-1px',
+          border: '1px solid #8c8c8c',
+          background: 'linear-gradient(180deg, #f8f8f8 0%, #d8d8d8 100%)',
+          padding: '5px 8px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.95)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+          {['<', '>', 'R'].map((symbol, index) => (
+            <span
+              key={`${symbol}-${index}`}
+              aria-hidden="true"
+              style={{
+                width: '18px',
+                height: '18px',
+                borderRadius: '50%',
+                border: '1px solid #8e8e8e',
+                background: 'linear-gradient(180deg, #fbfbfb 0%, #cfcfcf 100%)',
+                color: '#666',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '10px',
+                lineHeight: 1,
+              }}
+            >
+              {symbol}
+            </span>
+          ))}
+        </div>
+
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            border: '1px solid #949494',
+            borderRadius: '12px',
+            background: '#fff',
+            padding: '3px 10px',
+            boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.12)',
+          }}
+        >
+          <span
+            style={{
+              display: 'block',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              fontFamily: ARIAL_FONT_STACK,
+              fontSize: '12px',
+              color: '#333',
+            }}
+          >
+            {addressValue}
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+          <span
+            aria-hidden="true"
+            style={{
+              width: '18px',
+              height: '18px',
+              borderRadius: '4px',
+              border: '1px solid #919191',
+              background: 'linear-gradient(180deg, #fafafa 0%, #cecece 100%)',
+            }}
+          />
+          <span
+            aria-hidden="true"
+            style={{
+              width: '18px',
+              height: '18px',
+              borderRadius: '50%',
+              border: '1px solid #919191',
+              background: 'linear-gradient(180deg, #fafafa 0%, #cecece 100%)',
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function Controls() {
@@ -682,10 +845,12 @@ function TinyPlayer({ onTitleBarMouseDown }) {
   )
 }
 
-function AboutPage({ onBackHome, onOpenFolder }) {
+function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = null }) {
   const editorContentRef = useRef(null)
   const [editorScrollbar, setEditorScrollbar] = useState({ top: 0, height: 100, enabled: false })
   const rightStageRef = useRef(null)
+  const [activeBrowserTab, setActiveBrowserTab] = useState(getAboutTabId(activeFolderId))
+  const [browserAddress, setBrowserAddress] = useState(() => getAboutAddress(activeFolderId, getAboutTabId(activeFolderId)))
 
   const folderArcLayout = [
     { id: 'performance', left: '15%', top: '60%' },
@@ -804,6 +969,32 @@ function AboutPage({ onBackHome, onOpenFolder }) {
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [updateEditorScrollbar])
+
+  useEffect(() => {
+    const nextTab = getAboutTabId(activeFolderId)
+    setActiveBrowserTab(nextTab)
+    setBrowserAddress(getAboutAddress(activeFolderId, nextTab))
+  }, [activeFolderId])
+
+  const handleBrowserTabSelect = useCallback((tab) => {
+    setActiveBrowserTab(tab.id)
+    setBrowserAddress(tab.address)
+
+    if (tab.kind === 'about') {
+      onShowAbout()
+      return
+    }
+
+    if (tab.kind === 'folder' && tab.folderId) {
+      onOpenFolder(tab.folderId)
+    }
+  }, [onOpenFolder, onShowAbout])
+
+  const handleFolderOpen = useCallback((folderId) => {
+    setActiveBrowserTab(getAboutTabId(folderId))
+    setBrowserAddress(getAboutAddress(folderId, getAboutTabId(folderId)))
+    onOpenFolder(folderId)
+  }, [onOpenFolder])
 
   return (
     <div
@@ -972,13 +1163,12 @@ function AboutPage({ onBackHome, onOpenFolder }) {
             right: 0,
             width: '100%',
             zIndex: 10,
-            pointerEvents: 'none',
           }}
         >
-          <img
-            src="assets/nana_tabs.png"
-            alt="nana tabs"
-            style={{ width: '100%', height: 'auto', objectFit: 'contain' }}
+          <AboutBrowserChrome
+            activeTabId={activeBrowserTab}
+            addressValue={browserAddress}
+            onSelectTab={handleBrowserTabSelect}
           />
         </div>
 
@@ -1068,7 +1258,7 @@ function AboutPage({ onBackHome, onOpenFolder }) {
             <button
               key={folder.id}
               type="button"
-              onMouseDown={(e) => startFolderDrag(folder.id, e, () => onOpenFolder(folder.id))}
+              onMouseDown={(e) => startFolderDrag(folder.id, e, () => handleFolderOpen(folder.id))}
               className="cursor-grab"
               style={{
                 position: 'absolute',
@@ -1251,7 +1441,7 @@ function ProjectPreviewWindow({ onClose }) {
   const [isMuted, setIsMuted] = useState(false)
   const [windowPos, setWindowPos] = useState(() => ({
     x: typeof window !== 'undefined' ? window.innerWidth / 2 - 492 : 120,
-    y: typeof window !== 'undefined' ? window.innerHeight / 2 - 307 : 80,
+    y: PREVIEW_WINDOW_TOP,
   }))
   const windowPosRef = useRef(windowPos)
   windowPosRef.current = windowPos
@@ -1598,14 +1788,14 @@ export default function App() {
   }
 
   if (route.type === 'about') {
-    return <AboutPage onBackHome={closeAbout} onOpenFolder={openFolder} />
+    return <AboutPage onBackHome={closeAbout} onShowAbout={openAbout} onOpenFolder={openFolder} />
   }
 
   if (route.type === 'folder') {
     const folder = FOLDER_MAP.get(route.folderId)
     return (
       <>
-        <AboutPage onBackHome={closeAbout} onOpenFolder={openFolder} />
+        <AboutPage onBackHome={closeAbout} onShowAbout={closeFolder} onOpenFolder={openFolder} activeFolderId={route.folderId} />
         {folder && (
           <div style={{ position: 'fixed', inset: 0, zIndex: 200, pointerEvents: 'none' }}>
             <FolderPage folder={folder} onBackToAbout={closeFolder} />
@@ -1666,7 +1856,7 @@ export default function App() {
         style={{
           position: 'absolute',
           left: '50%',
-          top: '24px',
+          top: `${HOME_HEADER_TOP}px`,
           transform: 'translateX(-50%)',
           zIndex: 40,
           display: 'flex',
@@ -1681,6 +1871,14 @@ export default function App() {
             alt=""
             aria-hidden="true"
             style={{ width: 'min(124px, 18vw)', height: 'auto', display: 'block' }}
+          />
+        )}
+        {(!hasOpenedPreview || isPreviewOpen) && (
+          <img
+            src={HOME_WELCOME_GIF}
+            alt=""
+            aria-hidden="true"
+            style={{ width: 'min(124px, 18vw)', height: 'auto', display: 'block', visibility: 'hidden' }}
           />
         )}
 
