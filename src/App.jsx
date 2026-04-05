@@ -36,6 +36,21 @@ const HOME_PREVIEW_VIDEO = 'assets/shelestvetrovki-scan.mp4'
 const HOME_WELCOME_GIF = 'assets/home-welcome.gif'
 const NEXT_DOOR_GIF = 'assets/next-door.gif'
 const GO_BACK_GIF = 'assets/go-back.gif'
+const CURSOR_TRAIL_GIFS = [
+  new URL('../target/cursor/sparkle_a.gif', import.meta.url).href,
+  new URL('../target/cursor/sparkle_b.gif', import.meta.url).href,
+  new URL('../target/cursor/sparkle_c.gif', import.meta.url).href,
+  new URL('../target/cursor/sparkle_d.gif', import.meta.url).href,
+  new URL('../target/cursor/sparkle_e.gif', import.meta.url).href,
+  new URL('../target/cursor/sparkle_f.gif', import.meta.url).href,
+  new URL('../target/cursor/sparkle_g.gif', import.meta.url).href,
+  new URL('../target/cursor/sparkle_h.gif', import.meta.url).href,
+]
+const CURSOR_CLICK_GIF = new URL('../target/cursor/sparkle_click.gif', import.meta.url).href
+const CURSOR_TRAIL_LIFETIME_MS = 850
+const CURSOR_CLICK_LIFETIME_MS = 700
+const CURSOR_TRAIL_MIN_DISTANCE = 14
+const CURSOR_TRAIL_MIN_INTERVAL_MS = 24
 const HOME_HEADER_TOP = 24
 const PREVIEW_WINDOW_TOP = 190
 const DEFAULT_ABOUT_HTML = `Anastasiia Pishchanska is a Ukrainian-born, Tokyo-based artist, filmmaker, and art director. She is the co-founder of the established Ukrainian art print publication localstickerbook (<a href="https://localgr0up.com/" target="_blank" rel="noreferrer">local.group</a>), which curates exhibitions, events, and fundraisers worldwide, presenting contemporary artists through the lens of post-internet culture. In 2023, following the full-scale invasion of Ukraine, she was awarded a research scholarship at...
@@ -1706,6 +1721,108 @@ function PreviewLauncher({ onOpen }) {
   )
 }
 
+function CursorSparkles() {
+  const [sparkles, setSparkles] = useState([])
+  const nextSparkleId = useRef(0)
+  const nextTrailIndex = useRef(0)
+  const lastTrailPoint = useRef({ x: 0, y: 0, time: 0, active: false })
+  const sparkleTimeouts = useRef([])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+
+    const spawnSparkle = ({ x, y, src, size, lifetime, kind }) => {
+      const id = nextSparkleId.current++
+      setSparkles((current) => [...current, { id, x, y, src, size, kind }])
+      const timeoutId = window.setTimeout(() => {
+        setSparkles((current) => current.filter((sparkle) => sparkle.id !== id))
+      }, lifetime)
+      sparkleTimeouts.current.push(timeoutId)
+    }
+
+    const onPointerMove = (event) => {
+      const now = performance.now()
+      const previous = lastTrailPoint.current
+      const dx = event.clientX - previous.x
+      const dy = event.clientY - previous.y
+      const distance = Math.hypot(dx, dy)
+
+      if (
+        previous.active &&
+        distance < CURSOR_TRAIL_MIN_DISTANCE &&
+        now - previous.time < CURSOR_TRAIL_MIN_INTERVAL_MS
+      ) {
+        return
+      }
+
+      const src = CURSOR_TRAIL_GIFS[nextTrailIndex.current % CURSOR_TRAIL_GIFS.length]
+      nextTrailIndex.current += 1
+      lastTrailPoint.current = { x: event.clientX, y: event.clientY, time: now, active: true }
+
+      spawnSparkle({
+        x: event.clientX,
+        y: event.clientY,
+        src,
+        size: 26,
+        lifetime: CURSOR_TRAIL_LIFETIME_MS,
+        kind: 'trail',
+      })
+    }
+
+    const onClick = (event) => {
+      spawnSparkle({
+        x: event.clientX,
+        y: event.clientY,
+        src: CURSOR_CLICK_GIF,
+        size: 44,
+        lifetime: CURSOR_CLICK_LIFETIME_MS,
+        kind: 'click',
+      })
+    }
+
+    window.addEventListener('pointermove', onPointerMove, { passive: true })
+    window.addEventListener('click', onClick, { passive: true })
+
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('click', onClick)
+      sparkleTimeouts.current.forEach((timeoutId) => window.clearTimeout(timeoutId))
+      sparkleTimeouts.current = []
+    }
+  }, [])
+
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        pointerEvents: 'none',
+        zIndex: 2147483647,
+        overflow: 'hidden',
+      }}
+    >
+      {sparkles.map((sparkle) => (
+        <img
+          key={sparkle.id}
+          src={sparkle.src}
+          alt=""
+          style={{
+            position: 'absolute',
+            left: `${sparkle.x}px`,
+            top: `${sparkle.y}px`,
+            width: `${sparkle.size}px`,
+            height: `${sparkle.size}px`,
+            transform: sparkle.kind === 'click' ? 'translate(-50%, -50%)' : 'translate(-35%, -70%)',
+            objectFit: 'contain',
+            userSelect: 'none',
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
 export default function App() {
   const [route, setRoute] = useState(() =>
     parseRouteFromHash(typeof window !== 'undefined' ? window.location.hash : ''),
@@ -1784,11 +1901,21 @@ export default function App() {
   if (route.type === 'room') {
     const roomNumber = route.roomIndex + 1
     const roomFile = ROOM_FILES[route.roomIndex]
-    return <RoomPage roomNumber={roomNumber} roomFile={roomFile} cameraPosition={ROOM_CAMERA_POSITIONS[route.roomIndex]} onBack={closeRoom} onOpenNextRoom={() => openNextRoom(roomNumber)} />
+    return (
+      <>
+        <RoomPage roomNumber={roomNumber} roomFile={roomFile} cameraPosition={ROOM_CAMERA_POSITIONS[route.roomIndex]} onBack={closeRoom} onOpenNextRoom={() => openNextRoom(roomNumber)} />
+        <CursorSparkles />
+      </>
+    )
   }
 
   if (route.type === 'about') {
-    return <AboutPage onBackHome={closeAbout} onShowAbout={openAbout} onOpenFolder={openFolder} />
+    return (
+      <>
+        <AboutPage onBackHome={closeAbout} onShowAbout={openAbout} onOpenFolder={openFolder} />
+        <CursorSparkles />
+      </>
+    )
   }
 
   if (route.type === 'folder') {
@@ -1801,6 +1928,7 @@ export default function App() {
             <FolderPage folder={folder} onBackToAbout={closeFolder} />
           </div>
         )}
+        <CursorSparkles />
       </>
     )
   }
@@ -1902,6 +2030,7 @@ export default function App() {
 
       {!hasOpenedPreview && !isPreviewOpen && <PreviewLauncher onOpen={openPreview} />}
       {isPreviewOpen && <ProjectPreviewWindow onClose={closePreview} />}
+      <CursorSparkles />
     </div>
   )
 }
