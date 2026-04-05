@@ -24,7 +24,7 @@ const ROOM_FILES = [
   'MOENE WEB.glb',
 ]
 const CONTACT_EMAIL = 'shelestvetrovki@gmail.com'
-const ARTIST_NAME = 'Anastasiia Pishchanska'
+const HOME_TITLE = 'shelest vetrovki'
 const HOME_HASH = '#home'
 const ABOUT_HASH = '#about'
 const ROOM_HASH_PREFIX = 'room-'
@@ -32,6 +32,9 @@ const FOLDER_HASH_PREFIX = 'folder-'
 const MAC_LIGHT_FONT_STACK = "'Helvetica', Arial, sans-serif"
 const ARIAL_FONT_STACK = 'Arial, Helvetica, sans-serif'
 const HOME_PREVIEW_VIDEO = 'assets/shelestvetrovki-scan.mp4'
+const HOME_WELCOME_GIF = 'assets/home-welcome.gif'
+const NEXT_DOOR_GIF = 'assets/next-door.gif'
+const GO_BACK_GIF = 'assets/go-back.gif'
 const DEFAULT_ABOUT_HTML = `Anastasiia Pishchanska is a Ukrainian-born, Tokyo-based artist, filmmaker, and art director. She is the co-founder of the established Ukrainian art print publication localstickerbook (<a href="https://localgr0up.com/" target="_blank" rel="noreferrer">local.group</a>), which curates exhibitions, events, and fundraisers worldwide, presenting contemporary artists through the lens of post-internet culture. In 2023, following the full-scale invasion of Ukraine, she was awarded a research scholarship at...
 
 <br><br>Her practice moves between moving image, installation, and art direction, focusing on digital memory, migration, and cultural identity.`
@@ -430,7 +433,7 @@ function fmt3(v) {
   return v.map((n) => n.toFixed(3)).join(', ')
 }
 
-function RoomPage({ roomNumber, roomFile, cameraPosition, onBack }) {
+function RoomPage({ roomNumber, roomFile, cameraPosition, onBack, onOpenNextRoom }) {
   const [camInfo, setCamInfo] = useState({ position: cameraPosition, target: [0, 0, 0] })
   const handleCamUpdate = useCallback((info) => setCamInfo(info), [])
 
@@ -452,20 +455,21 @@ function RoomPage({ roomNumber, roomFile, cameraPosition, onBack }) {
         onClick={onBack}
         style={{
           position: 'absolute',
-          bottom: '24px',
+          bottom: '48px',
           left: '24px',
           border: 'none',
           background: 'transparent',
-          color: '#888',
           padding: 0,
-          fontFamily: MAC_LIGHT_FONT_STACK,
-          fontSize: '18px',
-          fontWeight: 300,
           zIndex: 20,
           cursor: 'pointer',
         }}
+        aria-label="Go back to house view"
       >
-        back
+        <img
+          src={GO_BACK_GIF}
+          alt="Go back"
+          style={{ width: 'min(110px, 18vw)', height: 'auto', display: 'block', objectFit: 'contain' }}
+        />
       </button>
 
       <KeyboardControls map={keyboardMap}>
@@ -482,12 +486,11 @@ function RoomPage({ roomNumber, roomFile, cameraPosition, onBack }) {
         </Canvas>
       </KeyboardControls>
 
-      {/* Camera info overlay */}
       <div
         className="cursor-help"
         style={{
           position: 'absolute',
-          bottom: '24px',
+          top: '24px',
           right: '24px',
           zIndex: 30,
           background: 'rgba(0,0,0,0.65)',
@@ -506,6 +509,28 @@ function RoomPage({ roomNumber, roomFile, cameraPosition, onBack }) {
         <div>pos&nbsp;&nbsp;[{fmt3(camInfo.position)}]</div>
         <div>look [{fmt3(camInfo.target)}]</div>
       </div>
+
+      <button
+        type="button"
+        onClick={onOpenNextRoom}
+        aria-label={`Go to room ${roomNumber === ROOM_FILES.length ? 1 : roomNumber + 1}`}
+        style={{
+          position: 'absolute',
+          bottom: '48px',
+          right: '24px',
+          zIndex: 20,
+          border: 'none',
+          background: 'transparent',
+          padding: 0,
+          cursor: 'pointer',
+        }}
+      >
+        <img
+          src={NEXT_DOOR_GIF}
+          alt="Go to the next door"
+          style={{ width: 'min(110px, 18vw)', height: 'auto', display: 'block', objectFit: 'contain' }}
+        />
+      </button>
     </div>
   )
 }
@@ -656,7 +681,7 @@ function TinyPlayer({ onTitleBarMouseDown }) {
   )
 }
 
-function AboutPage({ onBackHome, onOpenFolder, onOpenRoom }) {
+function AboutPage({ onBackHome, onOpenFolder }) {
   const editorContentRef = useRef(null)
   const [editorScrollbar, setEditorScrollbar] = useState({ top: 0, height: 100, enabled: false })
   const rightStageRef = useRef(null)
@@ -683,13 +708,6 @@ function AboutPage({ onBackHome, onOpenFolder, onOpenRoom }) {
   }))
   const playerPosRef = useRef(playerPos)
   playerPosRef.current = playerPos
-  const [homeWinPos, setHomeWinPos] = useState(() => ({
-    x: typeof window !== 'undefined' ? window.innerWidth / 2 - 180 : 700,
-    y: typeof window !== 'undefined' ? window.innerHeight / 2 - 110 : 320,
-  }))
-  const homeWinPosRef = useRef(homeWinPos)
-  homeWinPosRef.current = homeWinPos
-
   const makeTitleBarDrag = useCallback((posRef, setPos) => (e) => {
     if (e.button !== 0) return
     e.preventDefault()
@@ -1008,61 +1026,6 @@ function AboutPage({ onBackHome, onOpenFolder, onOpenRoom }) {
           >
             Anastasiia Pishchanska b.2000
           </span>
-        </div>
-
-        {/* Home window */}
-        <div
-          style={{
-            position: 'fixed',
-            left: homeWinPos.x,
-            top: homeWinPos.y,
-            zIndex: 32,
-            width: 'min(40vw, 520px)',
-          }}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <div
-            style={{
-              borderRadius: '14px',
-              overflow: 'hidden',
-              boxShadow: '0 10px 28px rgba(0,0,0,0.18)',
-              background: '#f4f4f4',
-            }}
-          >
-            <div
-              onMouseDown={makeTitleBarDrag(homeWinPosRef, setHomeWinPos)}
-              className="cursor-grab"
-              style={{
-                background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)',
-                padding: '7px 10px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                borderBottom: '1px solid #b0b0b0',
-                userSelect: 'none',
-              }}
-            >
-              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-block' }} />
-              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d4a017', display: 'inline-block' }} />
-              <button
-                type="button"
-                onClick={onBackHome}
-                aria-label="Back home"
-                style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'inline-block', padding: 0 }}
-              />
-              <span style={{ flex: 1, textAlign: 'center', fontSize: '14px', fontWeight: 600, color: '#333', marginRight: '20px', letterSpacing: '0.01em' }}>Home</span>
-            </div>
-
-            <div
-              style={{
-                width: '100%',
-                height: '320px',
-                background: '#fff',
-              }}
-            >
-              <HomeScene onModelLoaded={undefined} onOpenRoom={onOpenRoom} />
-            </div>
-          </div>
         </div>
 
         {/* Knock knock button */}
@@ -1446,6 +1409,11 @@ export default function App() {
     navigateWithHash(`#${ROOM_HASH_PREFIX}${roomNumber}`)
   }, [])
 
+  const openNextRoom = useCallback((roomNumber) => {
+    const nextRoomNumber = roomNumber >= ROOM_FILES.length ? 1 : roomNumber + 1
+    navigateWithHash(`#${ROOM_HASH_PREFIX}${nextRoomNumber}`)
+  }, [])
+
   const closeRoom = useCallback(() => {
     navigateWithHash(HOME_HASH)
   }, [])
@@ -1472,7 +1440,7 @@ export default function App() {
 
   const closePreview = useCallback(() => {
     setIsPreviewOpen(false)
-    navigateWithHash(ABOUT_HASH)
+    navigateWithHash(HOME_HASH)
   }, [])
 
   const openPreview = useCallback(() => {
@@ -1503,18 +1471,18 @@ export default function App() {
   if (route.type === 'room') {
     const roomNumber = route.roomIndex + 1
     const roomFile = ROOM_FILES[route.roomIndex]
-    return <RoomPage roomNumber={roomNumber} roomFile={roomFile} cameraPosition={ROOM_CAMERA_POSITIONS[route.roomIndex]} onBack={closeRoom} />
+    return <RoomPage roomNumber={roomNumber} roomFile={roomFile} cameraPosition={ROOM_CAMERA_POSITIONS[route.roomIndex]} onBack={closeRoom} onOpenNextRoom={() => openNextRoom(roomNumber)} />
   }
 
   if (route.type === 'about') {
-    return <AboutPage onBackHome={closeAbout} onOpenFolder={openFolder} onOpenRoom={openRoom} />
+    return <AboutPage onBackHome={closeAbout} onOpenFolder={openFolder} />
   }
 
   if (route.type === 'folder') {
     const folder = FOLDER_MAP.get(route.folderId)
     return (
       <>
-        <AboutPage onBackHome={closeAbout} onOpenFolder={openFolder} onOpenRoom={openRoom} />
+        <AboutPage onBackHome={closeAbout} onOpenFolder={openFolder} />
         {folder && (
           <div style={{ position: 'fixed', inset: 0, zIndex: 200, pointerEvents: 'none' }}>
             <FolderPage folder={folder} onBackToAbout={closeFolder} />
@@ -1535,17 +1503,19 @@ export default function App() {
         overflow: 'hidden',
       }}
     >
+      <HomeScene onModelLoaded={handleHomeModelLoaded} onOpenRoom={openRoom} />
+
       <div
         style={{
           position: 'absolute',
           left: '50%',
-          top: '40px',
+          top: '36px',
           transform: 'translateX(-50%)',
           zIndex: 40,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: '8px',
+          gap: '6px',
         }}
       >
         <button
@@ -1555,9 +1525,9 @@ export default function App() {
           style={{ border: 'none', background: 'transparent', padding: 0 }}
         >
           <img
-            src="assets/shelestvetrovki-glitter.gif"
+            src={HOME_WELCOME_GIF}
             alt="Open latest project preview"
-            style={{ width: 'min(260px, 34vw)', height: 'auto', display: 'block' }}
+            style={{ width: 'min(124px, 18vw)', height: 'auto', display: 'block' }}
           />
         </button>
 
@@ -1569,14 +1539,17 @@ export default function App() {
             background: 'transparent',
             color: '#000',
             padding: 0,
+            width: 'min(220px, 32vw)',
             fontFamily: ARIAL_FONT_STACK,
-            fontSize: '28px',
+            fontSize: '25px',
             fontWeight: 400,
             letterSpacing: '0.01em',
             lineHeight: 1,
+            textAlign: 'center',
+            textTransform: 'lowercase',
           }}
         >
-          {ARTIST_NAME}
+          {HOME_TITLE}
         </button>
       </div>
 
