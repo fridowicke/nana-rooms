@@ -1244,57 +1244,73 @@ function FolderPage({ folder, onBackToAbout }) {
   )
 }
 
-function ProjectPreviewWindow({ isOpen, onClose }) {
+function ProjectPreviewWindow({ onClose }) {
   const videoRef = useRef(null)
-  const [showFallbackPlay, setShowFallbackPlay] = useState(false)
   const [animateIn, setAnimateIn] = useState(false)
+  const [isMuted, setIsMuted] = useState(true)
+  const [windowPos, setWindowPos] = useState(() => ({
+    x: typeof window !== 'undefined' ? window.innerWidth / 2 - 492 : 120,
+    y: typeof window !== 'undefined' ? window.innerHeight / 2 - 307 : 80,
+  }))
+  const windowPosRef = useRef(windowPos)
+  windowPosRef.current = windowPos
+
+  const startDrag = useCallback((event) => {
+    if (event.button !== 0) return
+    event.preventDefault()
+    const startMx = event.clientX
+    const startMy = event.clientY
+    const startPx = windowPosRef.current.x
+    const startPy = windowPosRef.current.y
+    const onMove = (moveEvent) => {
+      setWindowPos({
+        x: startPx + moveEvent.clientX - startMx,
+        y: startPy + moveEvent.clientY - startMy,
+      })
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [])
 
   useEffect(() => {
-    if (!isOpen) {
-      const video = videoRef.current
-      if (video) {
-        video.pause()
-        video.currentTime = 0
-      }
-      setShowFallbackPlay(false)
-      setAnimateIn(false)
-      return
-    }
-
     const frameId = window.requestAnimationFrame(() => setAnimateIn(true))
     const video = videoRef.current
     if (video) {
+      video.muted = true
+      video.defaultMuted = true
       video.volume = 0.5
       video.loop = true
       video.currentTime = 0
-      const playAttempt = video.play()
-      if (playAttempt?.catch) {
-        playAttempt.catch(() => setShowFallbackPlay(true))
-      }
+      video.play().catch(() => {})
     }
 
     return () => window.cancelAnimationFrame(frameId)
-  }, [isOpen])
-
-  const handleManualPlay = useCallback(() => {
-    const video = videoRef.current
-    if (!video) return
-    video.volume = 0.5
-    video.play().then(() => setShowFallbackPlay(false)).catch(() => {})
   }, [])
 
-  if (!isOpen) return null
+  const handleToggleMute = useCallback(() => {
+    const video = videoRef.current
+    if (!video) return
+    const nextMuted = !isMuted
+    video.muted = nextMuted
+    if (!nextMuted) video.volume = 0.5
+    setIsMuted(nextMuted)
+  }, [isMuted])
 
   return (
     <div
       style={{
-        position: 'absolute',
-        left: '50%',
-        top: '52%',
-        transform: animateIn ? 'translate(-50%, -50%) scale(1)' : 'translate(-50%, -46%) scale(0.94)',
-        width: 'min(64vw, 820px)',
+        position: 'fixed',
+        left: windowPos.x,
+        top: windowPos.y,
+        transform: animateIn ? 'scale(1)' : 'scale(0.94)',
+        transformOrigin: 'top left',
+        width: 'min(76.8vw, 984px)',
         aspectRatio: '16 / 10',
-        maxHeight: '72vh',
+        maxHeight: '86.4vh',
         borderRadius: '28px',
         overflow: 'hidden',
         background: 'linear-gradient(180deg, #f5f5f5 0%, #dddddd 100%)',
@@ -1314,7 +1330,9 @@ function ProjectPreviewWindow({ isOpen, onClose }) {
           borderBottom: '1px solid rgba(0,0,0,0.08)',
           background: 'linear-gradient(180deg, #efefef 0%, #dbdbdb 100%)',
           userSelect: 'none',
+          cursor: 'grab',
         }}
+        onMouseDown={startDrag}
       >
         <button
           type="button"
@@ -1347,34 +1365,51 @@ function ProjectPreviewWindow({ isOpen, onClose }) {
         <video
           ref={videoRef}
           src={HOME_PREVIEW_VIDEO}
+          autoPlay
+          muted
           playsInline
           loop
           preload="auto"
           style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
         />
 
-        {showFallbackPlay && (
-          <button
-            type="button"
-            onClick={handleManualPlay}
+        <button
+          type="button"
+          onClick={handleToggleMute}
+          style={{
+            position: 'absolute',
+            right: '18px',
+            bottom: '18px',
+            border: '1px solid rgba(255,255,255,0.22)',
+            borderRadius: '999px',
+            background: 'rgba(15,15,15,0.45)',
+            backdropFilter: 'blur(8px)',
+            color: 'rgba(255,255,255,0.92)',
+            padding: '9px 14px',
+            fontFamily: ARIAL_FONT_STACK,
+            fontSize: '12px',
+            fontWeight: 400,
+            letterSpacing: '0.02em',
+          }}
+        >
+          {isMuted ? 'unmute' : 'mute'}
+        </button>
+
+        {isMuted && (
+          <div
             style={{
               position: 'absolute',
-              left: '50%',
-              top: '50%',
-              transform: 'translate(-50%, -50%)',
-              border: 'none',
-              borderRadius: '999px',
-              background: 'rgba(255,255,255,0.94)',
-              color: '#111',
-              padding: '14px 22px',
+              left: '18px',
+              bottom: '20px',
+              color: 'rgba(255,255,255,0.7)',
               fontFamily: ARIAL_FONT_STACK,
-              fontSize: '14px',
-              fontWeight: 700,
-              boxShadow: '0 8px 28px rgba(0,0,0,0.22)',
+              fontSize: '12px',
+              letterSpacing: '0.02em',
+              pointerEvents: 'none',
             }}
           >
-            Play with sound
-          </button>
+            sound is off
+          </div>
         )}
       </div>
     </div>
@@ -1385,9 +1420,7 @@ export default function App() {
   const [route, setRoute] = useState(() =>
     parseRouteFromHash(typeof window !== 'undefined' ? window.location.hash : ''),
   )
-  const [homeModelLoaded, setHomeModelLoaded] = useState(false)
   const [isPreviewOpen, setIsPreviewOpen] = useState(true)
-  const roomsPreloadedRef = useRef(false)
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
@@ -1405,6 +1438,13 @@ export default function App() {
     return () => window.removeEventListener('hashchange', syncFromHash)
   }, [])
 
+  useEffect(() => {
+    useGLTF.preload('assets/home.glb')
+    ROOM_FILES.forEach((roomFile) => {
+      useGLTF.preload(`rooms/${roomFile}`)
+    })
+  }, [])
+
   const openRoom = useCallback((roomNumber) => {
     navigateWithHash(`#${ROOM_HASH_PREFIX}${roomNumber}`)
   }, [])
@@ -1415,6 +1455,7 @@ export default function App() {
   }, [])
 
   const closeRoom = useCallback(() => {
+    setIsPreviewOpen(false)
     navigateWithHash(HOME_HASH)
   }, [])
 
@@ -1423,6 +1464,7 @@ export default function App() {
   }, [])
 
   const closeAbout = useCallback(() => {
+    setIsPreviewOpen(false)
     navigateWithHash(HOME_HASH)
   }, [])
 
@@ -1434,39 +1476,10 @@ export default function App() {
     navigateWithHash(ABOUT_HASH)
   }, [])
 
-  const handleHomeModelLoaded = useCallback(() => {
-    setHomeModelLoaded(true)
-  }, [])
-
   const closePreview = useCallback(() => {
     setIsPreviewOpen(false)
     navigateWithHash(HOME_HASH)
   }, [])
-
-  const openPreview = useCallback(() => {
-    setIsPreviewOpen(true)
-  }, [])
-
-  useEffect(() => {
-    if (!homeModelLoaded || route.type !== 'home' || roomsPreloadedRef.current) return
-    if (typeof window === 'undefined') return
-
-    roomsPreloadedRef.current = true
-
-    const preloadRooms = () => {
-      ROOM_FILES.forEach((roomFile) => {
-        useGLTF.preload(`rooms/${roomFile}`)
-      })
-    }
-
-    if (typeof window.requestIdleCallback === 'function') {
-      const idleId = window.requestIdleCallback(preloadRooms)
-      return () => window.cancelIdleCallback?.(idleId)
-    }
-
-    const timeoutId = window.setTimeout(preloadRooms, 0)
-    return () => window.clearTimeout(timeoutId)
-  }, [homeModelLoaded, route.type])
 
   if (route.type === 'room') {
     const roomNumber = route.roomIndex + 1
@@ -1503,7 +1516,17 @@ export default function App() {
         overflow: 'hidden',
       }}
     >
-      <HomeScene onModelLoaded={handleHomeModelLoaded} onOpenRoom={openRoom} />
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          opacity: isPreviewOpen ? 0 : 1,
+          pointerEvents: isPreviewOpen ? 'none' : 'auto',
+          transition: 'opacity 180ms ease',
+        }}
+      >
+        <HomeScene onModelLoaded={undefined} onOpenRoom={openRoom} />
+      </div>
 
       <div
         style={{
@@ -1518,18 +1541,36 @@ export default function App() {
           gap: '6px',
         }}
       >
-        <button
-          type="button"
-          onClick={openPreview}
-          aria-label="Open latest project preview"
-          style={{ border: 'none', background: 'transparent', padding: 0 }}
-        >
+        {!isPreviewOpen && (
+          <button
+            type="button"
+            onClick={openAbout}
+            style={{
+              position: 'fixed',
+              top: '24px',
+              left: '24px',
+              zIndex: 41,
+              border: 'none',
+              background: 'transparent',
+              color: '#000',
+              padding: 0,
+              fontFamily: MAC_LIGHT_FONT_STACK,
+              fontSize: '18px',
+              fontWeight: 300,
+            }}
+          >
+            about
+          </button>
+        )}
+
+        {!isPreviewOpen && (
           <img
             src={HOME_WELCOME_GIF}
-            alt="Open latest project preview"
+            alt=""
+            aria-hidden="true"
             style={{ width: 'min(124px, 18vw)', height: 'auto', display: 'block' }}
           />
-        </button>
+        )}
 
         <button
           type="button"
@@ -1553,7 +1594,7 @@ export default function App() {
         </button>
       </div>
 
-      <ProjectPreviewWindow isOpen={isPreviewOpen} onClose={closePreview} />
+      {isPreviewOpen && <ProjectPreviewWindow onClose={closePreview} />}
     </div>
   )
 }
