@@ -533,15 +533,60 @@ function Controls() {
   )
 }
 
-function HomeScene({ onModelLoaded, onOpenRoom }) {
+function HomeScene({ onModelLoaded, onOpenRoom, isActive }) {
   return (
     <KeyboardControls map={keyboardMap}>
-      <Canvas shadows camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'inherit' }}>
+      <Canvas
+        shadows
+        frameloop={isActive ? 'always' : 'never'}
+        camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }}
+        style={{ cursor: 'inherit' }}
+      >
         <color attach="background" args={['#fff']} />
         <Suspense fallback={null}>
           <Stage environment="city" intensity={0.5} contactShadows={{ opacity: 0.7, blur: 2 }} adjustCamera={false}>
             <Model url="assets/home.glb" onLoaded={onModelLoaded}>
               <DoorLinks doors={DOOR_LINKS} onOpenRoom={onOpenRoom} />
+            </Model>
+          </Stage>
+          <Controls />
+          <CameraReset position={LANDING_CAMERA_POSITION} />
+        </Suspense>
+      </Canvas>
+    </KeyboardControls>
+  )
+}
+
+function HomeEditorScene({ isActive, draftDoors, activeDoorId, selectedCorner, onSelectCorner, onPlaceCorner }) {
+  return (
+    <KeyboardControls map={keyboardMap}>
+      <Canvas
+        shadows
+        frameloop={isActive ? 'always' : 'never'}
+        camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }}
+        style={{ cursor: 'default' }}
+      >
+        <color attach="background" args={['#fff']} />
+        <Suspense fallback={null}>
+          <Stage environment="city" intensity={0.5} contactShadows={{ opacity: 0.7, blur: 2 }} adjustCamera={false}>
+            <Model
+              url="assets/home.glb"
+              onClick={(event) => {
+                if (!selectedCorner) return
+                event.stopPropagation()
+                onPlaceCorner(selectedCorner.doorId, selectedCorner.cornerIndex, [
+                  event.point.x,
+                  event.point.y,
+                  event.point.z,
+                ])
+              }}
+            >
+              <DraftDoorEditor
+                doors={draftDoors}
+                activeDoorId={activeDoorId}
+                selectedCorner={selectedCorner}
+                onSelectCorner={onSelectCorner}
+              />
             </Model>
           </Stage>
           <Controls />
@@ -653,11 +698,120 @@ function DoorLinks({ doors, onOpenRoom }) {
   )
 }
 
+function buildDoorGeometry(corners) {
+  if (!Array.isArray(corners) || corners.length !== 4) return null
+
+  const vertices = new Float32Array([
+    ...corners[0],
+    ...corners[1],
+    ...corners[2],
+    ...corners[0],
+    ...corners[2],
+    ...corners[3],
+  ])
+
+  const next = new THREE.BufferGeometry()
+  next.setAttribute('position', new THREE.BufferAttribute(vertices, 3))
+  next.computeVertexNormals()
+  return next
+}
+
+function buildLoopGeometry(corners) {
+  if (!Array.isArray(corners) || corners.length !== 4) return null
+
+  const ordered = [...corners, corners[0]].flat()
+  const next = new THREE.BufferGeometry()
+  next.setAttribute('position', new THREE.Float32BufferAttribute(ordered, 3))
+  return next
+}
+
+function buildDoorPlane(corners) {
+  if (!Array.isArray(corners) || corners.length < 3) return null
+
+  const a = new THREE.Vector3(...corners[0])
+  const b = new THREE.Vector3(...corners[1])
+  const c = new THREE.Vector3(...corners[2])
+  const normal = new THREE.Vector3().subVectors(b, a).cross(new THREE.Vector3().subVectors(c, a))
+
+  if (normal.lengthSq() < 1e-10) return null
+
+  return new THREE.Plane().setFromNormalAndCoplanarPoint(normal.normalize(), a)
+}
+
+function DraftDoorEditor({ doors, activeDoorId, selectedCorner, onSelectCorner }) {
+  return (
+    <group>
+      {doors.map((door) => (
+        <DraftDoorShape
+          key={door.id}
+          door={door}
+          isActive={door.id === activeDoorId}
+          isInActiveGroup={door.groupIndex === doors.find((item) => item.id === activeDoorId)?.groupIndex}
+          selectedCornerIndex={selectedCorner?.doorId === door.id ? selectedCorner.cornerIndex : null}
+          onSelectCorner={onSelectCorner}
+        />
+      ))}
+    </group>
+  )
+}
+
+function DraftDoorShape({ door, isActive, isInActiveGroup, selectedCornerIndex, onSelectCorner }) {
+  const meshGeometry = useMemo(() => buildDoorGeometry(door.corners), [door.corners])
+  const lineGeometry = useMemo(() => buildLoopGeometry(door.corners), [door.corners])
+
+  useEffect(() => () => meshGeometry?.dispose(), [meshGeometry])
+  useEffect(() => () => lineGeometry?.dispose(), [lineGeometry])
+
+  if (!meshGeometry || !lineGeometry) return null
+
+  return (
+    <group>
+      <mesh geometry={meshGeometry} renderOrder={900}>
+        <meshBasicMaterial
+          color={door.color}
+          transparent
+          opacity={isActive ? 0.28 : isInActiveGroup ? 0.16 : 0.08}
+          side={THREE.DoubleSide}
+          depthTest={false}
+          depthWrite={false}
+        />
+      </mesh>
+
+      <line geometry={lineGeometry} renderOrder={901}>
+        <lineBasicMaterial
+          color={door.color}
+          transparent
+          opacity={isActive ? 0.98 : isInActiveGroup ? 0.55 : 0.28}
+          depthTest={false}
+        />
+      </line>
+
+      {door.corners.map((corner, cornerIndex) => (
+        <mesh
+          key={`${door.id}-corner-${cornerIndex}`}
+          position={corner}
+          renderOrder={902}
+          onClick={(event) => {
+            event.stopPropagation()
+            onSelectCorner(door.id, cornerIndex)
+          }}
+        >
+          <sphereGeometry args={[isActive ? 0.0085 : isInActiveGroup ? 0.007 : 0.0055, 24, 24]} />
+          <meshBasicMaterial
+            color={selectedCornerIndex === cornerIndex ? '#ffffff' : door.color}
+            depthTest={false}
+          />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
 function fmt3(v) {
   return v.map((n) => n.toFixed(3)).join(', ')
 }
 
-function RoomPage({ roomNumber, roomFile, cameraPosition, onBack, onOpenNextRoom }) {
+function RoomPage({ roomNumber, roomFile, cameraPosition, onBack, onOpenNextRoom, isActive }) {
   const [camInfo, setCamInfo] = useState({ position: cameraPosition, target: [0, 0, 0] })
   const handleCamUpdate = useCallback((info) => setCamInfo(info), [])
 
@@ -668,11 +822,12 @@ function RoomPage({ roomNumber, roomFile, cameraPosition, onBack, onOpenNextRoom
         height: '100vh',
         backgroundColor: '#fff',
         color: '#000',
-        display: 'flex',
+        display: isActive ? 'flex' : 'none',
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
       }}
+      aria-hidden={!isActive}
     >
       <button
         type="button"
@@ -697,7 +852,13 @@ function RoomPage({ roomNumber, roomFile, cameraPosition, onBack, onOpenNextRoom
       </button>
 
       <KeyboardControls map={keyboardMap}>
-        <Canvas shadows camera={{ position: cameraPosition, fov: 47.5 }} style={{ cursor: 'inherit' }} gl={{ toneMapping: THREE.NoToneMapping }}>
+        <Canvas
+          shadows
+          frameloop={isActive ? 'always' : 'never'}
+          camera={{ position: cameraPosition, fov: 47.5 }}
+          style={{ cursor: 'inherit' }}
+          gl={{ toneMapping: THREE.NoToneMapping }}
+        >
           <color attach="background" args={['#fff']} />
           <Suspense fallback={<LoadingCursor />}>
             <Stage environment="studio" intensity={0.6} contactShadows={{ opacity: 0.7, blur: 2 }} adjustCamera={false}>
@@ -871,10 +1032,10 @@ function TinyPlayer({ onTitleBarMouseDown }) {
         <div style={{ fontWeight: 300, fontSize: '11px', color: '#666', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', textAlign: 'center', marginTop: '1px' }}>{song.artist}</div>
 
         {/* Transport buttons */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', margin: '7px 0 6px' }}>
-          <button type="button" aria-label="Previous" onClick={prevSong} style={{ background: 'none', border: 'none', padding: 0, fontSize: '16px', color: '#333', lineHeight: 1 }}>⏮</button>
-          <button type="button" aria-label={isPlaying ? 'Pause' : 'Play'} onClick={togglePlay} style={{ background: 'none', border: 'none', padding: 0, fontSize: '18px', color: '#333', lineHeight: 1 }}>{isPlaying ? '⏸' : '▶'}</button>
-          <button type="button" aria-label="Next" onClick={nextSong} style={{ background: 'none', border: 'none', padding: 0, fontSize: '16px', color: '#333', lineHeight: 1 }}>⏭</button>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '18px', margin: '9px 0 8px' }}>
+          <button type="button" aria-label="Previous" onClick={prevSong} style={{ width: '32px', height: '32px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, fontSize: '16px', color: '#333', lineHeight: 1, cursor: 'pointer' }}>⏮</button>
+          <button type="button" aria-label={isPlaying ? 'Pause' : 'Play'} onClick={togglePlay} style={{ width: '36px', height: '36px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, fontSize: '18px', color: '#333', lineHeight: 1, cursor: 'pointer' }}>{isPlaying ? '⏸' : '▶'}</button>
+          <button type="button" aria-label="Next" onClick={nextSong} style={{ width: '32px', height: '32px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, fontSize: '16px', color: '#333', lineHeight: 1, cursor: 'pointer' }}>⏭</button>
         </div>
 
         {/* Seek bar */}
@@ -921,9 +1082,9 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
   const [folderPositions, setFolderPositions] = useState(
     () => new Map(folderArcLayout.map((p) => [p.id, { left: p.left, top: p.top }]))
   )
-  const rightStageWidth = 'min(88.8vw, 1344px)'
+  const rightStageWidth = '100vw'
 
-  const [aboutWinPos, setAboutWinPos] = useState({ x: 24, y: 137 })
+  const [aboutWinPos, setAboutWinPos] = useState({ x: 24, y: 168 })
   const aboutWinPosRef = useRef(aboutWinPos)
   aboutWinPosRef.current = aboutWinPos
 
@@ -1067,7 +1228,7 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
       }}
     >
       {/* ── Welcome gif (static) ── */}
-      <div style={{ position: 'absolute', left: '24px', top: '64px', zIndex: 21, pointerEvents: 'none' }}>
+      <div style={{ position: 'absolute', left: '24px', top: '96px', zIndex: 21, pointerEvents: 'none' }}>
         <img
           src="assets/welcome.webp"
           alt="welcome to my page"
@@ -1235,7 +1396,7 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
         <div
           style={{
             position: 'absolute',
-            top: '88px',
+            top: '118px',
             left: '2%',
             right: '8%',
             zIndex: 12,
@@ -1887,6 +2048,11 @@ export default function App() {
   )
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [hasOpenedPreview, setHasOpenedPreview] = useState(false)
+  const [draftDoors, setDraftDoors] = useState(() => cloneDraftDoors(INITIAL_DRAFT_DOORS))
+  const [activeDraftGroupIndex, setActiveDraftGroupIndex] = useState(0)
+  const [activeDraftDoorId, setActiveDraftDoorId] = useState(INITIAL_DRAFT_DOORS[0]?.id ?? null)
+  const [selectedDraftCorner, setSelectedDraftCorner] = useState(null)
+  const [copyFeedback, setCopyFeedback] = useState('')
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
@@ -1905,17 +2071,30 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+
     useGLTF.preload('assets/home.glb')
-    ROOM_FILES.forEach((roomFile) => {
-      useGLTF.preload(`rooms/${roomFile}`)
-    })
+
+    const timeoutIds = ROOM_FILES.map((roomFile, index) =>
+      window.setTimeout(() => {
+        useGLTF.preload(`rooms/${roomFile}`)
+      }, 250 * (index + 1))
+    )
+
+    return () => timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId))
   }, [])
 
   useEffect(() => {
     if (typeof document === 'undefined') return undefined
 
     const previousCursor = document.documentElement.style.getPropertyValue('--app-cursor')
-    document.documentElement.style.setProperty('--app-cursor', MAIN_KEY_CURSOR)
+    const shouldUseCustomCursor = route.type !== 'home-editor'
+
+    if (shouldUseCustomCursor) {
+      document.documentElement.style.setProperty('--app-cursor', MAIN_KEY_CURSOR)
+    } else {
+      document.documentElement.style.removeProperty('--app-cursor')
+    }
 
     return () => {
       if (previousCursor) {
@@ -1924,7 +2103,7 @@ export default function App() {
         document.documentElement.style.removeProperty('--app-cursor')
       }
     }
-  }, [])
+  }, [route.type])
 
   const openRoom = useCallback((roomNumber) => {
     navigateWithHash(`#${ROOM_HASH_PREFIX}${roomNumber}`)
@@ -1971,136 +2150,499 @@ export default function App() {
     navigateWithHash(HOME_HASH)
   }, [])
 
-  if (route.type === 'room') {
-    const roomNumber = route.roomIndex + 1
-    const roomFile = ROOM_FILES[route.roomIndex]
-    return (
-      <>
-        <RoomPage roomNumber={roomNumber} roomFile={roomFile} cameraPosition={ROOM_CAMERA_POSITIONS[route.roomIndex]} onBack={closeRoom} onOpenNextRoom={() => openNextRoom(roomNumber)} />
-      </>
-    )
-  }
+  const openHomeEditor = useCallback(() => {
+    navigateWithHash(HOME_EDITOR_HASH)
+  }, [])
 
-  if (route.type === 'about') {
-    return (
-      <>
-        <AboutPage onBackHome={closeAbout} onShowAbout={openAbout} onOpenFolder={openFolder} />
-        <CursorSparkles />
-      </>
-    )
-  }
+  const closeHomeEditor = useCallback(() => {
+    navigateWithHash(HOME_HASH)
+  }, [])
 
-  if (route.type === 'folder') {
-    const folder = FOLDER_MAP.get(route.folderId)
-    return (
-      <>
-        <AboutPage onBackHome={closeAbout} onShowAbout={closeFolder} onOpenFolder={openFolder} activeFolderId={route.folderId} />
-        {folder && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 200, pointerEvents: 'none' }}>
-            <FolderPage folder={folder} onBackToAbout={closeFolder} />
-          </div>
-        )}
-        <CursorSparkles />
-      </>
+  const isHomeRoute = route.type === 'home'
+  const isHomeEditorRoute = route.type === 'home-editor'
+  const isAboutRoute = route.type === 'about'
+  const isFolderRoute = route.type === 'folder'
+  const activeFolder = isFolderRoute ? FOLDER_MAP.get(route.folderId) : null
+  const draftGroups = Array.from({ length: 4 }, (_, groupIndex) => ({
+    groupIndex,
+    color: DRAFT_GROUP_COLORS[groupIndex],
+    doors: draftDoors.filter((door) => door.groupIndex === groupIndex),
+  }))
+  const activeDraftGroup = draftGroups[activeDraftGroupIndex] ?? draftGroups[0]
+  const activeDraftDoor =
+    draftDoors.find((door) => door.id === activeDraftDoorId) ?? activeDraftGroup?.doors[0] ?? draftDoors[0] ?? null
+  const draftDoorExport = JSON.stringify(
+    draftDoors.map((door) => ({
+      id: door.id,
+      groupIndex: door.groupIndex,
+      pairIndex: door.pairIndex,
+      corners: door.corners.map((corner) => corner.map((value) => Number(value.toFixed(3)))),
+    })),
+    null,
+    2,
+  )
+
+  useEffect(() => {
+    if (!copyFeedback) return undefined
+    const timeoutId = window.setTimeout(() => setCopyFeedback(''), 1600)
+    return () => window.clearTimeout(timeoutId)
+  }, [copyFeedback])
+
+  const updateDraftCorner = useCallback((doorId, cornerIndex, nextCorner) => {
+    setDraftDoors((currentDoors) =>
+      currentDoors.map((door) => {
+        if (door.id !== doorId) return door
+        return {
+          ...door,
+          corners: door.corners.map((corner, index) => (index === cornerIndex ? nextCorner : corner)),
+        }
+      }),
     )
-  }
+  }, [])
+
+  const selectDraftCorner = useCallback((doorId, cornerIndex) => {
+    const targetDoor = draftDoors.find((door) => door.id === doorId)
+    if (targetDoor) {
+      setActiveDraftGroupIndex(targetDoor.groupIndex)
+      setActiveDraftDoorId(doorId)
+    }
+    setSelectedDraftCorner((currentSelection) => {
+      if (currentSelection?.doorId === doorId && currentSelection.cornerIndex === cornerIndex) return null
+      return { doorId, cornerIndex }
+    })
+  }, [draftDoors])
+
+  const placeDraftCorner = useCallback(
+    (doorId, cornerIndex, nextCorner) => {
+      updateDraftCorner(doorId, cornerIndex, nextCorner)
+      setSelectedDraftCorner(null)
+    },
+    [updateDraftCorner],
+  )
+
+  const resetActiveDraftDoor = useCallback(() => {
+    if (!activeDraftDoorId) return
+
+    setDraftDoors((currentDoors) =>
+      currentDoors.map((door, index) =>
+        door.id === activeDraftDoorId ? cloneDraftDoors([INITIAL_DRAFT_DOORS[index]])[0] : door,
+      ),
+    )
+    setSelectedDraftCorner(null)
+  }, [activeDraftDoorId])
+
+  const resetAllDraftDoors = useCallback(() => {
+    setDraftDoors(cloneDraftDoors(INITIAL_DRAFT_DOORS))
+    setSelectedDraftCorner(null)
+    setActiveDraftGroupIndex(0)
+    setActiveDraftDoorId(INITIAL_DRAFT_DOORS[0]?.id ?? null)
+  }, [])
+
+  const copyDraftDoors = useCallback(async () => {
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      setCopyFeedback('Copy unavailable')
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(draftDoorExport)
+      setCopyFeedback('Copied')
+    } catch {
+      setCopyFeedback('Copy failed')
+    }
+  }, [draftDoorExport])
+
+  const goToDraftGroup = useCallback((nextGroupIndex) => {
+    const safeIndex = Math.max(0, Math.min(draftGroups.length - 1, nextGroupIndex))
+    setActiveDraftGroupIndex(safeIndex)
+    setSelectedDraftCorner(null)
+    setActiveDraftDoorId((currentDoorId) => {
+      const currentDoor = draftDoors.find((door) => door.id === currentDoorId)
+      if (currentDoor?.groupIndex === safeIndex) return currentDoorId
+      return draftGroups[safeIndex]?.doors[0]?.id ?? currentDoorId
+    })
+  }, [draftDoors, draftGroups])
 
   return (
-    <div
-      style={{
-        width: '100vw',
-        height: '100vh',
-        position: 'relative',
-        cursor: 'inherit',
-        backgroundColor: '#fff',
-        overflow: 'hidden',
-      }}
-    >
+    <>
       <div
         style={{
-          position: 'absolute',
-          inset: 0,
-          opacity: hasOpenedPreview && !isPreviewOpen ? 1 : 0,
-          pointerEvents: hasOpenedPreview && !isPreviewOpen ? 'auto' : 'none',
-          transition: 'opacity 180ms ease',
+          width: '100vw',
+          height: '100vh',
+          position: 'relative',
+          cursor: 'inherit',
+          backgroundColor: '#fff',
+          overflow: 'hidden',
+          display: isHomeRoute || route.type === 'room' ? 'block' : 'none',
         }}
-        aria-hidden={!hasOpenedPreview || isPreviewOpen}
       >
-        <HomeScene onModelLoaded={undefined} onOpenRoom={openRoom} />
-      </div>
+        <video
+          src={HOME_PREVIEW_VIDEO}
+          preload="auto"
+          muted
+          playsInline
+          aria-hidden="true"
+          style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
+        />
 
-      {hasOpenedPreview && !isPreviewOpen && (
-        <button
-          type="button"
-          onClick={openAbout}
+        <div
           style={{
             position: 'absolute',
-            top: '24px',
-            left: '24px',
-            zIndex: 41,
-            border: 'none',
-            background: 'transparent',
-            color: '#000',
-            padding: 0,
-            fontFamily: MAC_LIGHT_FONT_STACK,
-            fontSize: '18px',
-            fontWeight: 300,
+            inset: 0,
+            display: 'block',
+            opacity: hasOpenedPreview && !isPreviewOpen && isHomeRoute ? 1 : 0,
+            pointerEvents: hasOpenedPreview && !isPreviewOpen && isHomeRoute ? 'auto' : 'none',
+            transition: 'opacity 180ms ease',
           }}
+          aria-hidden={!hasOpenedPreview || isPreviewOpen || !isHomeRoute}
         >
-          about
-        </button>
-      )}
+          <HomeScene
+            onModelLoaded={undefined}
+            onOpenRoom={openRoom}
+            isActive={isHomeRoute}
+          />
+        </div>
 
-      <div
-        style={{
-          position: 'absolute',
-          left: '50%',
-          top: `${HOME_HEADER_TOP}px`,
-          transform: 'translateX(-50%)',
-          zIndex: 40,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '6px',
-        }}
-      >
-        {hasOpenedPreview && !isPreviewOpen && (
-          <img
-            src={HOME_WELCOME_GIF}
-            alt=""
-            aria-hidden="true"
-            style={{ width: 'min(124px, 18vw)', height: 'auto', display: 'block' }}
-          />
-        )}
-        {(!hasOpenedPreview || isPreviewOpen) && (
-          <img
-            src={HOME_WELCOME_GIF}
-            alt=""
-            aria-hidden="true"
-            style={{ width: 'min(124px, 18vw)', height: 'auto', display: 'block', visibility: 'hidden' }}
-          />
+        {ROOM_FILES.map((roomFile, index) => {
+          const roomNumber = index + 1
+          return (
+            <RoomPage
+              key={roomFile}
+              roomNumber={roomNumber}
+              roomFile={roomFile}
+              cameraPosition={ROOM_CAMERA_POSITIONS[index]}
+              onBack={closeRoom}
+              onOpenNextRoom={() => openNextRoom(roomNumber)}
+              isActive={route.type === 'room' && route.roomIndex === index}
+            />
+          )
+        })}
+
+        {isHomeRoute && hasOpenedPreview && !isPreviewOpen && (
+          <>
+            <button
+              type="button"
+              onClick={openAbout}
+              style={{
+                position: 'absolute',
+                top: '24px',
+                left: '24px',
+                zIndex: 41,
+                border: 'none',
+                background: 'transparent',
+                color: '#000',
+                padding: 0,
+                fontFamily: MAC_LIGHT_FONT_STACK,
+                fontSize: '18px',
+                fontWeight: 300,
+              }}
+            >
+              about
+            </button>
+            <button
+              type="button"
+              onClick={openHomeEditor}
+              style={{
+                position: 'absolute',
+                top: '52px',
+                left: '24px',
+                zIndex: 41,
+                border: 'none',
+                background: 'transparent',
+                color: '#000',
+                padding: 0,
+                fontFamily: MAC_LIGHT_FONT_STACK,
+                fontSize: '18px',
+                fontWeight: 300,
+              }}
+            >
+              editor
+            </button>
+          </>
         )}
 
         <div
           style={{
-            color: '#000',
-            padding: 0,
-            width: 'min(220px, 32vw)',
-            fontFamily: ARIAL_FONT_STACK,
-            fontSize: '25px',
-            fontWeight: 400,
-            letterSpacing: '0.01em',
-            lineHeight: 1,
-            textAlign: 'center',
-            textTransform: 'lowercase',
+            position: 'absolute',
+            left: '50%',
+            top: `${HOME_HEADER_TOP}px`,
+            transform: 'translateX(-50%)',
+            zIndex: 40,
+            display: isHomeRoute ? 'flex' : 'none',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '6px',
           }}
         >
-          {HOME_TITLE}
+          {hasOpenedPreview && !isPreviewOpen && (
+            <img
+              src={HOME_WELCOME_GIF}
+              alt=""
+              aria-hidden="true"
+              style={{ width: 'min(124px, 18vw)', height: 'auto', display: 'block' }}
+            />
+          )}
+          {(!hasOpenedPreview || isPreviewOpen) && (
+            <img
+              src={HOME_WELCOME_GIF}
+              alt=""
+              aria-hidden="true"
+              style={{ width: 'min(124px, 18vw)', height: 'auto', display: 'block', visibility: 'hidden' }}
+            />
+          )}
+
+          <div
+            style={{
+              color: '#000',
+              padding: 0,
+              width: 'min(220px, 32vw)',
+              fontFamily: ARIAL_FONT_STACK,
+              fontSize: '25px',
+              fontWeight: 400,
+              letterSpacing: '0.01em',
+              lineHeight: 1,
+              textAlign: 'center',
+              textTransform: 'lowercase',
+            }}
+          >
+            {HOME_TITLE}
+          </div>
         </div>
+
+        {isHomeRoute && !hasOpenedPreview && !isPreviewOpen && <PreviewLauncher onOpen={openPreview} />}
+        {isHomeRoute && isPreviewOpen && <ProjectPreviewWindow onClose={closePreview} />}
       </div>
 
-      {!hasOpenedPreview && !isPreviewOpen && <PreviewLauncher onOpen={openPreview} />}
-      {isPreviewOpen && <ProjectPreviewWindow onClose={closePreview} />}
-    </div>
+      {isHomeEditorRoute && (
+        <div
+          style={{
+            width: '100vw',
+            height: '100vh',
+            position: 'relative',
+            backgroundColor: '#fff',
+            overflow: 'hidden',
+          }}
+        >
+          <HomeEditorScene
+            isActive={isHomeEditorRoute}
+            draftDoors={draftDoors}
+            activeDoorId={activeDraftDoorId}
+            selectedCorner={selectedDraftCorner}
+            onSelectCorner={selectDraftCorner}
+            onPlaceCorner={placeDraftCorner}
+          />
+
+          <div
+            style={{
+              position: 'absolute',
+              top: '24px',
+              left: '24px',
+              zIndex: 50,
+              width: 'min(420px, calc(100vw - 48px))',
+              padding: '16px',
+              background: 'rgba(255,255,255,0.94)',
+              border: `2px solid ${activeDraftGroup?.color ?? '#000'}`,
+              borderRadius: '16px',
+              boxShadow: '0 14px 34px rgba(0,0,0,0.14)',
+              fontFamily: ARIAL_FONT_STACK,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+              <div>
+                <div style={{ fontSize: '18px', lineHeight: 1.1, color: '#111' }}>home rectangle editor</div>
+                <div style={{ fontSize: '12px', color: 'rgba(0,0,0,0.65)', marginTop: '4px' }}>
+                  Group {activeDraftGroupIndex + 1} of {draftGroups.length}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={closeHomeEditor}
+                style={{
+                  border: '1px solid rgba(0,0,0,0.14)',
+                  background: '#fff',
+                  color: '#111',
+                  borderRadius: '999px',
+                  padding: '6px 10px',
+                  fontSize: '12px',
+                }}
+              >
+                back home
+              </button>
+            </div>
+
+            <div style={{ fontSize: '12px', lineHeight: 1.5, color: '#222', marginTop: '12px' }}>
+              1. Pick one of the two rectangles for this room.
+            </div>
+            <div style={{ fontSize: '12px', lineHeight: 1.5, color: '#222' }}>
+              2. Click a corner dot to arm it.
+            </div>
+            <div style={{ fontSize: '12px', lineHeight: 1.5, color: '#222' }}>
+              3. Click the house mesh where that corner should land.
+            </div>
+            <div style={{ fontSize: '12px', lineHeight: 1.5, color: '#222', marginBottom: '12px' }}>
+              4. Repeat for the four corners, then move to the next group.
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+              {activeDraftGroup?.doors.map((door) => {
+                const isSelected = door.id === activeDraftDoorId
+                return (
+                  <button
+                    key={door.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveDraftDoorId(door.id)
+                      setSelectedDraftCorner(null)
+                    }}
+                    style={{
+                      border: isSelected ? `2px solid ${door.color}` : '1px solid rgba(0,0,0,0.14)',
+                      background: isSelected ? 'rgba(0,0,0,0.05)' : '#fff',
+                      color: '#111',
+                      borderRadius: '999px',
+                      padding: '6px 10px',
+                      fontSize: '12px',
+                    }}
+                  >
+                    {`rectangle ${door.pairIndex + 1}`}
+                  </button>
+                )
+              })}
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+              <button
+                type="button"
+                onClick={() => goToDraftGroup(activeDraftGroupIndex - 1)}
+                disabled={activeDraftGroupIndex === 0}
+                style={{
+                  border: '1px solid rgba(0,0,0,0.14)',
+                  background: activeDraftGroupIndex === 0 ? 'rgba(0,0,0,0.06)' : '#fff',
+                  color: '#111',
+                  borderRadius: '999px',
+                  padding: '6px 10px',
+                  fontSize: '12px',
+                }}
+              >
+                previous group
+              </button>
+              <button
+                type="button"
+                onClick={() => goToDraftGroup(activeDraftGroupIndex + 1)}
+                disabled={activeDraftGroupIndex === draftGroups.length - 1}
+                style={{
+                  border: '1px solid rgba(0,0,0,0.14)',
+                  background: activeDraftGroupIndex === draftGroups.length - 1 ? 'rgba(0,0,0,0.06)' : '#fff',
+                  color: '#111',
+                  borderRadius: '999px',
+                  padding: '6px 10px',
+                  fontSize: '12px',
+                }}
+              >
+                next group
+              </button>
+            </div>
+
+            {activeDraftDoor && (
+              <div style={{ marginBottom: '12px', fontSize: '12px', lineHeight: 1.55, color: '#222' }}>
+                <div style={{ marginBottom: '6px', color: activeDraftGroup?.color ?? '#111', fontWeight: 700 }}>
+                  {selectedDraftCorner?.doorId === activeDraftDoor.id
+                    ? `placing corner ${selectedDraftCorner.cornerIndex + 1} on rectangle ${activeDraftDoor.pairIndex + 1}`
+                    : `editing rectangle ${activeDraftDoor.pairIndex + 1}`}
+                </div>
+                {activeDraftDoor.corners.map((corner, index) => (
+                  <div key={`${activeDraftDoor.id}-readout-${index}`}>
+                    {`corner ${index + 1}: [${corner.map((value) => value.toFixed(3)).join(', ')}]`}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={resetActiveDraftDoor}
+                style={{
+                  border: '1px solid rgba(0,0,0,0.14)',
+                  background: '#fff',
+                  color: '#111',
+                  borderRadius: '999px',
+                  padding: '6px 10px',
+                  fontSize: '12px',
+                }}
+              >
+                reset rectangle
+              </button>
+              <button
+                type="button"
+                onClick={resetAllDraftDoors}
+                style={{
+                  border: '1px solid rgba(0,0,0,0.14)',
+                  background: '#fff',
+                  color: '#111',
+                  borderRadius: '999px',
+                  padding: '6px 10px',
+                  fontSize: '12px',
+                }}
+              >
+                reset all
+              </button>
+              <button
+                type="button"
+                onClick={copyDraftDoors}
+                style={{
+                  border: '1px solid rgba(0,0,0,0.14)',
+                  background: '#111',
+                  color: '#fff',
+                  borderRadius: '999px',
+                  padding: '6px 10px',
+                  fontSize: '12px',
+                }}
+              >
+                copy all corners
+              </button>
+              {copyFeedback ? (
+                <div style={{ fontSize: '12px', color: 'rgba(0,0,0,0.65)', alignSelf: 'center' }}>{copyFeedback}</div>
+              ) : null}
+            </div>
+
+            <textarea
+              readOnly
+              value={draftDoorExport}
+              aria-label="Draft door coordinates"
+              style={{
+                width: '100%',
+                minHeight: '180px',
+                resize: 'vertical',
+                border: '1px solid rgba(0,0,0,0.12)',
+                borderRadius: '10px',
+                padding: '10px',
+                fontFamily: 'monospace',
+                fontSize: '11px',
+                lineHeight: 1.45,
+                background: 'rgba(255,255,255,0.9)',
+                color: '#111',
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {(isAboutRoute || isFolderRoute) && (
+        <>
+          <AboutPage
+            onBackHome={closeAbout}
+            onShowAbout={isFolderRoute ? closeFolder : openAbout}
+            onOpenFolder={openFolder}
+            activeFolderId={isFolderRoute ? route.folderId : null}
+          />
+          {activeFolder && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 200, pointerEvents: 'none' }}>
+              <FolderPage folder={activeFolder} onBackToAbout={closeFolder} />
+            </div>
+          )}
+          <CursorSparkles />
+        </>
+      )}
+    </>
   )
 }
