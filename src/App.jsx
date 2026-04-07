@@ -32,7 +32,7 @@ const ROOM_HASH_PREFIX = 'room-'
 const FOLDER_HASH_PREFIX = 'folder-'
 const MAC_LIGHT_FONT_STACK = "'Helvetica', Arial, sans-serif"
 const ARIAL_FONT_STACK = 'Arial, Helvetica, sans-serif'
-const HOME_PREVIEW_VIDEO = 'assets/shelestvetrovki-scan.mp4'
+const HOME_PREVIEW_VIDEO = 'assets/shelestvetrovki-scan-web.mp4'
 const HOME_WELCOME_GIF = 'assets/home-welcome.gif'
 const NEXT_DOOR_GIF = 'assets/next-door.gif'
 const GO_BACK_GIF = 'assets/go-back.gif'
@@ -1970,19 +1970,18 @@ export default function App() {
         overflow: 'hidden',
       }}
     >
-      {hasOpenedPreview && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            opacity: isPreviewOpen ? 0 : 1,
-            pointerEvents: isPreviewOpen ? 'none' : 'auto',
-            transition: 'opacity 180ms ease',
-          }}
-        >
-          <HomeScene onModelLoaded={undefined} onOpenRoom={openRoom} />
-        </div>
-      )}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          opacity: hasOpenedPreview && !isPreviewOpen ? 1 : 0,
+          pointerEvents: hasOpenedPreview && !isPreviewOpen ? 'auto' : 'none',
+          transition: 'opacity 180ms ease',
+        }}
+        aria-hidden={!hasOpenedPreview || isPreviewOpen}
+      >
+        <HomeScene onModelLoaded={undefined} onOpenRoom={openRoom} />
+      </div>
 
       {hasOpenedPreview && !isPreviewOpen && (
         <button
