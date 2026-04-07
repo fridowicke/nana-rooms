@@ -5,7 +5,7 @@ body {
   font-family: 'Helvetica', Arial, sans-serif;
   font-weight: 300;
   background-color: #fff;
-  cursor: url('assets/cursor-default.ani') 11 0, url('assets/key-cursor.png') 11 0, auto;
+  cursor: var(--app-cursor, auto);
 }
 
 *, *::before, *::after {
@@ -13,19 +13,19 @@ body {
 }
 
 a, button, [role="button"], .cursor-pointer {
-  cursor: url('assets/cursor-pointer.ani') 11 0, pointer !important;
+  cursor: inherit !important;
 }
 
 .cursor-grab {
-  cursor: url('assets/cursor-alternate.cur') 16 0, grab !important;
+  cursor: inherit !important;
 }
 
 .cursor-help {
-  cursor: url('assets/cursor-help.cur') 5 3, help !important;
+  cursor: inherit !important;
 }
 
 .cursor-working {
-  cursor: url('assets/cursor-working.ani') 11 0, wait !important;
+  cursor: inherit !important;
 }
 
 #root {

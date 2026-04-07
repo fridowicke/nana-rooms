@@ -24,7 +24,7 @@ const ROOM_FILES = [
   'MOENE WEB.glb',
 ]
 const CONTACT_EMAIL = 'shelestvetrovki@gmail.com'
-const HOME_TITLE = 'shelest vetrovki'
+const HOME_TITLE = 'shelestvetrovki'
 const PREVIEW_FILENAME = 'shelestvetrovki.mp4'
 const HOME_HASH = '#home'
 const ABOUT_HASH = '#about'
@@ -48,12 +48,27 @@ const CURSOR_TRAIL_GIFS = [
   new URL('../target/cursor/sparkle_h.gif', import.meta.url).href,
 ]
 const CURSOR_CLICK_GIF = new URL('../target/cursor/sparkle_click.gif', import.meta.url).href
+const MAIN_KEY_CURSOR_URL = new URL('../target/keys/key_main.ani', import.meta.url).href
+const ROOM_KEY_CURSOR_URLS = [
+  new URL('../target/keys/key_christalhearts1.ani', import.meta.url).href,
+  new URL('../target/keys/key_christalhearts2.ani', import.meta.url).href,
+  new URL('../target/keys/key_link.ani', import.meta.url).href,
+  new URL('../target/keys/key_working.ani', import.meta.url).href,
+]
+const MAIN_KEY_CURSOR_FALLBACK_URL = new URL('../target/magic-key/alternate magic key.cur', import.meta.url).href
+const ROOM_KEY_CURSOR_FALLBACKS = [
+  new URL('../target/magic-key/Crystal heart.cur', import.meta.url).href,
+  new URL('../target/magic-key/Locked heart.cur', import.meta.url).href,
+  new URL('../target/magic-key/Gold cross.cur', import.meta.url).href,
+  new URL('../target/magic-key/Help magic key.cur', import.meta.url).href,
+]
 const CURSOR_TRAIL_LIFETIME_MS = 850
 const CURSOR_CLICK_LIFETIME_MS = 700
 const CURSOR_TRAIL_MIN_DISTANCE = 14
 const CURSOR_TRAIL_MIN_INTERVAL_MS = 24
 const HOME_HEADER_TOP = 24
 const PREVIEW_WINDOW_TOP = 190
+const KEY_CURSOR_HOTSPOT = '11 0'
 const DEFAULT_ABOUT_HTML = `Anastasiia Pishchanska is a Ukrainian-born, Tokyo-based artist, filmmaker, and art director. She is the co-founder of the established Ukrainian art print publication localstickerbook (<a href="https://localgr0up.com/" target="_blank" rel="noreferrer">local.group</a>), which curates exhibitions, events, and fundraisers worldwide, presenting contemporary artists through the lens of post-internet culture. In 2023, following the full-scale invasion of Ukraine, she was awarded a research scholarship at...
 
 <br><br>Her practice moves between moving image, installation, and art direction, focusing on digital memory, migration, and cultural identity.`
@@ -204,11 +219,25 @@ const FOLDER_DEFINITIONS = [
 ]
 const FOLDER_MAP = new Map(FOLDER_DEFINITIONS.map((folder) => [folder.id, folder]))
 
+function buildCursorValue(cursorUrl, fallback = 'auto', fallbackCursorUrl) {
+  const cursorStack = [`url("${cursorUrl}") ${KEY_CURSOR_HOTSPOT}`]
+
+  if (fallbackCursorUrl) {
+    cursorStack.push(`url("${fallbackCursorUrl}") ${KEY_CURSOR_HOTSPOT}`)
+  }
+
+  cursorStack.push(fallback)
+  return cursorStack.join(', ')
+}
+
+const MAIN_KEY_CURSOR = buildCursorValue(MAIN_KEY_CURSOR_URL, 'auto', MAIN_KEY_CURSOR_FALLBACK_URL)
+
 const DOOR_LINKS = [
   {
     id: 'door-1',
     label: 'Door 1',
     roomIndex: 0,
+    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[0], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[0]),
     corners: [
       [0.154, 0.129, 0.028],
       [0.103, 0.131, -0.02],
@@ -220,6 +249,7 @@ const DOOR_LINKS = [
     id: 'door-2',
     label: 'Door 2',
     roomIndex: 1,
+    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[1], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[1]),
     corners: [
       [-0.083, 0.126, 0.157],
       [-0.035, 0.126, 0.108],
@@ -231,6 +261,7 @@ const DOOR_LINKS = [
     id: 'door-3',
     label: 'Door 3',
     roomIndex: 2,
+    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[2], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[2]),
     corners: [
       [-0.161, 0.13, -0.019],
       [-0.131, 0.133, 0.047],
@@ -242,6 +273,7 @@ const DOOR_LINKS = [
     id: 'door-4',
     label: 'Door 4',
     roomIndex: 3,
+    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[3], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[3]),
     corners: [
       [-0.018, 0.012, -0.087],
       [0.026, 0.01, -0.133],
@@ -582,10 +614,22 @@ function DoorLinkArea({ door, onOpenRoom }) {
 
   if (!geometry) return null
 
+  const applyDoorCursor = (event, cursorValue) => {
+    const target = event?.nativeEvent?.target
+    if (target?.style) target.style.cursor = cursorValue
+  }
+
   return (
     <mesh
       geometry={geometry}
       renderOrder={1000}
+      onPointerOver={(event) => {
+        event.stopPropagation()
+        applyDoorCursor(event, door.cursor || MAIN_KEY_CURSOR)
+      }}
+      onPointerOut={(event) => {
+        applyDoorCursor(event, 'inherit')
+      }}
       onPointerDown={(event) => {
         event.stopPropagation()
       }}
@@ -641,14 +685,14 @@ function RoomPage({ roomNumber, roomFile, cameraPosition, onBack, onOpenNextRoom
           background: 'transparent',
           padding: 0,
           zIndex: 20,
-          cursor: 'pointer',
+          cursor: 'inherit',
         }}
         aria-label="Go back to house view"
       >
         <img
           src={GO_BACK_GIF}
           alt="Go back"
-          style={{ width: 'min(110px, 18vw)', height: 'auto', display: 'block', objectFit: 'contain' }}
+          style={{ width: 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain' }}
         />
       </button>
 
@@ -667,7 +711,6 @@ function RoomPage({ roomNumber, roomFile, cameraPosition, onBack, onOpenNextRoom
       </KeyboardControls>
 
       <div
-        className="cursor-help"
         style={{
           position: 'absolute',
           top: '24px',
@@ -702,13 +745,13 @@ function RoomPage({ roomNumber, roomFile, cameraPosition, onBack, onOpenNextRoom
           border: 'none',
           background: 'transparent',
           padding: 0,
-          cursor: 'pointer',
+          cursor: 'inherit',
         }}
       >
         <img
           src={NEXT_DOOR_GIF}
           alt="Go to the next door"
-          style={{ width: 'min(110px, 18vw)', height: 'auto', display: 'block', objectFit: 'contain' }}
+          style={{ width: 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain' }}
         />
       </button>
     </div>
@@ -1222,17 +1265,6 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
               style={{ width: '40px', height: 'auto', objectFit: 'contain' }}
             />
           </div>
-          <span
-            style={{
-              fontFamily: MAC_LIGHT_FONT_STACK,
-              fontSize: '12px',
-              fontWeight: 300,
-              color: '#444',
-              letterSpacing: '0.01em',
-            }}
-          >
-            Anastasiia Pishchanska b.2000
-          </span>
         </div>
 
         <button
@@ -1879,6 +1911,21 @@ export default function App() {
     })
   }, [])
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined
+
+    const previousCursor = document.documentElement.style.getPropertyValue('--app-cursor')
+    document.documentElement.style.setProperty('--app-cursor', MAIN_KEY_CURSOR)
+
+    return () => {
+      if (previousCursor) {
+        document.documentElement.style.setProperty('--app-cursor', previousCursor)
+      } else {
+        document.documentElement.style.removeProperty('--app-cursor')
+      }
+    }
+  }, [])
+
   const openRoom = useCallback((roomNumber) => {
     navigateWithHash(`#${ROOM_HASH_PREFIX}${roomNumber}`)
   }, [])
@@ -1930,7 +1977,6 @@ export default function App() {
     return (
       <>
         <RoomPage roomNumber={roomNumber} roomFile={roomFile} cameraPosition={ROOM_CAMERA_POSITIONS[route.roomIndex]} onBack={closeRoom} onOpenNextRoom={() => openNextRoom(roomNumber)} />
-        <CursorSparkles />
       </>
     )
   }
@@ -1965,7 +2011,7 @@ export default function App() {
         width: '100vw',
         height: '100vh',
         position: 'relative',
-        cursor: 'auto',
+        cursor: 'inherit',
         backgroundColor: '#fff',
         overflow: 'hidden',
       }}
@@ -2055,7 +2101,6 @@ export default function App() {
 
       {!hasOpenedPreview && !isPreviewOpen && <PreviewLauncher onOpen={openPreview} />}
       {isPreviewOpen && <ProjectPreviewWindow onClose={closePreview} />}
-      <CursorSparkles />
     </div>
   )
 }
