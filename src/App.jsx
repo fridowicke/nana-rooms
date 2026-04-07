@@ -1034,15 +1034,15 @@ function TinyPlayer({ onTitleBarMouseDown }) {
 
         {/* Transport buttons */}
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '18px', margin: '9px 0 8px' }}>
-          <button type="button" aria-label="Previous" onClick={prevSong} style={{ width: '32px', height: '32px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, fontSize: '16px', color: '#333', lineHeight: 1, cursor: 'pointer' }}>⏮</button>
-          <button type="button" aria-label={isPlaying ? 'Pause' : 'Play'} onClick={togglePlay} style={{ width: '36px', height: '36px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, fontSize: '18px', color: '#333', lineHeight: 1, cursor: 'pointer' }}>{isPlaying ? '⏸' : '▶'}</button>
-          <button type="button" aria-label="Next" onClick={nextSong} style={{ width: '32px', height: '32px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, fontSize: '16px', color: '#333', lineHeight: 1, cursor: 'pointer' }}>⏭</button>
+          <button type="button" aria-label="Previous" onClick={prevSong} style={{ width: '32px', height: '32px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, fontSize: '16px', color: '#333', lineHeight: 1, cursor: 'inherit' }}>⏮</button>
+          <button type="button" aria-label={isPlaying ? 'Pause' : 'Play'} onClick={togglePlay} style={{ width: '36px', height: '36px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, fontSize: '18px', color: '#333', lineHeight: 1, cursor: 'inherit' }}>{isPlaying ? '⏸' : '▶'}</button>
+          <button type="button" aria-label="Next" onClick={nextSong} style={{ width: '32px', height: '32px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, fontSize: '16px', color: '#333', lineHeight: 1, cursor: 'inherit' }}>⏭</button>
         </div>
 
         {/* Seek bar */}
         <div
           onClick={handleSeek}
-          style={{ position: 'relative', height: '6px', background: '#ccc', borderRadius: '3px', margin: '0 2px 4px', cursor: 'pointer' }}
+          style={{ position: 'relative', height: '6px', background: '#ccc', borderRadius: '3px', margin: '0 2px 4px', cursor: 'inherit' }}
         >
           <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${pct}%`, background: '#4a90d9', borderRadius: '3px' }} />
           <div style={{ position: 'absolute', top: '50%', left: `${pct}%`, transform: 'translate(-50%,-50%)', width: '10px', height: '10px', borderRadius: '50%', background: '#fff', border: '1.5px solid #4a90d9', pointerEvents: 'none' }} />
@@ -1444,7 +1444,7 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            cursor: 'pointer',
+            cursor: 'inherit',
           }}
         >
           <img
@@ -1609,21 +1609,21 @@ function FolderPage({ folder, onBackToAbout }) {
             tabIndex={0}
             onClick={onBackToAbout}
             onKeyDown={(e) => e.key === 'Enter' && onBackToAbout()}
-            style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '9px', color: '#7a0c00', fontWeight: 900, lineHeight: 1 }}
+            style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'inherit', fontSize: '9px', color: '#7a0c00', fontWeight: 900, lineHeight: 1 }}
           >{dotsHovered ? '×' : ''}</span>
           <span
             role="button"
             tabIndex={0}
             onClick={() => setMinimized((m) => !m)}
             onKeyDown={(e) => e.key === 'Enter' && setMinimized((m) => !m)}
-            style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d4a017', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '9px', color: '#7a4800', fontWeight: 900, lineHeight: 1 }}
+            style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d4a017', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'inherit', fontSize: '9px', color: '#7a4800', fontWeight: 900, lineHeight: 1 }}
           >{dotsHovered ? '−' : ''}</span>
           <span
             role="button"
             tabIndex={0}
             onClick={() => setEnlarged((z) => !z)}
             onKeyDown={(e) => e.key === 'Enter' && setEnlarged((z) => !z)}
-            style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '10px', color: '#0a4a0a', fontWeight: 900, lineHeight: 1 }}
+            style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'inherit', fontSize: '10px', color: '#0a4a0a', fontWeight: 900, lineHeight: 1 }}
           >{dotsHovered ? (enlarged ? '⤡' : '⤢') : ''}</span>
         </span>
         <span style={{ flex: 1, textAlign: 'center', fontSize: '11px', fontWeight: 500, color: '#333', marginRight: '30px' }}>{folder.title}</span>
@@ -1871,7 +1871,7 @@ function PreviewLauncher({ onOpen }) {
         alignItems: 'center',
         gap: '8px',
         width: '120px',
-        cursor: 'pointer',
+        cursor: 'inherit',
       }}
       onMouseDown={startDrag}
       onDragStart={(event) => event.preventDefault()}
