@@ -234,7 +234,7 @@ function buildCursorValue(cursorUrl, fallback = 'auto', fallbackCursorUrl) {
 }
 
 const MAIN_KEY_CURSOR = buildCursorValue(MAIN_KEY_CURSOR_URL, 'auto', MAIN_KEY_CURSOR_FALLBACK_URL)
-const HOVER_KEY_CURSOR = buildCursorValue(ROOM_KEY_CURSOR_URLS[2], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[2])
+const HOVER_KEY_CURSOR = buildCursorValue(ROOM_KEY_CURSOR_URLS[1], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[1])
 
 const DOOR_LINKS = [
   {
@@ -1657,6 +1657,7 @@ function FolderPage({ folder, onBackToAbout }) {
                   href={link.url}
                   target="_blank"
                   rel="noopener noreferrer"
+                  className="about-folder-link"
                   onClick={(e) => e.stopPropagation()}
                   style={{ fontSize: '11px', fontWeight: 300, color: '#4a90d9', textDecoration: 'none', lineHeight: 1.6 }}
                 >

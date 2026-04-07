@@ -17,7 +17,7 @@ a, button, [role="button"], .cursor-pointer {
 }
 
 .cursor-grab {
-  cursor: inherit !important;
+  cursor: var(--app-hover-cursor, inherit) !important;
 }
 
 .cursor-help {
@@ -47,4 +47,9 @@ a, button, [role="button"], .cursor-pointer {
 .classic-textedit-scroll a:visited {
   color: #0b5fff;
   text-decoration: underline;
+}
+
+.about-folder-link:hover,
+.about-folder-link:focus-visible {
+  text-decoration: underline !important;
 }
