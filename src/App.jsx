@@ -1756,7 +1756,7 @@ function ProjectPreviewWindow({ onClose }) {
           borderBottom: '1px solid rgba(0,0,0,0.08)',
           background: 'linear-gradient(180deg, #efefef 0%, #dbdbdb 100%)',
           userSelect: 'none',
-          cursor: 'grab',
+          cursor: 'inherit',
         }}
         onMouseDown={startDrag}
       >
