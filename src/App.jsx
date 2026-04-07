@@ -234,6 +234,7 @@ function buildCursorValue(cursorUrl, fallback = 'auto', fallbackCursorUrl) {
 }
 
 const MAIN_KEY_CURSOR = buildCursorValue(MAIN_KEY_CURSOR_URL, 'auto', MAIN_KEY_CURSOR_FALLBACK_URL)
+const HOVER_KEY_CURSOR = buildCursorValue(ROOM_KEY_CURSOR_URLS[2], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[2])
 
 const DOOR_LINKS = [
   {
@@ -2150,10 +2151,13 @@ export default function App() {
     if (typeof document === 'undefined') return undefined
 
     const previousCursor = document.documentElement.style.getPropertyValue('--app-cursor')
+    const previousHoverCursor = document.documentElement.style.getPropertyValue('--app-hover-cursor')
     if (route.type === 'home-editor') {
       document.documentElement.style.removeProperty('--app-cursor')
+      document.documentElement.style.removeProperty('--app-hover-cursor')
     } else {
       document.documentElement.style.setProperty('--app-cursor', MAIN_KEY_CURSOR)
+      document.documentElement.style.setProperty('--app-hover-cursor', HOVER_KEY_CURSOR)
     }
 
     return () => {
@@ -2161,6 +2165,12 @@ export default function App() {
         document.documentElement.style.setProperty('--app-cursor', previousCursor)
       } else {
         document.documentElement.style.removeProperty('--app-cursor')
+      }
+
+      if (previousHoverCursor) {
+        document.documentElement.style.setProperty('--app-hover-cursor', previousHoverCursor)
+      } else {
+        document.documentElement.style.removeProperty('--app-hover-cursor')
       }
     }
   }, [route.type])
