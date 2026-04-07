@@ -27,6 +27,8 @@ const CONTACT_EMAIL = 'shelestvetrovki@gmail.com'
 const HOME_TITLE = 'shelestvetrovki'
 const PREVIEW_FILENAME = 'shelestvetrovki.mp4'
 const HOME_HASH = '#home'
+const HOME_EDITOR_HASH = '#home-editor'
+const HOME_EDITOR_ENABLED = false
 const ABOUT_HASH = '#about'
 const ROOM_HASH_PREFIX = 'room-'
 const FOLDER_HASH_PREFIX = 'folder-'
@@ -69,6 +71,7 @@ const CURSOR_TRAIL_MIN_INTERVAL_MS = 24
 const HOME_HEADER_TOP = 24
 const PREVIEW_WINDOW_TOP = 190
 const KEY_CURSOR_HOTSPOT = '11 0'
+const HOME_EDITOR_STORAGE_KEY = 'nana-home-editor-state'
 const DEFAULT_ABOUT_HTML = `Anastasiia Pishchanska is a Ukrainian-born, Tokyo-based artist, filmmaker, and art director. She is the co-founder of the established Ukrainian art print publication localstickerbook (<a href="https://localgr0up.com/" target="_blank" rel="noreferrer">local.group</a>), which curates exhibitions, events, and fundraisers worldwide, presenting contemporary artists through the lens of post-internet culture. In 2023, following the full-scale invasion of Ukraine, she was awarded a research scholarship at...
 
 <br><br>Her practice moves between moving image, installation, and art direction, focusing on digital memory, migration, and cultural identity.`
@@ -234,51 +237,99 @@ const MAIN_KEY_CURSOR = buildCursorValue(MAIN_KEY_CURSOR_URL, 'auto', MAIN_KEY_C
 
 const DOOR_LINKS = [
   {
-    id: 'door-1',
-    label: 'Door 1',
-    roomIndex: 0,
-    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[0], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[0]),
-    corners: [
-      [0.154, 0.129, 0.028],
-      [0.103, 0.131, -0.02],
-      [0.106, 0.011, -0.018],
-      [0.153, 0.01, 0.027],
-    ],
-  },
-  {
-    id: 'door-2',
-    label: 'Door 2',
-    roomIndex: 1,
-    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[1], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[1]),
-    corners: [
-      [-0.083, 0.126, 0.157],
-      [-0.035, 0.126, 0.108],
-      [-0.034, 0.009, 0.113],
-      [-0.084, 0.008, 0.161],
-    ],
-  },
-  {
-    id: 'door-3',
-    label: 'Door 3',
-    roomIndex: 2,
-    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[2], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[2]),
-    corners: [
-      [-0.161, 0.13, -0.019],
-      [-0.131, 0.133, 0.047],
-      [-0.138, 0.005, 0.045],
-      [-0.167, 0.012, -0.017],
-    ],
-  },
-  {
-    id: 'door-4',
-    label: 'Door 4',
+    id: 'door4-inner',
+    label: 'Door 4 Inner',
     roomIndex: 3,
     cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[3], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[3]),
     corners: [
-      [-0.018, 0.012, -0.087],
-      [0.026, 0.01, -0.133],
-      [0.028, 0.124, -0.125],
-      [-0.021, 0.118, -0.082],
+      [0.053, 0.121, -0.081],
+      [-0.024, 0.118, -0.083],
+      [-0.022, 0.003, -0.083],
+      [0.049, 0.003, -0.082],
+    ],
+  },
+  {
+    id: 'door4-door',
+    label: 'Door 4 Door',
+    roomIndex: 3,
+    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[3], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[3]),
+    corners: [
+      [0.033, 0.126, -0.133],
+      [-0.024, 0.118, -0.083],
+      [-0.022, 0.003, -0.083],
+      [0.028, 0.003, -0.133],
+    ],
+  },
+  {
+    id: 'door3-inner',
+    label: 'Door 3 Inner',
+    roomIndex: 2,
+    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[2], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[2]),
+    corners: [
+      [0.099, 0.131, 0.056],
+      [0.102, 0.134, -0.02],
+      [0.103, 0.002, -0.016],
+      [0.106, 0.006, 0.053],
+    ],
+  },
+  {
+    id: 'door3-door',
+    label: 'Door 3 Door',
+    roomIndex: 2,
+    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[2], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[2]),
+    corners: [
+      [0.15, 0.131, 0.031],
+      [0.101, 0.134, -0.02],
+      [0.103, 0.002, -0.016],
+      [0.154, 0.006, 0.03],
+    ],
+  },
+  {
+    id: 'door2-inner',
+    label: 'Door 2 Inner',
+    roomIndex: 1,
+    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[1], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[1]),
+    corners: [
+      [-0.103, 0.128, 0.108],
+      [-0.032, 0.13, 0.11],
+      [-0.034, 0.006, 0.113],
+      [-0.104, 0.006, 0.106],
+    ],
+  },
+  {
+    id: 'door2-door',
+    label: 'Door 2 Door',
+    roomIndex: 1,
+    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[1], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[1]),
+    corners: [
+      [-0.084, 0.128, 0.161],
+      [-0.032, 0.13, 0.11],
+      [-0.034, 0.006, 0.113],
+      [-0.084, 0.006, 0.161],
+    ],
+  },
+  {
+    id: 'door1-inner',
+    label: 'Door 1 Inner',
+    roomIndex: 0,
+    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[0], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[0]),
+    corners: [
+      [-0.126, 0.132, -0.027],
+      [-0.131, 0.132, 0.046],
+      [-0.138, 0.005, 0.047],
+      [-0.133, 0.004, -0.025],
+    ],
+  },
+  {
+    id: 'door1-door',
+    label: 'Door 1 Door',
+    roomIndex: 0,
+    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[0], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[0]),
+    corners: [
+      [-0.162, 0.132, -0.019],
+      [-0.131, 0.132, 0.046],
+      [-0.138, 0.005, 0.047],
+      [-0.166, 0.004, -0.018],
     ],
   },
 ]
@@ -295,6 +346,10 @@ function Model({ url, children, onLoaded }) {
 
 function parseRouteFromHash(hashValue) {
   const normalized = (hashValue || '').replace(/^#/, '')
+  if (HOME_EDITOR_ENABLED && normalized === 'home-editor') {
+    return { type: 'home-editor' }
+  }
+
   if (normalized === 'about') {
     return { type: 'about' }
   }
@@ -533,15 +588,23 @@ function Controls() {
   )
 }
 
-function HomeScene({ onModelLoaded, onOpenRoom, isActive }) {
+function EditorControls() {
+  return (
+    <OrbitControls
+      makeDefault
+      rotateSpeed={0.4}
+      zoomSpeed={1}
+      panSpeed={0.4}
+      enableDamping
+      dampingFactor={0.05}
+    />
+  )
+}
+
+function HomeScene({ onModelLoaded, onOpenRoom }) {
   return (
     <KeyboardControls map={keyboardMap}>
-      <Canvas
-        shadows
-        frameloop={isActive ? 'always' : 'never'}
-        camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }}
-        style={{ cursor: 'inherit' }}
-      >
+      <Canvas shadows camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'inherit' }}>
         <color attach="background" args={['#fff']} />
         <Suspense fallback={null}>
           <Stage environment="city" intensity={0.5} contactShadows={{ opacity: 0.7, blur: 2 }} adjustCamera={false}>
@@ -557,43 +620,97 @@ function HomeScene({ onModelLoaded, onOpenRoom, isActive }) {
   )
 }
 
-function HomeEditorScene({ isActive, draftDoors, activeDoorId, selectedCorner, onSelectCorner, onPlaceCorner }) {
+function buildCornerPreviewGeometry(corners) {
+  if (!Array.isArray(corners) || corners.length !== 4 || corners.some((corner) => !corner)) return null
+
+  const vertices = new Float32Array([
+    ...corners[0],
+    ...corners[1],
+    ...corners[2],
+    ...corners[0],
+    ...corners[2],
+    ...corners[3],
+  ])
+
+  const next = new THREE.BufferGeometry()
+  next.setAttribute('position', new THREE.BufferAttribute(vertices, 3))
+  next.computeVertexNormals()
+  return next
+}
+
+function buildCornerLoopGeometry(corners) {
+  if (!Array.isArray(corners) || corners.some((corner) => !corner)) return null
+
+  const ordered = [...corners, corners[0]].flat()
+  const next = new THREE.BufferGeometry()
+  next.setAttribute('position', new THREE.Float32BufferAttribute(ordered, 3))
+  return next
+}
+
+function CornerPreview({ corners, activeCornerIndex }) {
+  const meshGeometry = useMemo(() => buildCornerPreviewGeometry(corners), [corners])
+  const lineGeometry = useMemo(() => buildCornerLoopGeometry(corners), [corners])
+
+  useEffect(() => () => meshGeometry?.dispose(), [meshGeometry])
+  useEffect(() => () => lineGeometry?.dispose(), [lineGeometry])
+
   return (
-    <KeyboardControls map={keyboardMap}>
-      <Canvas
-        shadows
-        frameloop={isActive ? 'always' : 'never'}
-        camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }}
-        style={{ cursor: 'default' }}
-      >
-        <color attach="background" args={['#fff']} />
-        <Suspense fallback={null}>
-          <Stage environment="city" intensity={0.5} contactShadows={{ opacity: 0.7, blur: 2 }} adjustCamera={false}>
-            <Model
-              url="assets/home.glb"
-              onClick={(event) => {
-                if (!selectedCorner) return
-                event.stopPropagation()
-                onPlaceCorner(selectedCorner.doorId, selectedCorner.cornerIndex, [
-                  event.point.x,
-                  event.point.y,
-                  event.point.z,
-                ])
-              }}
-            >
-              <DraftDoorEditor
-                doors={draftDoors}
-                activeDoorId={activeDoorId}
-                selectedCorner={selectedCorner}
-                onSelectCorner={onSelectCorner}
-              />
+    <group>
+      {meshGeometry ? (
+        <mesh geometry={meshGeometry} renderOrder={900}>
+          <meshBasicMaterial
+            color="#ff6b6b"
+            transparent
+            opacity={0.22}
+            side={THREE.DoubleSide}
+            depthTest={false}
+            depthWrite={false}
+          />
+        </mesh>
+      ) : null}
+
+      {lineGeometry ? (
+        <line geometry={lineGeometry} renderOrder={901}>
+          <lineBasicMaterial color="#ff6b6b" transparent opacity={0.95} depthTest={false} />
+        </line>
+      ) : null}
+
+      {corners.map((corner, index) => {
+        if (!corner) return null
+
+        return (
+          <mesh key={`corner-preview-${index}`} position={corner} renderOrder={902}>
+            <sphereGeometry args={[activeCornerIndex === index ? 0.009 : 0.007, 24, 24]} />
+            <meshBasicMaterial color={activeCornerIndex === index ? '#ffffff' : '#ff6b6b'} depthTest={false} />
+          </mesh>
+        )
+      })}
+    </group>
+  )
+}
+
+function HomeEditorScene({ corners, activeCornerIndex, onPickPoint }) {
+  return (
+    <Canvas shadows camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'crosshair' }}>
+      <color attach="background" args={['#fff']} />
+      <Suspense fallback={null}>
+        <Stage environment="city" intensity={0.5} contactShadows={{ opacity: 0.7, blur: 2 }} adjustCamera={false}>
+          <group
+            onClick={(event) => {
+              if (activeCornerIndex == null) return
+              event.stopPropagation()
+              onPickPoint([event.point.x, event.point.y, event.point.z])
+            }}
+          >
+            <Model url="assets/home.glb">
+              <CornerPreview corners={corners} activeCornerIndex={activeCornerIndex} />
             </Model>
-          </Stage>
-          <Controls />
-          <CameraReset position={LANDING_CAMERA_POSITION} />
-        </Suspense>
-      </Canvas>
-    </KeyboardControls>
+          </group>
+        </Stage>
+        <EditorControls />
+        <CameraReset position={LANDING_CAMERA_POSITION} />
+      </Suspense>
+    </Canvas>
   )
 }
 
@@ -698,120 +815,11 @@ function DoorLinks({ doors, onOpenRoom }) {
   )
 }
 
-function buildDoorGeometry(corners) {
-  if (!Array.isArray(corners) || corners.length !== 4) return null
-
-  const vertices = new Float32Array([
-    ...corners[0],
-    ...corners[1],
-    ...corners[2],
-    ...corners[0],
-    ...corners[2],
-    ...corners[3],
-  ])
-
-  const next = new THREE.BufferGeometry()
-  next.setAttribute('position', new THREE.BufferAttribute(vertices, 3))
-  next.computeVertexNormals()
-  return next
-}
-
-function buildLoopGeometry(corners) {
-  if (!Array.isArray(corners) || corners.length !== 4) return null
-
-  const ordered = [...corners, corners[0]].flat()
-  const next = new THREE.BufferGeometry()
-  next.setAttribute('position', new THREE.Float32BufferAttribute(ordered, 3))
-  return next
-}
-
-function buildDoorPlane(corners) {
-  if (!Array.isArray(corners) || corners.length < 3) return null
-
-  const a = new THREE.Vector3(...corners[0])
-  const b = new THREE.Vector3(...corners[1])
-  const c = new THREE.Vector3(...corners[2])
-  const normal = new THREE.Vector3().subVectors(b, a).cross(new THREE.Vector3().subVectors(c, a))
-
-  if (normal.lengthSq() < 1e-10) return null
-
-  return new THREE.Plane().setFromNormalAndCoplanarPoint(normal.normalize(), a)
-}
-
-function DraftDoorEditor({ doors, activeDoorId, selectedCorner, onSelectCorner }) {
-  return (
-    <group>
-      {doors.map((door) => (
-        <DraftDoorShape
-          key={door.id}
-          door={door}
-          isActive={door.id === activeDoorId}
-          isInActiveGroup={door.groupIndex === doors.find((item) => item.id === activeDoorId)?.groupIndex}
-          selectedCornerIndex={selectedCorner?.doorId === door.id ? selectedCorner.cornerIndex : null}
-          onSelectCorner={onSelectCorner}
-        />
-      ))}
-    </group>
-  )
-}
-
-function DraftDoorShape({ door, isActive, isInActiveGroup, selectedCornerIndex, onSelectCorner }) {
-  const meshGeometry = useMemo(() => buildDoorGeometry(door.corners), [door.corners])
-  const lineGeometry = useMemo(() => buildLoopGeometry(door.corners), [door.corners])
-
-  useEffect(() => () => meshGeometry?.dispose(), [meshGeometry])
-  useEffect(() => () => lineGeometry?.dispose(), [lineGeometry])
-
-  if (!meshGeometry || !lineGeometry) return null
-
-  return (
-    <group>
-      <mesh geometry={meshGeometry} renderOrder={900}>
-        <meshBasicMaterial
-          color={door.color}
-          transparent
-          opacity={isActive ? 0.28 : isInActiveGroup ? 0.16 : 0.08}
-          side={THREE.DoubleSide}
-          depthTest={false}
-          depthWrite={false}
-        />
-      </mesh>
-
-      <line geometry={lineGeometry} renderOrder={901}>
-        <lineBasicMaterial
-          color={door.color}
-          transparent
-          opacity={isActive ? 0.98 : isInActiveGroup ? 0.55 : 0.28}
-          depthTest={false}
-        />
-      </line>
-
-      {door.corners.map((corner, cornerIndex) => (
-        <mesh
-          key={`${door.id}-corner-${cornerIndex}`}
-          position={corner}
-          renderOrder={902}
-          onClick={(event) => {
-            event.stopPropagation()
-            onSelectCorner(door.id, cornerIndex)
-          }}
-        >
-          <sphereGeometry args={[isActive ? 0.0085 : isInActiveGroup ? 0.007 : 0.0055, 24, 24]} />
-          <meshBasicMaterial
-            color={selectedCornerIndex === cornerIndex ? '#ffffff' : door.color}
-            depthTest={false}
-          />
-        </mesh>
-      ))}
-    </group>
-  )
-}
-
 function fmt3(v) {
   return v.map((n) => n.toFixed(3)).join(', ')
 }
 
-function RoomPage({ roomNumber, roomFile, cameraPosition, onBack, onOpenNextRoom, isActive }) {
+function RoomPage({ roomNumber, roomFile, cameraPosition, onBack, onOpenNextRoom }) {
   const [camInfo, setCamInfo] = useState({ position: cameraPosition, target: [0, 0, 0] })
   const handleCamUpdate = useCallback((info) => setCamInfo(info), [])
 
@@ -822,12 +830,11 @@ function RoomPage({ roomNumber, roomFile, cameraPosition, onBack, onOpenNextRoom
         height: '100vh',
         backgroundColor: '#fff',
         color: '#000',
-        display: isActive ? 'flex' : 'none',
+        display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
       }}
-      aria-hidden={!isActive}
     >
       <button
         type="button"
@@ -852,13 +859,7 @@ function RoomPage({ roomNumber, roomFile, cameraPosition, onBack, onOpenNextRoom
       </button>
 
       <KeyboardControls map={keyboardMap}>
-        <Canvas
-          shadows
-          frameloop={isActive ? 'always' : 'never'}
-          camera={{ position: cameraPosition, fov: 47.5 }}
-          style={{ cursor: 'inherit' }}
-          gl={{ toneMapping: THREE.NoToneMapping }}
-        >
+        <Canvas shadows camera={{ position: cameraPosition, fov: 47.5 }} style={{ cursor: 'inherit' }} gl={{ toneMapping: THREE.NoToneMapping }}>
           <color attach="background" args={['#fff']} />
           <Suspense fallback={<LoadingCursor />}>
             <Stage environment="studio" intensity={0.6} contactShadows={{ opacity: 0.7, blur: 2 }} adjustCamera={false}>
@@ -2048,16 +2049,84 @@ export default function App() {
   )
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [hasOpenedPreview, setHasOpenedPreview] = useState(false)
-  const [draftDoors, setDraftDoors] = useState(() => cloneDraftDoors(INITIAL_DRAFT_DOORS))
-  const [activeDraftGroupIndex, setActiveDraftGroupIndex] = useState(0)
-  const [activeDraftDoorId, setActiveDraftDoorId] = useState(INITIAL_DRAFT_DOORS[0]?.id ?? null)
-  const [selectedDraftCorner, setSelectedDraftCorner] = useState(null)
-  const [copyFeedback, setCopyFeedback] = useState('')
+  const [editorCorners, setEditorCorners] = useState([null, null, null, null])
+  const [activeEditorCorner, setActiveEditorCorner] = useState(0)
+  const [snapshotLabel, setSnapshotLabel] = useState('')
+  const [savedSnapshots, setSavedSnapshots] = useState([])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    try {
+      const storedValue = window.localStorage.getItem(HOME_EDITOR_STORAGE_KEY)
+      if (!storedValue) return
+
+      const parsedValue = JSON.parse(storedValue)
+
+      if (Array.isArray(parsedValue.editorCorners) && parsedValue.editorCorners.length === 4) {
+        setEditorCorners(
+          parsedValue.editorCorners.map((corner) =>
+            Array.isArray(corner) && corner.length === 3 && corner.every((value) => Number.isFinite(value)) ? corner : null,
+          ),
+        )
+      }
+
+      if (parsedValue.activeEditorCorner == null || Number.isInteger(parsedValue.activeEditorCorner)) {
+        setActiveEditorCorner(parsedValue.activeEditorCorner ?? null)
+      }
+
+      if (typeof parsedValue.snapshotLabel === 'string') {
+        setSnapshotLabel(parsedValue.snapshotLabel)
+      }
+
+      if (Array.isArray(parsedValue.savedSnapshots)) {
+        setSavedSnapshots(
+          parsedValue.savedSnapshots
+            .filter(
+              (snapshot) =>
+                snapshot &&
+                typeof snapshot.label === 'string' &&
+                Array.isArray(snapshot.corners) &&
+                snapshot.corners.length === 4 &&
+                snapshot.corners.every(
+                  (corner) => Array.isArray(corner) && corner.length === 3 && corner.every((value) => Number.isFinite(value)),
+                ),
+            )
+            .map((snapshot, index) => ({
+              id: typeof snapshot.id === 'string' ? snapshot.id : `stored-${index}`,
+              label: snapshot.label,
+              corners: snapshot.corners,
+            })),
+        )
+      }
+    } catch {
+      // Ignore malformed persisted editor state and continue with defaults.
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const payload = {
+      editorCorners,
+      activeEditorCorner,
+      snapshotLabel,
+      savedSnapshots,
+    }
+
+    try {
+      window.localStorage.setItem(HOME_EDITOR_STORAGE_KEY, JSON.stringify(payload))
+    } catch {
+      // Ignore storage write failures.
+    }
+  }, [activeEditorCorner, editorCorners, savedSnapshots, snapshotLabel])
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
 
     if (!window.location.hash) {
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${HOME_HASH}`)
+    } else if (!HOME_EDITOR_ENABLED && window.location.hash === HOME_EDITOR_HASH) {
       window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${HOME_HASH}`)
     }
 
@@ -2071,29 +2140,20 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (typeof window === 'undefined') return undefined
-
     useGLTF.preload('assets/home.glb')
-
-    const timeoutIds = ROOM_FILES.map((roomFile, index) =>
-      window.setTimeout(() => {
-        useGLTF.preload(`rooms/${roomFile}`)
-      }, 250 * (index + 1))
-    )
-
-    return () => timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId))
+    ROOM_FILES.forEach((roomFile) => {
+      useGLTF.preload(`rooms/${roomFile}`)
+    })
   }, [])
 
   useEffect(() => {
     if (typeof document === 'undefined') return undefined
 
     const previousCursor = document.documentElement.style.getPropertyValue('--app-cursor')
-    const shouldUseCustomCursor = route.type !== 'home-editor'
-
-    if (shouldUseCustomCursor) {
-      document.documentElement.style.setProperty('--app-cursor', MAIN_KEY_CURSOR)
-    } else {
+    if (route.type === 'home-editor') {
       document.documentElement.style.removeProperty('--app-cursor')
+    } else {
+      document.documentElement.style.setProperty('--app-cursor', MAIN_KEY_CURSOR)
     }
 
     return () => {
@@ -2158,491 +2218,432 @@ export default function App() {
     navigateWithHash(HOME_HASH)
   }, [])
 
-  const isHomeRoute = route.type === 'home'
-  const isHomeEditorRoute = route.type === 'home-editor'
-  const isAboutRoute = route.type === 'about'
-  const isFolderRoute = route.type === 'folder'
-  const activeFolder = isFolderRoute ? FOLDER_MAP.get(route.folderId) : null
-  const draftGroups = Array.from({ length: 4 }, (_, groupIndex) => ({
-    groupIndex,
-    color: DRAFT_GROUP_COLORS[groupIndex],
-    doors: draftDoors.filter((door) => door.groupIndex === groupIndex),
-  }))
-  const activeDraftGroup = draftGroups[activeDraftGroupIndex] ?? draftGroups[0]
-  const activeDraftDoor =
-    draftDoors.find((door) => door.id === activeDraftDoorId) ?? activeDraftGroup?.doors[0] ?? draftDoors[0] ?? null
-  const draftDoorExport = JSON.stringify(
-    draftDoors.map((door) => ({
-      id: door.id,
-      groupIndex: door.groupIndex,
-      pairIndex: door.pairIndex,
-      corners: door.corners.map((corner) => corner.map((value) => Number(value.toFixed(3)))),
+  const setEditorCornerPoint = useCallback(
+    (point) => {
+      if (activeEditorCorner == null) return
+
+      setEditorCorners((currentCorners) =>
+        currentCorners.map((corner, index) => (index === activeEditorCorner ? point : corner)),
+      )
+      setActiveEditorCorner(null)
+    },
+    [activeEditorCorner],
+  )
+
+  const setEditorCornerValue = useCallback((cornerIndex, axisIndex, rawValue) => {
+    setEditorCorners((currentCorners) => {
+      const nextCorners = [...currentCorners]
+      const currentCorner = currentCorners[cornerIndex] ? [...currentCorners[cornerIndex]] : [0, 0, 0]
+      const parsedValue = Number.parseFloat(rawValue)
+      currentCorner[axisIndex] = Number.isFinite(parsedValue) ? parsedValue : 0
+      nextCorners[cornerIndex] = currentCorner
+      return nextCorners
+    })
+  }, [])
+
+  const resetEditorCorner = useCallback((cornerIndex) => {
+    setEditorCorners((currentCorners) => currentCorners.map((corner, index) => (index === cornerIndex ? null : corner)))
+  }, [])
+
+  const resetAllEditorCorners = useCallback(() => {
+    setEditorCorners([null, null, null, null])
+    setActiveEditorCorner(0)
+  }, [])
+
+  const writeSnapshot = useCallback(() => {
+    if (!snapshotLabel.trim()) return
+    if (editorCorners.some((corner) => !corner)) return
+
+    setSavedSnapshots((currentSnapshots) => [
+      {
+        id: `${Date.now()}`,
+        label: snapshotLabel.trim(),
+        corners: editorCorners.map((corner) => [...corner]),
+      },
+      ...currentSnapshots,
+    ])
+    setSnapshotLabel('')
+  }, [editorCorners, snapshotLabel])
+
+  const snapshotExport = JSON.stringify(
+    savedSnapshots.map((snapshot) => ({
+      label: snapshot.label,
+      corners: snapshot.corners.map((corner) => corner.map((value) => Number(value.toFixed(3)))),
     })),
     null,
     2,
   )
 
-  useEffect(() => {
-    if (!copyFeedback) return undefined
-    const timeoutId = window.setTimeout(() => setCopyFeedback(''), 1600)
-    return () => window.clearTimeout(timeoutId)
-  }, [copyFeedback])
-
-  const updateDraftCorner = useCallback((doorId, cornerIndex, nextCorner) => {
-    setDraftDoors((currentDoors) =>
-      currentDoors.map((door) => {
-        if (door.id !== doorId) return door
-        return {
-          ...door,
-          corners: door.corners.map((corner, index) => (index === cornerIndex ? nextCorner : corner)),
-        }
-      }),
+  if (route.type === 'room') {
+    const roomNumber = route.roomIndex + 1
+    const roomFile = ROOM_FILES[route.roomIndex]
+    return (
+      <>
+        <RoomPage roomNumber={roomNumber} roomFile={roomFile} cameraPosition={ROOM_CAMERA_POSITIONS[route.roomIndex]} onBack={closeRoom} onOpenNextRoom={() => openNextRoom(roomNumber)} />
+      </>
     )
-  }, [])
+  }
 
-  const selectDraftCorner = useCallback((doorId, cornerIndex) => {
-    const targetDoor = draftDoors.find((door) => door.id === doorId)
-    if (targetDoor) {
-      setActiveDraftGroupIndex(targetDoor.groupIndex)
-      setActiveDraftDoorId(doorId)
-    }
-    setSelectedDraftCorner((currentSelection) => {
-      if (currentSelection?.doorId === doorId && currentSelection.cornerIndex === cornerIndex) return null
-      return { doorId, cornerIndex }
-    })
-  }, [draftDoors])
-
-  const placeDraftCorner = useCallback(
-    (doorId, cornerIndex, nextCorner) => {
-      updateDraftCorner(doorId, cornerIndex, nextCorner)
-      setSelectedDraftCorner(null)
-    },
-    [updateDraftCorner],
-  )
-
-  const resetActiveDraftDoor = useCallback(() => {
-    if (!activeDraftDoorId) return
-
-    setDraftDoors((currentDoors) =>
-      currentDoors.map((door, index) =>
-        door.id === activeDraftDoorId ? cloneDraftDoors([INITIAL_DRAFT_DOORS[index]])[0] : door,
-      ),
+  if (route.type === 'about') {
+    return (
+      <>
+        <AboutPage onBackHome={closeAbout} onShowAbout={openAbout} onOpenFolder={openFolder} />
+        <CursorSparkles />
+      </>
     )
-    setSelectedDraftCorner(null)
-  }, [activeDraftDoorId])
+  }
 
-  const resetAllDraftDoors = useCallback(() => {
-    setDraftDoors(cloneDraftDoors(INITIAL_DRAFT_DOORS))
-    setSelectedDraftCorner(null)
-    setActiveDraftGroupIndex(0)
-    setActiveDraftDoorId(INITIAL_DRAFT_DOORS[0]?.id ?? null)
-  }, [])
+  if (route.type === 'folder') {
+    const folder = FOLDER_MAP.get(route.folderId)
+    return (
+      <>
+        <AboutPage onBackHome={closeAbout} onShowAbout={closeFolder} onOpenFolder={openFolder} activeFolderId={route.folderId} />
+        {folder && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 200, pointerEvents: 'none' }}>
+            <FolderPage folder={folder} onBackToAbout={closeFolder} />
+          </div>
+        )}
+        <CursorSparkles />
+      </>
+    )
+  }
 
-  const copyDraftDoors = useCallback(async () => {
-    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
-      setCopyFeedback('Copy unavailable')
-      return
-    }
+  if (route.type === 'home-editor') {
+    const canWriteSnapshot = snapshotLabel.trim().length > 0 && editorCorners.every((corner) => Boolean(corner))
 
-    try {
-      await navigator.clipboard.writeText(draftDoorExport)
-      setCopyFeedback('Copied')
-    } catch {
-      setCopyFeedback('Copy failed')
-    }
-  }, [draftDoorExport])
-
-  const goToDraftGroup = useCallback((nextGroupIndex) => {
-    const safeIndex = Math.max(0, Math.min(draftGroups.length - 1, nextGroupIndex))
-    setActiveDraftGroupIndex(safeIndex)
-    setSelectedDraftCorner(null)
-    setActiveDraftDoorId((currentDoorId) => {
-      const currentDoor = draftDoors.find((door) => door.id === currentDoorId)
-      if (currentDoor?.groupIndex === safeIndex) return currentDoorId
-      return draftGroups[safeIndex]?.doors[0]?.id ?? currentDoorId
-    })
-  }, [draftDoors, draftGroups])
-
-  return (
-    <>
+    return (
       <div
         style={{
           width: '100vw',
           height: '100vh',
           position: 'relative',
-          cursor: 'inherit',
           backgroundColor: '#fff',
           overflow: 'hidden',
-          display: isHomeRoute || route.type === 'room' ? 'block' : 'none',
         }}
       >
-        <video
-          src={HOME_PREVIEW_VIDEO}
-          preload="auto"
-          muted
-          playsInline
-          aria-hidden="true"
-          style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
+        <HomeEditorScene
+          corners={editorCorners}
+          activeCornerIndex={activeEditorCorner}
+          onPickPoint={setEditorCornerPoint}
         />
 
         <div
           style={{
             position: 'absolute',
-            inset: 0,
-            display: 'block',
-            opacity: hasOpenedPreview && !isPreviewOpen && isHomeRoute ? 1 : 0,
-            pointerEvents: hasOpenedPreview && !isPreviewOpen && isHomeRoute ? 'auto' : 'none',
-            transition: 'opacity 180ms ease',
+            top: '24px',
+            left: '24px',
+            zIndex: 50,
+            width: 'min(420px, calc(100vw - 48px))',
+            maxHeight: 'calc(100vh - 48px)',
+            overflowY: 'auto',
+            padding: '16px',
+            background: 'rgba(255,255,255,0.94)',
+            border: '1px solid rgba(0,0,0,0.14)',
+            borderRadius: '16px',
+            boxShadow: '0 14px 34px rgba(0,0,0,0.14)',
+            fontFamily: ARIAL_FONT_STACK,
           }}
-          aria-hidden={!hasOpenedPreview || isPreviewOpen || !isHomeRoute}
         >
-          <HomeScene
-            onModelLoaded={undefined}
-            onOpenRoom={openRoom}
-            isActive={isHomeRoute}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+            <div>
+              <div style={{ fontSize: '18px', lineHeight: 1.1, color: '#111' }}>home editor</div>
+              <div style={{ fontSize: '12px', color: 'rgba(0,0,0,0.65)', marginTop: '4px' }}>
+                Pick a corner, then click somewhere on the house to set it.
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={closeHomeEditor}
+              style={{
+                border: '1px solid rgba(0,0,0,0.14)',
+                background: '#fff',
+                color: '#111',
+                borderRadius: '999px',
+                padding: '6px 10px',
+                fontSize: '12px',
+              }}
+            >
+              back home
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '14px', marginBottom: '10px' }}>
+            {editorCorners.map((corner, index) => {
+              const isSelected = activeEditorCorner === index
+              const isSet = Boolean(corner)
+              return (
+                <button
+                  key={`corner-button-${index}`}
+                  type="button"
+                  onClick={() => setActiveEditorCorner(index)}
+                  style={{
+                    border: isSelected ? '2px solid #ff6b6b' : '1px solid rgba(0,0,0,0.14)',
+                    background: isSelected ? 'rgba(255,107,107,0.08)' : '#fff',
+                    color: '#111',
+                    borderRadius: '999px',
+                    padding: '6px 10px',
+                    fontSize: '12px',
+                  }}
+                >
+                  {`corner ${index + 1}${isSet ? ' set' : ''}`}
+                </button>
+              )
+            })}
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+            {editorCorners.map((_, index) => (
+              <button
+                key={`corner-reset-${index}`}
+                type="button"
+                onClick={() => resetEditorCorner(index)}
+                style={{
+                  border: '1px solid rgba(0,0,0,0.14)',
+                  background: '#fff',
+                  color: '#111',
+                  borderRadius: '999px',
+                  padding: '6px 10px',
+                  fontSize: '12px',
+                }}
+              >
+                {`reset ${index + 1}`}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={resetAllEditorCorners}
+              style={{
+                border: '1px solid rgba(0,0,0,0.14)',
+                background: '#fff',
+                color: '#111',
+                borderRadius: '999px',
+                padding: '6px 10px',
+                fontSize: '12px',
+              }}
+            >
+              reset all
+            </button>
+          </div>
+
+          <div style={{ marginBottom: '12px', fontSize: '12px', lineHeight: 1.55, color: '#222' }}>
+            <div style={{ marginBottom: '6px', color: 'rgba(0,0,0,0.65)' }}>
+              {activeEditorCorner == null ? 'no corner armed' : `waiting for click to set corner ${activeEditorCorner + 1}`}
+            </div>
+            {editorCorners.map((corner, index) => (
+              <div key={`corner-readout-${index}`}>
+                {corner
+                  ? `corner ${index + 1}: [${corner.map((value) => value.toFixed(3)).join(', ')}]`
+                  : `corner ${index + 1}: not set`}
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginBottom: '12px' }}>
+            {editorCorners.map((corner, index) => (
+              <div
+                key={`corner-inputs-${index}`}
+                style={{
+                  padding: '10px',
+                  border: '1px solid rgba(0,0,0,0.1)',
+                  borderRadius: '12px',
+                  marginBottom: '8px',
+                  background: activeEditorCorner === index ? 'rgba(255,107,107,0.06)' : 'rgba(255,255,255,0.8)',
+                }}
+              >
+                <div style={{ fontSize: '12px', color: '#111', marginBottom: '8px' }}>{`corner ${index + 1}`}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px' }}>
+                  {['x', 'y', 'z'].map((axisLabel, axisIndex) => (
+                    <label key={`${index}-${axisLabel}`} style={{ display: 'block', fontSize: '11px', color: 'rgba(0,0,0,0.65)' }}>
+                      {axisLabel}
+                      <input
+                        type="number"
+                        step="0.001"
+                        value={corner ? corner[axisIndex] : 0}
+                        onChange={(event) => setEditorCornerValue(index, axisIndex, event.target.value)}
+                        style={{
+                          width: '100%',
+                          marginTop: '4px',
+                          border: '1px solid rgba(0,0,0,0.14)',
+                          borderRadius: '8px',
+                          padding: '7px 8px',
+                          fontSize: '12px',
+                          fontFamily: 'monospace',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+            <input
+              type="text"
+              value={snapshotLabel}
+              onChange={(event) => setSnapshotLabel(event.target.value)}
+              placeholder="snapshot label"
+              style={{
+                flex: 1,
+                border: '1px solid rgba(0,0,0,0.14)',
+                borderRadius: '999px',
+                padding: '8px 12px',
+                fontSize: '12px',
+                fontFamily: ARIAL_FONT_STACK,
+              }}
+            />
+            <button
+              type="button"
+              onClick={writeSnapshot}
+              disabled={!canWriteSnapshot}
+              style={{
+                border: '1px solid rgba(0,0,0,0.14)',
+                background: canWriteSnapshot ? '#111' : 'rgba(0,0,0,0.08)',
+                color: canWriteSnapshot ? '#fff' : 'rgba(0,0,0,0.45)',
+                borderRadius: '999px',
+                padding: '8px 12px',
+                fontSize: '12px',
+              }}
+            >
+              write snapshot
+            </button>
+          </div>
+
+          <div style={{ fontSize: '12px', lineHeight: 1.5, color: 'rgba(0,0,0,0.65)', marginBottom: '10px' }}>
+            Snapshot writing is enabled once all four corners are set and the label field is filled in.
+          </div>
+
+          <div style={{ fontSize: '13px', fontWeight: 700, marginBottom: '6px', color: '#111' }}>saved snapshots</div>
+          <div style={{ marginBottom: '10px', fontSize: '12px', lineHeight: 1.5, color: '#222' }}>
+            {savedSnapshots.length === 0
+              ? 'No snapshots yet.'
+              : savedSnapshots.map((snapshot, index) => (
+                  <div key={snapshot.id}>
+                    {`${index + 1}. ${snapshot.label}: ${snapshot.corners.map((corner) => `[${corner.map((value) => value.toFixed(3)).join(', ')}]`).join(' ')}`}
+                  </div>
+                ))}
+          </div>
+
+          <textarea
+            readOnly
+            value={snapshotExport}
+            aria-label="Saved snapshot coordinates"
+            style={{
+              width: '100%',
+              minHeight: '180px',
+              resize: 'vertical',
+              border: '1px solid rgba(0,0,0,0.12)',
+              borderRadius: '10px',
+              padding: '10px',
+              fontFamily: 'monospace',
+              fontSize: '11px',
+              lineHeight: 1.45,
+              background: 'rgba(255,255,255,0.9)',
+              color: '#111',
+            }}
           />
         </div>
+      </div>
+    )
+  }
 
-        {ROOM_FILES.map((roomFile, index) => {
-          const roomNumber = index + 1
-          return (
-            <RoomPage
-              key={roomFile}
-              roomNumber={roomNumber}
-              roomFile={roomFile}
-              cameraPosition={ROOM_CAMERA_POSITIONS[index]}
-              onBack={closeRoom}
-              onOpenNextRoom={() => openNextRoom(roomNumber)}
-              isActive={route.type === 'room' && route.roomIndex === index}
-            />
-          )
-        })}
+  return (
+    <div
+      style={{
+        width: '100vw',
+        height: '100vh',
+        position: 'relative',
+        cursor: 'inherit',
+        backgroundColor: '#fff',
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          opacity: hasOpenedPreview && !isPreviewOpen ? 1 : 0,
+          pointerEvents: hasOpenedPreview && !isPreviewOpen ? 'auto' : 'none',
+          transition: 'opacity 180ms ease',
+        }}
+        aria-hidden={!hasOpenedPreview || isPreviewOpen}
+      >
+        <HomeScene onModelLoaded={undefined} onOpenRoom={openRoom} />
+      </div>
 
-        {isHomeRoute && hasOpenedPreview && !isPreviewOpen && (
-          <>
-            <button
-              type="button"
-              onClick={openAbout}
-              style={{
-                position: 'absolute',
-                top: '24px',
-                left: '24px',
-                zIndex: 41,
-                border: 'none',
-                background: 'transparent',
-                color: '#000',
-                padding: 0,
-                fontFamily: MAC_LIGHT_FONT_STACK,
-                fontSize: '18px',
-                fontWeight: 300,
-              }}
-            >
-              about
-            </button>
-            <button
-              type="button"
-              onClick={openHomeEditor}
-              style={{
-                position: 'absolute',
-                top: '52px',
-                left: '24px',
-                zIndex: 41,
-                border: 'none',
-                background: 'transparent',
-                color: '#000',
-                padding: 0,
-                fontFamily: MAC_LIGHT_FONT_STACK,
-                fontSize: '18px',
-                fontWeight: 300,
-              }}
-            >
-              editor
-            </button>
-          </>
+      {hasOpenedPreview && !isPreviewOpen && (
+        <button
+          type="button"
+          onClick={openAbout}
+          style={{
+            position: 'absolute',
+            top: '24px',
+            left: '24px',
+            zIndex: 41,
+            border: 'none',
+            background: 'transparent',
+            color: '#000',
+            padding: 0,
+            fontFamily: MAC_LIGHT_FONT_STACK,
+            fontSize: '18px',
+            fontWeight: 300,
+          }}
+        >
+          about
+        </button>
+      )}
+
+      <div
+        style={{
+          position: 'absolute',
+          left: '50%',
+          top: `${HOME_HEADER_TOP}px`,
+          transform: 'translateX(-50%)',
+          zIndex: 40,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '6px',
+        }}
+      >
+        {hasOpenedPreview && !isPreviewOpen && (
+          <img
+            src={HOME_WELCOME_GIF}
+            alt=""
+            aria-hidden="true"
+            style={{ width: 'min(124px, 18vw)', height: 'auto', display: 'block' }}
+          />
+        )}
+        {(!hasOpenedPreview || isPreviewOpen) && (
+          <img
+            src={HOME_WELCOME_GIF}
+            alt=""
+            aria-hidden="true"
+            style={{ width: 'min(124px, 18vw)', height: 'auto', display: 'block', visibility: 'hidden' }}
+          />
         )}
 
         <div
           style={{
-            position: 'absolute',
-            left: '50%',
-            top: `${HOME_HEADER_TOP}px`,
-            transform: 'translateX(-50%)',
-            zIndex: 40,
-            display: isHomeRoute ? 'flex' : 'none',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '6px',
+            color: '#000',
+            padding: 0,
+            width: 'min(220px, 32vw)',
+            fontFamily: ARIAL_FONT_STACK,
+            fontSize: '25px',
+            fontWeight: 400,
+            letterSpacing: '0.01em',
+            lineHeight: 1,
+            textAlign: 'center',
+            textTransform: 'lowercase',
           }}
         >
-          {hasOpenedPreview && !isPreviewOpen && (
-            <img
-              src={HOME_WELCOME_GIF}
-              alt=""
-              aria-hidden="true"
-              style={{ width: 'min(124px, 18vw)', height: 'auto', display: 'block' }}
-            />
-          )}
-          {(!hasOpenedPreview || isPreviewOpen) && (
-            <img
-              src={HOME_WELCOME_GIF}
-              alt=""
-              aria-hidden="true"
-              style={{ width: 'min(124px, 18vw)', height: 'auto', display: 'block', visibility: 'hidden' }}
-            />
-          )}
-
-          <div
-            style={{
-              color: '#000',
-              padding: 0,
-              width: 'min(220px, 32vw)',
-              fontFamily: ARIAL_FONT_STACK,
-              fontSize: '25px',
-              fontWeight: 400,
-              letterSpacing: '0.01em',
-              lineHeight: 1,
-              textAlign: 'center',
-              textTransform: 'lowercase',
-            }}
-          >
-            {HOME_TITLE}
-          </div>
+          {HOME_TITLE}
         </div>
-
-        {isHomeRoute && !hasOpenedPreview && !isPreviewOpen && <PreviewLauncher onOpen={openPreview} />}
-        {isHomeRoute && isPreviewOpen && <ProjectPreviewWindow onClose={closePreview} />}
       </div>
 
-      {isHomeEditorRoute && (
-        <div
-          style={{
-            width: '100vw',
-            height: '100vh',
-            position: 'relative',
-            backgroundColor: '#fff',
-            overflow: 'hidden',
-          }}
-        >
-          <HomeEditorScene
-            isActive={isHomeEditorRoute}
-            draftDoors={draftDoors}
-            activeDoorId={activeDraftDoorId}
-            selectedCorner={selectedDraftCorner}
-            onSelectCorner={selectDraftCorner}
-            onPlaceCorner={placeDraftCorner}
-          />
-
-          <div
-            style={{
-              position: 'absolute',
-              top: '24px',
-              left: '24px',
-              zIndex: 50,
-              width: 'min(420px, calc(100vw - 48px))',
-              padding: '16px',
-              background: 'rgba(255,255,255,0.94)',
-              border: `2px solid ${activeDraftGroup?.color ?? '#000'}`,
-              borderRadius: '16px',
-              boxShadow: '0 14px 34px rgba(0,0,0,0.14)',
-              fontFamily: ARIAL_FONT_STACK,
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-              <div>
-                <div style={{ fontSize: '18px', lineHeight: 1.1, color: '#111' }}>home rectangle editor</div>
-                <div style={{ fontSize: '12px', color: 'rgba(0,0,0,0.65)', marginTop: '4px' }}>
-                  Group {activeDraftGroupIndex + 1} of {draftGroups.length}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={closeHomeEditor}
-                style={{
-                  border: '1px solid rgba(0,0,0,0.14)',
-                  background: '#fff',
-                  color: '#111',
-                  borderRadius: '999px',
-                  padding: '6px 10px',
-                  fontSize: '12px',
-                }}
-              >
-                back home
-              </button>
-            </div>
-
-            <div style={{ fontSize: '12px', lineHeight: 1.5, color: '#222', marginTop: '12px' }}>
-              1. Pick one of the two rectangles for this room.
-            </div>
-            <div style={{ fontSize: '12px', lineHeight: 1.5, color: '#222' }}>
-              2. Click a corner dot to arm it.
-            </div>
-            <div style={{ fontSize: '12px', lineHeight: 1.5, color: '#222' }}>
-              3. Click the house mesh where that corner should land.
-            </div>
-            <div style={{ fontSize: '12px', lineHeight: 1.5, color: '#222', marginBottom: '12px' }}>
-              4. Repeat for the four corners, then move to the next group.
-            </div>
-
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
-              {activeDraftGroup?.doors.map((door) => {
-                const isSelected = door.id === activeDraftDoorId
-                return (
-                  <button
-                    key={door.id}
-                    type="button"
-                    onClick={() => {
-                      setActiveDraftDoorId(door.id)
-                      setSelectedDraftCorner(null)
-                    }}
-                    style={{
-                      border: isSelected ? `2px solid ${door.color}` : '1px solid rgba(0,0,0,0.14)',
-                      background: isSelected ? 'rgba(0,0,0,0.05)' : '#fff',
-                      color: '#111',
-                      borderRadius: '999px',
-                      padding: '6px 10px',
-                      fontSize: '12px',
-                    }}
-                  >
-                    {`rectangle ${door.pairIndex + 1}`}
-                  </button>
-                )
-              })}
-            </div>
-
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-              <button
-                type="button"
-                onClick={() => goToDraftGroup(activeDraftGroupIndex - 1)}
-                disabled={activeDraftGroupIndex === 0}
-                style={{
-                  border: '1px solid rgba(0,0,0,0.14)',
-                  background: activeDraftGroupIndex === 0 ? 'rgba(0,0,0,0.06)' : '#fff',
-                  color: '#111',
-                  borderRadius: '999px',
-                  padding: '6px 10px',
-                  fontSize: '12px',
-                }}
-              >
-                previous group
-              </button>
-              <button
-                type="button"
-                onClick={() => goToDraftGroup(activeDraftGroupIndex + 1)}
-                disabled={activeDraftGroupIndex === draftGroups.length - 1}
-                style={{
-                  border: '1px solid rgba(0,0,0,0.14)',
-                  background: activeDraftGroupIndex === draftGroups.length - 1 ? 'rgba(0,0,0,0.06)' : '#fff',
-                  color: '#111',
-                  borderRadius: '999px',
-                  padding: '6px 10px',
-                  fontSize: '12px',
-                }}
-              >
-                next group
-              </button>
-            </div>
-
-            {activeDraftDoor && (
-              <div style={{ marginBottom: '12px', fontSize: '12px', lineHeight: 1.55, color: '#222' }}>
-                <div style={{ marginBottom: '6px', color: activeDraftGroup?.color ?? '#111', fontWeight: 700 }}>
-                  {selectedDraftCorner?.doorId === activeDraftDoor.id
-                    ? `placing corner ${selectedDraftCorner.cornerIndex + 1} on rectangle ${activeDraftDoor.pairIndex + 1}`
-                    : `editing rectangle ${activeDraftDoor.pairIndex + 1}`}
-                </div>
-                {activeDraftDoor.corners.map((corner, index) => (
-                  <div key={`${activeDraftDoor.id}-readout-${index}`}>
-                    {`corner ${index + 1}: [${corner.map((value) => value.toFixed(3)).join(', ')}]`}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={resetActiveDraftDoor}
-                style={{
-                  border: '1px solid rgba(0,0,0,0.14)',
-                  background: '#fff',
-                  color: '#111',
-                  borderRadius: '999px',
-                  padding: '6px 10px',
-                  fontSize: '12px',
-                }}
-              >
-                reset rectangle
-              </button>
-              <button
-                type="button"
-                onClick={resetAllDraftDoors}
-                style={{
-                  border: '1px solid rgba(0,0,0,0.14)',
-                  background: '#fff',
-                  color: '#111',
-                  borderRadius: '999px',
-                  padding: '6px 10px',
-                  fontSize: '12px',
-                }}
-              >
-                reset all
-              </button>
-              <button
-                type="button"
-                onClick={copyDraftDoors}
-                style={{
-                  border: '1px solid rgba(0,0,0,0.14)',
-                  background: '#111',
-                  color: '#fff',
-                  borderRadius: '999px',
-                  padding: '6px 10px',
-                  fontSize: '12px',
-                }}
-              >
-                copy all corners
-              </button>
-              {copyFeedback ? (
-                <div style={{ fontSize: '12px', color: 'rgba(0,0,0,0.65)', alignSelf: 'center' }}>{copyFeedback}</div>
-              ) : null}
-            </div>
-
-            <textarea
-              readOnly
-              value={draftDoorExport}
-              aria-label="Draft door coordinates"
-              style={{
-                width: '100%',
-                minHeight: '180px',
-                resize: 'vertical',
-                border: '1px solid rgba(0,0,0,0.12)',
-                borderRadius: '10px',
-                padding: '10px',
-                fontFamily: 'monospace',
-                fontSize: '11px',
-                lineHeight: 1.45,
-                background: 'rgba(255,255,255,0.9)',
-                color: '#111',
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      {(isAboutRoute || isFolderRoute) && (
-        <>
-          <AboutPage
-            onBackHome={closeAbout}
-            onShowAbout={isFolderRoute ? closeFolder : openAbout}
-            onOpenFolder={openFolder}
-            activeFolderId={isFolderRoute ? route.folderId : null}
-          />
-          {activeFolder && (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 200, pointerEvents: 'none' }}>
-              <FolderPage folder={activeFolder} onBackToAbout={closeFolder} />
-            </div>
-          )}
-          <CursorSparkles />
-        </>
-      )}
-    </>
+      {!hasOpenedPreview && !isPreviewOpen && <PreviewLauncher onOpen={openPreview} />}
+      {isPreviewOpen && <ProjectPreviewWindow onClose={closePreview} />}
+    </div>
   )
 }
