@@ -1,6 +1,6 @@
 import React, { useState, Suspense, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls, Stage, useGLTF, KeyboardControls, useKeyboardControls, Preload } from '@react-three/drei'
+import { OrbitControls, Stage, useGLTF, KeyboardControls, useKeyboardControls } from '@react-three/drei'
 import * as THREE from 'three'
 
 const keyboardMap = [
@@ -921,138 +921,6 @@ function RoomPage({ roomNumber, roomFile, cameraPosition, onBack, onOpenNextRoom
   )
 }
 
-function HomeSceneStage({ isVisible, onOpenRoom, onLoaded }) {
-  return (
-    <group visible={isVisible}>
-      <Stage environment="city" intensity={0.5} contactShadows={{ opacity: 0.7, blur: 2 }} adjustCamera={false}>
-        <Suspense fallback={null}>
-          <Model url="assets/home.glb" onLoaded={onLoaded}>
-            <DoorLinks doors={DOOR_LINKS} onOpenRoom={onOpenRoom} />
-          </Model>
-        </Suspense>
-      </Stage>
-    </group>
-  )
-}
-
-function RoomSceneStage({ activeRoomIndex, mountedRoomCount, onRoomLoaded }) {
-  return (
-    <group visible={activeRoomIndex != null}>
-      <Stage environment="studio" intensity={0.6} contactShadows={{ opacity: 0.7, blur: 2 }} adjustCamera={false}>
-        {ROOM_FILES.map((roomFile, index) => {
-          const shouldMount = mountedRoomCount > index || activeRoomIndex === index
-          if (!shouldMount) return null
-
-          return (
-            <group key={roomFile} visible={activeRoomIndex === index}>
-              <Suspense fallback={activeRoomIndex === index ? <LoadingCursor /> : null}>
-                <Model url={`rooms/${roomFile}`} onLoaded={() => onRoomLoaded(index)} />
-              </Suspense>
-            </group>
-          )
-        })}
-      </Stage>
-    </group>
-  )
-}
-
-function PersistentSceneCanvas({ activeRoomIndex, mountedRoomCount, onHomeLoaded, onOpenRoom, onRoomLoaded, onCameraUpdate }) {
-  const activeCameraPosition = activeRoomIndex == null
-    ? LANDING_CAMERA_POSITION
-    : ROOM_CAMERA_POSITIONS[activeRoomIndex]
-
-  return (
-    <KeyboardControls map={keyboardMap}>
-      <Canvas shadows camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'inherit' }}>
-        <color attach="background" args={['#fff']} />
-        <HomeSceneStage isVisible={activeRoomIndex == null} onOpenRoom={onOpenRoom} onLoaded={onHomeLoaded} />
-        <RoomSceneStage
-          activeRoomIndex={activeRoomIndex}
-          mountedRoomCount={mountedRoomCount}
-          onRoomLoaded={onRoomLoaded}
-        />
-        <Controls />
-        <CameraReset position={activeCameraPosition} />
-        {activeRoomIndex != null ? <CameraTracker onUpdate={onCameraUpdate} /> : null}
-        <Preload all />
-      </Canvas>
-    </KeyboardControls>
-  )
-}
-
-function RoomOverlay({ roomNumber, camInfo, onBack, onOpenNextRoom }) {
-  return (
-    <>
-      <button
-        type="button"
-        onClick={onBack}
-        style={{
-          position: 'absolute',
-          bottom: '48px',
-          left: '24px',
-          border: 'none',
-          background: 'transparent',
-          padding: 0,
-          zIndex: 20,
-          cursor: 'inherit',
-        }}
-        aria-label="Go back to house view"
-      >
-        <img
-          src={GO_BACK_GIF}
-          alt="Go back"
-          style={{ width: 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain' }}
-        />
-      </button>
-
-      <div
-        style={{
-          position: 'absolute',
-          top: '24px',
-          right: '24px',
-          zIndex: 30,
-          background: 'rgba(0,0,0,0.65)',
-          color: '#e8e8e8',
-          fontFamily: 'monospace',
-          fontSize: '11px',
-          lineHeight: 1.6,
-          padding: '8px 12px',
-          borderRadius: '6px',
-          pointerEvents: 'none',
-          userSelect: 'text',
-          minWidth: '220px',
-        }}
-      >
-        <div style={{ color: '#aaa', marginBottom: '2px' }}>camera</div>
-        <div>pos&nbsp;&nbsp;[{fmt3(camInfo.position)}]</div>
-        <div>look [{fmt3(camInfo.target)}]</div>
-      </div>
-
-      <button
-        type="button"
-        onClick={onOpenNextRoom}
-        aria-label={`Go to room ${roomNumber === ROOM_FILES.length ? 1 : roomNumber + 1}`}
-        style={{
-          position: 'absolute',
-          bottom: '48px',
-          right: '24px',
-          zIndex: 20,
-          border: 'none',
-          background: 'transparent',
-          padding: 0,
-          cursor: 'inherit',
-        }}
-      >
-        <img
-          src={NEXT_DOOR_GIF}
-          alt="Go to the next door"
-          style={{ width: 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain' }}
-        />
-      </button>
-    </>
-  )
-}
-
 function TinyPlayer({ onTitleBarMouseDown }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -1804,7 +1672,7 @@ function FolderPage({ folder, onBackToAbout }) {
   )
 }
 
-function ProjectPreviewWindow({ isOpen, onClose }) {
+function ProjectPreviewWindow({ onClose }) {
   const videoRef = useRef(null)
   const [animateIn, setAnimateIn] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
@@ -1837,51 +1705,19 @@ function ProjectPreviewWindow({ isOpen, onClose }) {
   }, [])
 
   useEffect(() => {
+    const frameId = window.requestAnimationFrame(() => setAnimateIn(true))
     const video = videoRef.current
-    if (!video) return undefined
-
-    video.loop = true
-    video.playsInline = true
-    video.preload = 'auto'
-    video.load()
-
-    return undefined
-  }, [])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined
-
-    const video = videoRef.current
-    if (!video) return undefined
-
-    let frameId = null
-
-    if (isOpen) {
-      frameId = window.requestAnimationFrame(() => setAnimateIn(true))
-      video.defaultMuted = isMuted
-      video.muted = isMuted
-      if (!isMuted) video.volume = 0.5
+    if (video) {
+      video.muted = false
+      video.defaultMuted = false
+      video.volume = 0.5
+      video.loop = true
       video.currentTime = 0
       video.play().catch(() => {})
-    } else {
-      setAnimateIn(false)
-      video.pause()
-      video.currentTime = 0
     }
 
-    return () => {
-      if (frameId != null) window.cancelAnimationFrame(frameId)
-    }
-  }, [isOpen])
-
-  useEffect(() => {
-    const video = videoRef.current
-    if (!video) return
-
-    video.defaultMuted = isMuted
-    video.muted = isMuted
-    if (!isMuted) video.volume = 0.5
-  }, [isMuted])
+    return () => window.cancelAnimationFrame(frameId)
+  }, [])
 
   const handleToggleMute = useCallback(() => {
     const video = videoRef.current
@@ -1908,10 +1744,9 @@ function ProjectPreviewWindow({ isOpen, onClose }) {
         background: 'linear-gradient(180deg, #f5f5f5 0%, #dddddd 100%)',
         border: '1px solid rgba(0,0,0,0.08)',
         boxShadow: '0 36px 100px rgba(0,0,0,0.28), 0 12px 40px rgba(0,0,0,0.16)',
-        opacity: isOpen && animateIn ? 1 : 0,
+        opacity: animateIn ? 1 : 0,
         transition: 'transform 360ms ease, opacity 360ms ease',
         zIndex: 45,
-        pointerEvents: isOpen ? 'auto' : 'none',
       }}
     >
       <div
@@ -1958,6 +1793,8 @@ function ProjectPreviewWindow({ isOpen, onClose }) {
         <video
           ref={videoRef}
           src={HOME_PREVIEW_VIDEO}
+          autoPlay
+          muted
           playsInline
           loop
           preload="auto"
@@ -2214,14 +2051,10 @@ export default function App() {
   )
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [hasOpenedPreview, setHasOpenedPreview] = useState(false)
-  const [homeSceneLoaded, setHomeSceneLoaded] = useState(false)
-  const [warmedRoomCount, setWarmedRoomCount] = useState(0)
-  const [sceneCamInfo, setSceneCamInfo] = useState({ position: ROOM_CAMERA_POSITIONS[0], target: [0, 0, 0] })
   const [editorCorners, setEditorCorners] = useState([null, null, null, null])
   const [activeEditorCorner, setActiveEditorCorner] = useState(0)
   const [snapshotLabel, setSnapshotLabel] = useState('')
   const [savedSnapshots, setSavedSnapshots] = useState([])
-  const activeRoomIndex = route.type === 'room' ? route.roomIndex : null
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -2310,38 +2143,10 @@ export default function App() {
 
   useEffect(() => {
     useGLTF.preload('assets/home.glb')
+    ROOM_FILES.forEach((roomFile) => {
+      useGLTF.preload(`rooms/${roomFile}`)
+    })
   }, [])
-
-  useEffect(() => {
-    if (!homeSceneLoaded || typeof window === 'undefined') return undefined
-
-    const timeoutIds = ROOM_FILES.map((roomFile, index) => (
-      window.setTimeout(() => {
-        useGLTF.preload(`rooms/${roomFile}`)
-        setWarmedRoomCount((currentCount) => Math.max(currentCount, index + 1))
-      }, 450 * (index + 1))
-    ))
-
-    return () => timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId))
-  }, [homeSceneLoaded])
-
-  useEffect(() => {
-    if (activeRoomIndex == null) return
-
-    useGLTF.preload(`rooms/${ROOM_FILES[activeRoomIndex]}`)
-    setWarmedRoomCount((currentCount) => Math.max(currentCount, activeRoomIndex + 1))
-    setSceneCamInfo({ position: ROOM_CAMERA_POSITIONS[activeRoomIndex], target: [0, 0, 0] })
-  }, [activeRoomIndex])
-
-  useEffect(() => {
-    if (route.type !== 'home' && route.type !== 'home-editor') {
-      setHasOpenedPreview(true)
-    }
-
-    if (route.type !== 'home' && isPreviewOpen) {
-      setIsPreviewOpen(false)
-    }
-  }, [isPreviewOpen, route.type])
 
   useEffect(() => {
     if (typeof document === 'undefined') return undefined
@@ -2416,14 +2221,6 @@ export default function App() {
     navigateWithHash(HOME_HASH)
   }, [])
 
-  const handleHomeSceneLoaded = useCallback(() => {
-    setHomeSceneLoaded(true)
-  }, [])
-
-  const handleRoomLoaded = useCallback((roomIndex) => {
-    setWarmedRoomCount((currentCount) => Math.max(currentCount, roomIndex + 1))
-  }, [])
-
   const openHomeEditor = useCallback(() => {
     navigateWithHash(HOME_EDITOR_HASH)
   }, [])
@@ -2487,10 +2284,40 @@ export default function App() {
     null,
     2,
   )
-  const isRoomRoute = activeRoomIndex != null
-  const isAboutRoute = route.type === 'about'
-  const isFolderRoute = route.type === 'folder'
-  const activeFolder = isFolderRoute ? FOLDER_MAP.get(route.folderId) : null
+
+  if (route.type === 'room') {
+    const roomNumber = route.roomIndex + 1
+    const roomFile = ROOM_FILES[route.roomIndex]
+    return (
+      <>
+        <RoomPage roomNumber={roomNumber} roomFile={roomFile} cameraPosition={ROOM_CAMERA_POSITIONS[route.roomIndex]} onBack={closeRoom} onOpenNextRoom={() => openNextRoom(roomNumber)} />
+      </>
+    )
+  }
+
+  if (route.type === 'about') {
+    return (
+      <>
+        <AboutPage onBackHome={closeAbout} onShowAbout={openAbout} onOpenFolder={openFolder} />
+        <CursorSparkles />
+      </>
+    )
+  }
+
+  if (route.type === 'folder') {
+    const folder = FOLDER_MAP.get(route.folderId)
+    return (
+      <>
+        <AboutPage onBackHome={closeAbout} onShowAbout={closeFolder} onOpenFolder={openFolder} activeFolderId={route.folderId} />
+        {folder && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 200, pointerEvents: 'none' }}>
+            <FolderPage folder={folder} onBackToAbout={closeFolder} />
+          </div>
+        )}
+        <CursorSparkles />
+      </>
+    )
+  }
 
   if (route.type === 'home-editor') {
     const canWriteSnapshot = snapshotLabel.trim().length > 0 && editorCorners.every((corner) => Boolean(corner))
@@ -2733,138 +2560,101 @@ export default function App() {
   }
 
   return (
-    <>
+    <div
+      style={{
+        width: '100vw',
+        height: '100vh',
+        position: 'relative',
+        cursor: 'inherit',
+        backgroundColor: '#fff',
+        overflow: 'hidden',
+      }}
+    >
       <div
         style={{
-          width: '100vw',
-          height: '100vh',
-          position: 'relative',
-          cursor: 'inherit',
-          backgroundColor: '#fff',
-          overflow: 'hidden',
+          position: 'absolute',
+          inset: 0,
+          opacity: hasOpenedPreview && !isPreviewOpen ? 1 : 0,
+          pointerEvents: hasOpenedPreview && !isPreviewOpen ? 'auto' : 'none',
+          transition: 'opacity 180ms ease',
         }}
+        aria-hidden={!hasOpenedPreview || isPreviewOpen}
       >
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            opacity: isRoomRoute || (hasOpenedPreview && !isPreviewOpen) ? 1 : 0,
-            pointerEvents: isRoomRoute || (hasOpenedPreview && !isPreviewOpen) ? 'auto' : 'none',
-            transition: 'opacity 180ms ease',
-          }}
-          aria-hidden={!(isRoomRoute || (hasOpenedPreview && !isPreviewOpen))}
-        >
-          <PersistentSceneCanvas
-            activeRoomIndex={activeRoomIndex}
-            mountedRoomCount={warmedRoomCount}
-            onHomeLoaded={handleHomeSceneLoaded}
-            onOpenRoom={openRoom}
-            onRoomLoaded={handleRoomLoaded}
-            onCameraUpdate={setSceneCamInfo}
-          />
-        </div>
-
-        {route.type === 'home' && hasOpenedPreview && !isPreviewOpen && (
-          <button
-            type="button"
-            onClick={openAbout}
-            style={{
-              position: 'absolute',
-              top: '24px',
-              left: '24px',
-              zIndex: 41,
-              border: 'none',
-              background: 'transparent',
-              color: '#000',
-              padding: 0,
-              fontFamily: MAC_LIGHT_FONT_STACK,
-              fontSize: '18px',
-              fontWeight: 300,
-            }}
-          >
-            about
-          </button>
-        )}
-
-        {route.type === 'home' && (
-          <div
-            style={{
-              position: 'absolute',
-              left: '50%',
-              top: `${HOME_HEADER_TOP}px`,
-              transform: 'translateX(-50%)',
-              zIndex: 40,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            {hasOpenedPreview && !isPreviewOpen && (
-              <img
-                src={HOME_WELCOME_GIF}
-                alt=""
-                aria-hidden="true"
-                style={{ width: 'min(124px, 18vw)', height: 'auto', display: 'block' }}
-              />
-            )}
-            {(!hasOpenedPreview || isPreviewOpen) && (
-              <img
-                src={HOME_WELCOME_GIF}
-                alt=""
-                aria-hidden="true"
-                style={{ width: 'min(124px, 18vw)', height: 'auto', display: 'block', visibility: 'hidden' }}
-              />
-            )}
-
-            <div
-              style={{
-                color: '#000',
-                padding: 0,
-                width: 'min(220px, 32vw)',
-                fontFamily: ARIAL_FONT_STACK,
-                fontSize: '25px',
-                fontWeight: 400,
-                letterSpacing: '0.01em',
-                lineHeight: 1,
-                textAlign: 'center',
-                textTransform: 'lowercase',
-              }}
-            >
-              {HOME_TITLE}
-            </div>
-          </div>
-        )}
-
-        {isRoomRoute && (
-          <RoomOverlay
-            roomNumber={activeRoomIndex + 1}
-            camInfo={sceneCamInfo}
-            onBack={closeRoom}
-            onOpenNextRoom={() => openNextRoom(activeRoomIndex + 1)}
-          />
-        )}
-
-        {route.type === 'home' && !hasOpenedPreview && !isPreviewOpen && <PreviewLauncher onOpen={openPreview} />}
-        <ProjectPreviewWindow isOpen={route.type === 'home' && isPreviewOpen} onClose={closePreview} />
+        <HomeScene onModelLoaded={undefined} onOpenRoom={openRoom} />
       </div>
 
-      {(isAboutRoute || isFolderRoute) && (
-        <>
-          <AboutPage
-            onBackHome={closeAbout}
-            onShowAbout={isFolderRoute ? closeFolder : openAbout}
-            onOpenFolder={openFolder}
-            activeFolderId={isFolderRoute ? route.folderId : null}
-          />
-          {activeFolder && (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 200, pointerEvents: 'none' }}>
-              <FolderPage folder={activeFolder} onBackToAbout={closeFolder} />
-            </div>
-          )}
-          <CursorSparkles />
-        </>
+      {hasOpenedPreview && !isPreviewOpen && (
+        <button
+          type="button"
+          onClick={openAbout}
+          style={{
+            position: 'absolute',
+            top: '24px',
+            left: '24px',
+            zIndex: 41,
+            border: 'none',
+            background: 'transparent',
+            color: '#000',
+            padding: 0,
+            fontFamily: MAC_LIGHT_FONT_STACK,
+            fontSize: '18px',
+            fontWeight: 300,
+          }}
+        >
+          about
+        </button>
       )}
-    </>
+
+      <div
+        style={{
+          position: 'absolute',
+          left: '50%',
+          top: `${HOME_HEADER_TOP}px`,
+          transform: 'translateX(-50%)',
+          zIndex: 40,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '6px',
+        }}
+      >
+        {hasOpenedPreview && !isPreviewOpen && (
+          <img
+            src={HOME_WELCOME_GIF}
+            alt=""
+            aria-hidden="true"
+            style={{ width: 'min(124px, 18vw)', height: 'auto', display: 'block' }}
+          />
+        )}
+        {(!hasOpenedPreview || isPreviewOpen) && (
+          <img
+            src={HOME_WELCOME_GIF}
+            alt=""
+            aria-hidden="true"
+            style={{ width: 'min(124px, 18vw)', height: 'auto', display: 'block', visibility: 'hidden' }}
+          />
+        )}
+
+        <div
+          style={{
+            color: '#000',
+            padding: 0,
+            width: 'min(220px, 32vw)',
+            fontFamily: ARIAL_FONT_STACK,
+            fontSize: '25px',
+            fontWeight: 400,
+            letterSpacing: '0.01em',
+            lineHeight: 1,
+            textAlign: 'center',
+            textTransform: 'lowercase',
+          }}
+        >
+          {HOME_TITLE}
+        </div>
+      </div>
+
+      {!hasOpenedPreview && !isPreviewOpen && <PreviewLauncher onOpen={openPreview} />}
+      {isPreviewOpen && <ProjectPreviewWindow onClose={closePreview} />}
+    </div>
   )
 }
