@@ -50,27 +50,22 @@ const CURSOR_TRAIL_GIFS = [
   new URL('../target/cursor/sparkle_h.gif', import.meta.url).href,
 ]
 const CURSOR_CLICK_GIF = new URL('../target/cursor/sparkle_click.gif', import.meta.url).href
-const MAIN_KEY_CURSOR_URL = new URL('../target/keys/key_main.ani', import.meta.url).href
+const MAIN_KEY_CURSOR_URL = 'assets/cursors/key-main-aligned.png'
 const ROOM_KEY_CURSOR_URLS = [
-  new URL('../target/keys/key_christalhearts1.ani', import.meta.url).href,
-  new URL('../target/keys/key_christalhearts2.ani', import.meta.url).href,
-  new URL('../target/keys/key_link.ani', import.meta.url).href,
-  new URL('../target/keys/key_working.ani', import.meta.url).href,
+  'assets/cursors/key-room-1-aligned.png',
+  'assets/cursors/key-room-2-aligned.png',
+  'assets/cursors/key-room-3-hover-aligned.png',
+  'assets/cursors/key-room-4-hover-aligned.png',
 ]
-const MAIN_KEY_CURSOR_FALLBACK_URL = new URL('../target/magic-key/alternate magic key.cur', import.meta.url).href
-const ROOM_KEY_CURSOR_FALLBACKS = [
-  new URL('../target/magic-key/Crystal heart.cur', import.meta.url).href,
-  new URL('../target/magic-key/Locked heart.cur', import.meta.url).href,
-  new URL('../target/magic-key/Gold cross.cur', import.meta.url).href,
-  new URL('../target/magic-key/Help magic key.cur', import.meta.url).href,
-]
+const HOVER_KEY_CURSOR_URL = 'assets/cursors/key-hover-aligned.png'
 const CURSOR_TRAIL_LIFETIME_MS = 850
 const CURSOR_CLICK_LIFETIME_MS = 700
 const CURSOR_TRAIL_MIN_DISTANCE = 14
 const CURSOR_TRAIL_MIN_INTERVAL_MS = 24
 const HOME_HEADER_TOP = 24
 const PREVIEW_WINDOW_TOP = 190
-const KEY_CURSOR_HOTSPOT = '11 0'
+const MAIN_KEY_CURSOR_HOTSPOT = '28 24'
+const HOVER_KEY_CURSOR_HOTSPOT = '13 12'
 const HOME_EDITOR_STORAGE_KEY = 'nana-home-editor-state'
 const DEFAULT_ABOUT_HTML = `Anastasiia Pishchanska is a Ukrainian-born, Tokyo-based artist, filmmaker, and art director. She is the co-founder of the established Ukrainian art print publication localstickerbook (<a href="https://localgr0up.com/" target="_blank" rel="noreferrer">local.group</a>), which curates exhibitions, events, and fundraisers worldwide, presenting contemporary artists through the lens of post-internet culture. In 2023, following the full-scale invasion of Ukraine, she was awarded a research scholarship at...
 
@@ -222,26 +217,21 @@ const FOLDER_DEFINITIONS = [
 ]
 const FOLDER_MAP = new Map(FOLDER_DEFINITIONS.map((folder) => [folder.id, folder]))
 
-function buildCursorValue(cursorUrl, fallback = 'auto', fallbackCursorUrl) {
-  const cursorStack = [`url("${cursorUrl}") ${KEY_CURSOR_HOTSPOT}`]
-
-  if (fallbackCursorUrl) {
-    cursorStack.push(`url("${fallbackCursorUrl}") ${KEY_CURSOR_HOTSPOT}`)
-  }
-
+function buildCursorValue(cursorUrl, fallback = 'auto', hotspot = MAIN_KEY_CURSOR_HOTSPOT) {
+  const cursorStack = [`url("${cursorUrl}") ${hotspot}`]
   cursorStack.push(fallback)
   return cursorStack.join(', ')
 }
 
-const MAIN_KEY_CURSOR = buildCursorValue(MAIN_KEY_CURSOR_URL, 'auto', MAIN_KEY_CURSOR_FALLBACK_URL)
-const HOVER_KEY_CURSOR = buildCursorValue(ROOM_KEY_CURSOR_URLS[1], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[1])
+const MAIN_KEY_CURSOR = buildCursorValue(MAIN_KEY_CURSOR_URL, 'auto')
+const HOVER_KEY_CURSOR = buildCursorValue(HOVER_KEY_CURSOR_URL, 'pointer', HOVER_KEY_CURSOR_HOTSPOT)
 
 const DOOR_LINKS = [
   {
     id: 'door4-inner',
     label: 'Door 4 Inner',
     roomIndex: 3,
-    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[3], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[3]),
+    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[3], 'pointer'),
     corners: [
       [0.053, 0.121, -0.081],
       [-0.024, 0.118, -0.083],
@@ -253,7 +243,7 @@ const DOOR_LINKS = [
     id: 'door4-door',
     label: 'Door 4 Door',
     roomIndex: 3,
-    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[3], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[3]),
+    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[3], 'pointer'),
     corners: [
       [0.033, 0.126, -0.133],
       [-0.024, 0.118, -0.083],
@@ -265,7 +255,7 @@ const DOOR_LINKS = [
     id: 'door3-inner',
     label: 'Door 3 Inner',
     roomIndex: 2,
-    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[2], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[2]),
+    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[2], 'pointer'),
     corners: [
       [0.099, 0.131, 0.056],
       [0.102, 0.134, -0.02],
@@ -277,7 +267,7 @@ const DOOR_LINKS = [
     id: 'door3-door',
     label: 'Door 3 Door',
     roomIndex: 2,
-    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[2], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[2]),
+    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[2], 'pointer'),
     corners: [
       [0.15, 0.131, 0.031],
       [0.101, 0.134, -0.02],
@@ -289,7 +279,7 @@ const DOOR_LINKS = [
     id: 'door2-inner',
     label: 'Door 2 Inner',
     roomIndex: 1,
-    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[1], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[1]),
+    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[1], 'pointer'),
     corners: [
       [-0.103, 0.128, 0.108],
       [-0.032, 0.13, 0.11],
@@ -301,7 +291,7 @@ const DOOR_LINKS = [
     id: 'door2-door',
     label: 'Door 2 Door',
     roomIndex: 1,
-    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[1], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[1]),
+    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[1], 'pointer'),
     corners: [
       [-0.084, 0.128, 0.161],
       [-0.032, 0.13, 0.11],
@@ -313,7 +303,7 @@ const DOOR_LINKS = [
     id: 'door1-inner',
     label: 'Door 1 Inner',
     roomIndex: 0,
-    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[0], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[0]),
+    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[0], 'pointer'),
     corners: [
       [-0.126, 0.132, -0.027],
       [-0.131, 0.132, 0.046],
@@ -325,7 +315,7 @@ const DOOR_LINKS = [
     id: 'door1-door',
     label: 'Door 1 Door',
     roomIndex: 0,
-    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[0], 'pointer', ROOM_KEY_CURSOR_FALLBACKS[0]),
+    cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[0], 'pointer'),
     corners: [
       [-0.162, 0.132, -0.019],
       [-0.131, 0.132, 0.046],
@@ -791,7 +781,7 @@ function DoorLinkArea({ door, onOpenRoom }) {
         applyDoorCursor(event, door.cursor || MAIN_KEY_CURSOR)
       }}
       onPointerOut={(event) => {
-        applyDoorCursor(event, 'inherit')
+        applyDoorCursor(event, MAIN_KEY_CURSOR)
       }}
       onPointerDown={(event) => {
         event.stopPropagation()
@@ -848,14 +838,14 @@ function RoomPage({ roomNumber, roomFile, cameraPosition, onBack, onOpenNextRoom
           background: 'transparent',
           padding: 0,
           zIndex: 20,
-          cursor: 'inherit',
+          cursor: HOVER_KEY_CURSOR,
         }}
         aria-label="Go back to house view"
       >
         <img
           src={GO_BACK_GIF}
           alt="Go back"
-          style={{ width: 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain' }}
+          style={{ width: 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
         />
       </button>
 
@@ -908,13 +898,13 @@ function RoomPage({ roomNumber, roomFile, cameraPosition, onBack, onOpenNextRoom
           border: 'none',
           background: 'transparent',
           padding: 0,
-          cursor: 'inherit',
+          cursor: HOVER_KEY_CURSOR,
         }}
       >
         <img
           src={NEXT_DOOR_GIF}
           alt="Go to the next door"
-          style={{ width: 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain' }}
+          style={{ width: 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
         />
       </button>
     </div>
@@ -1445,13 +1435,13 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            cursor: 'inherit',
+            cursor: HOVER_KEY_CURSOR,
           }}
         >
           <img
             src={ABOUT_HOME_GIF}
             alt="home"
-            style={{ width: '78px', height: 'auto', display: 'block', objectFit: 'contain' }}
+            style={{ width: '78px', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
           />
         </button>
 
@@ -2148,32 +2138,17 @@ export default function App() {
     })
   }, [])
 
-  useEffect(() => {
-    if (typeof document === 'undefined') return undefined
+  useLayoutEffect(() => {
+    if (typeof document === 'undefined') return
 
-    const previousCursor = document.documentElement.style.getPropertyValue('--app-cursor')
-    const previousHoverCursor = document.documentElement.style.getPropertyValue('--app-hover-cursor')
     if (route.type === 'home-editor') {
       document.documentElement.style.removeProperty('--app-cursor')
       document.documentElement.style.removeProperty('--app-hover-cursor')
-    } else {
-      document.documentElement.style.setProperty('--app-cursor', MAIN_KEY_CURSOR)
-      document.documentElement.style.setProperty('--app-hover-cursor', HOVER_KEY_CURSOR)
+      return
     }
 
-    return () => {
-      if (previousCursor) {
-        document.documentElement.style.setProperty('--app-cursor', previousCursor)
-      } else {
-        document.documentElement.style.removeProperty('--app-cursor')
-      }
-
-      if (previousHoverCursor) {
-        document.documentElement.style.setProperty('--app-hover-cursor', previousHoverCursor)
-      } else {
-        document.documentElement.style.removeProperty('--app-hover-cursor')
-      }
-    }
+    document.documentElement.style.setProperty('--app-cursor', MAIN_KEY_CURSOR)
+    document.documentElement.style.setProperty('--app-hover-cursor', HOVER_KEY_CURSOR)
   }, [route.type])
 
   const openRoom = useCallback((roomNumber) => {
