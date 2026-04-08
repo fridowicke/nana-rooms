@@ -1746,7 +1746,7 @@ function ProjectPreviewWindow({ onClose }) {
         boxShadow: '0 36px 100px rgba(0,0,0,0.28), 0 12px 40px rgba(0,0,0,0.16)',
         opacity: animateIn ? 1 : 0,
         transition: 'transform 360ms ease, opacity 360ms ease',
-        zIndex: 30,
+        zIndex: 45,
       }}
     >
       <div
