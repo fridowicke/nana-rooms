@@ -64,6 +64,7 @@ const CURSOR_TRAIL_MIN_DISTANCE = 14
 const CURSOR_TRAIL_MIN_INTERVAL_MS = 24
 const HOME_HEADER_TOP = 24
 const PREVIEW_WINDOW_TOP = 190
+const DOOR_OCCLUSION_CLEARANCE = 0.04
 const MAIN_KEY_CURSOR_HOTSPOT = '28 24'
 const HOVER_KEY_CURSOR_HOTSPOT = '13 12'
 const HOME_EDITOR_STORAGE_KEY = 'nana-home-editor-state'
@@ -329,7 +330,7 @@ function Model({ url, children, onLoaded }) {
   const { scene } = useGLTF(url)
 
   useEffect(() => {
-    if (onLoaded) onLoaded()
+    if (onLoaded) onLoaded(scene)
   }, [onLoaded, scene])
 
   return <primitive object={scene}>{children}</primitive>
@@ -593,14 +594,20 @@ function EditorControls() {
 }
 
 function HomeScene({ onModelLoaded, onOpenRoom }) {
+  const [homeOccluderRoot, setHomeOccluderRoot] = useState(null)
+  const handleHomeModelLoaded = useCallback((scene) => {
+    setHomeOccluderRoot(scene)
+    if (onModelLoaded) onModelLoaded(scene)
+  }, [onModelLoaded])
+
   return (
     <KeyboardControls map={keyboardMap}>
       <Canvas shadows camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'inherit' }}>
         <color attach="background" args={['#fff']} />
         <Suspense fallback={null}>
           <Stage environment="city" intensity={0.5} contactShadows={{ opacity: 0.7, blur: 2 }} adjustCamera={false}>
-            <Model url="assets/home.glb" onLoaded={onModelLoaded}>
-              <DoorLinks doors={DOOR_LINKS} onOpenRoom={onOpenRoom} />
+            <Model url="assets/home.glb" onLoaded={handleHomeModelLoaded}>
+              <DoorLinks doors={DOOR_LINKS} onOpenRoom={onOpenRoom} occluderRoot={homeOccluderRoot} />
             </Model>
           </Stage>
           <Controls />
@@ -742,8 +749,10 @@ function CameraReset({ position }) {
   return null
 }
 
-function DoorLinkArea({ door, onOpenRoom }) {
+function DoorLinkArea({ door, onOpenRoom, occluderMeshes }) {
   const corners = Array.isArray(door.corners) ? door.corners : []
+  const meshRef = useRef(null)
+  const occlusionRaycaster = useMemo(() => new THREE.Raycaster(), [])
 
   const geometry = useMemo(() => {
     if (corners.length !== 4) return null
@@ -765,6 +774,33 @@ function DoorLinkArea({ door, onOpenRoom }) {
 
   useEffect(() => () => geometry?.dispose(), [geometry])
 
+  const isDoorClearlyOccluded = useCallback((raycaster, doorDistance) => {
+    if (!occluderMeshes?.length) return false
+
+    const maxVisibleDistance = doorDistance - DOOR_OCCLUSION_CLEARANCE
+    if (maxVisibleDistance <= raycaster.near) return false
+
+    occlusionRaycaster.ray.copy(raycaster.ray)
+    occlusionRaycaster.near = raycaster.near
+    occlusionRaycaster.far = maxVisibleDistance
+    occlusionRaycaster.layers.mask = raycaster.layers.mask
+
+    return occlusionRaycaster.intersectObjects(occluderMeshes, false).length > 0
+  }, [occluderMeshes, occlusionRaycaster])
+
+  const raycast = useCallback((raycaster, intersects) => {
+    if (!meshRef.current) return
+
+    const nextHits = []
+    THREE.Mesh.prototype.raycast.call(meshRef.current, raycaster, nextHits)
+
+    nextHits.forEach((hit) => {
+      if (!isDoorClearlyOccluded(raycaster, hit.distance)) {
+        intersects.push(hit)
+      }
+    })
+  }, [isDoorClearlyOccluded])
+
   if (!geometry) return null
 
   const applyDoorCursor = (event, cursorValue) => {
@@ -774,8 +810,11 @@ function DoorLinkArea({ door, onOpenRoom }) {
 
   return (
     <mesh
+      ref={meshRef}
       geometry={geometry}
       renderOrder={1000}
+      raycast={raycast}
+      userData={{ isDoorHitArea: true }}
       onPointerOver={(event) => {
         event.stopPropagation()
         applyDoorCursor(event, door.cursor || MAIN_KEY_CURSOR)
@@ -796,11 +835,23 @@ function DoorLinkArea({ door, onOpenRoom }) {
   )
 }
 
-function DoorLinks({ doors, onOpenRoom }) {
+function DoorLinks({ doors, onOpenRoom, occluderRoot }) {
+  const occluderMeshes = useMemo(() => {
+    if (!occluderRoot) return []
+
+    const nextMeshes = []
+    occluderRoot.traverse((child) => {
+      if (child?.isMesh && !child.userData?.isDoorHitArea) {
+        nextMeshes.push(child)
+      }
+    })
+    return nextMeshes
+  }, [occluderRoot])
+
   return (
     <group>
       {doors.map((door) => (
-        <DoorLinkArea key={door.id} door={door} onOpenRoom={onOpenRoom} />
+        <DoorLinkArea key={door.id} door={door} onOpenRoom={onOpenRoom} occluderMeshes={occluderMeshes} />
       ))}
     </group>
   )
