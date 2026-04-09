@@ -1928,7 +1928,7 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
             </div>
 
             {/* Body */}
-            <div style={{ background: '#f5f5f5', position: 'relative', height: '300px' }}>
+            <div style={{ background: '#f5f5f5', position: 'relative', height: '180px' }}>
               <div
                 ref={editorContentRef}
                 className="classic-textedit-scroll"
@@ -1948,9 +1948,9 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
                   background: 'transparent',
                   color: '#1a1a1a',
                   fontFamily: MAC_LIGHT_FONT_STACK,
-                  fontSize: '13px',
+                  fontSize: '12px',
                   fontWeight: 300,
-                  lineHeight: 1.5,
+                  lineHeight: 1.4,
                   whiteSpace: 'pre-wrap',
                   overflowX: 'hidden',
                   overflowY: 'auto',
@@ -2005,7 +2005,18 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
 
       {/* ── Radio gif (static) ── */}
       {!isFolderView && (
-        <div style={{ position: 'absolute', left: '24px', bottom: '247px', zIndex: 21, pointerEvents: 'none', width: 'min(22vw, 290px)', display: 'flex', justifyContent: 'center' }}>
+        <div
+          style={{
+            position: 'fixed',
+            left: playerPos.x,
+            top: playerPos.y - 4,
+            zIndex: 21,
+            pointerEvents: 'none',
+            width: 'min(22vw, 290px)',
+            display: 'flex',
+            justifyContent: 'center',
+          }}
+        >
           <img src="assets/radio.gif" alt="" aria-hidden="true" style={{ width: '48px', height: 'auto', objectFit: 'contain' }} />
         </div>
       )}
@@ -2061,7 +2072,7 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
           <div
             style={{
               position: 'absolute',
-              top: '146px',
+              top: '112px',
               left: '50%',
               transform: 'translateX(-50%)',
               zIndex: 12,
@@ -2072,23 +2083,23 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
               pointerEvents: 'none',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
               <img
                 src="assets/zodiac.gif"
                 alt=""
                 aria-hidden="true"
-                style={{ width: '67px', height: 'auto', objectFit: 'contain' }}
+                style={{ width: '46px', height: 'auto', objectFit: 'contain' }}
               />
               <img
                 src="assets/shelestvetrovki-glitter.gif"
                 alt="shelestvetrovki"
-                style={{ width: 'min(470px, 67%)', height: 'auto', objectFit: 'contain' }}
+                style={{ width: 'min(344px, 28.8vw)', height: 'auto', objectFit: 'contain' }}
               />
               <img
                 src="assets/7ADo.gif"
                 alt=""
                 aria-hidden="true"
-                style={{ width: '67px', height: 'auto', objectFit: 'contain' }}
+                style={{ width: '46px', height: 'auto', objectFit: 'contain' }}
               />
             </div>
           </div>
@@ -2249,7 +2260,7 @@ function AboutFolderContent({ folder }) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px',
+              gap: '2px',
               marginBottom: '18px',
             }}
           >
@@ -2257,18 +2268,18 @@ function AboutFolderContent({ folder }) {
               src="assets/zodiac.gif"
               alt=""
               aria-hidden="true"
-              style={{ width: '67px', height: 'auto', objectFit: 'contain' }}
+              style={{ width: '46px', height: 'auto', objectFit: 'contain' }}
             />
             <img
               src="assets/shelestvetrovki-glitter.gif"
               alt="shelestvetrovki"
-              style={{ width: 'min(470px, 67vw)', height: 'auto', objectFit: 'contain' }}
+              style={{ width: 'min(344px, 28.8vw)', height: 'auto', objectFit: 'contain' }}
             />
             <img
               src="assets/7ADo.gif"
               alt=""
               aria-hidden="true"
-              style={{ width: '67px', height: 'auto', objectFit: 'contain' }}
+              style={{ width: '46px', height: 'auto', objectFit: 'contain' }}
             />
           </div>
 
