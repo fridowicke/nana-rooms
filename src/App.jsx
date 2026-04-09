@@ -1654,11 +1654,11 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
   const [browserAddress, setBrowserAddress] = useState(() => getAboutAddress(activeFolderId, getAboutTabId(activeFolderId)))
 
   const folderArcLayout = [
-    { id: 'performance', left: '15%', top: '60%' },
-    { id: 'writing', left: '30%', top: '34%' },
-    { id: 'press', left: '52%', top: '22%' },
-    { id: 'filmmaking', left: '73%', top: '40%' },
-    { id: 'cv', left: '89%', top: '63%' },
+    { id: 'performance', left: '15%', top: '62%' },
+    { id: 'writing', left: '30%', top: '36%' },
+    { id: 'press', left: '52%', top: '24%' },
+    { id: 'filmmaking', left: '73%', top: '42%' },
+    { id: 'cv', left: '89%', top: '65%' },
   ]
   const [folderPositions, setFolderPositions] = useState(
     () => new Map(folderArcLayout.map((p) => [p.id, { left: p.left, top: p.top }]))
@@ -1977,7 +1977,7 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
         <div
           style={{
             position: 'absolute',
-            top: '118px',
+            top: '110px',
             left: '50%',
             transform: 'translateX(-50%)',
             zIndex: 12,
@@ -1993,18 +1993,18 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
               src="assets/zodiac.gif"
               alt=""
               aria-hidden="true"
-              style={{ width: '52px', height: 'auto', objectFit: 'contain' }}
+              style={{ width: '67px', height: 'auto', objectFit: 'contain' }}
             />
             <img
               src="assets/shelestvetrovki-glitter.gif"
               alt="shelestvetrovki"
-              style={{ width: 'min(364px, 52%)', height: 'auto', objectFit: 'contain' }}
+              style={{ width: 'min(470px, 67%)', height: 'auto', objectFit: 'contain' }}
             />
             <img
               src="assets/7ADo.gif"
               alt=""
               aria-hidden="true"
-              style={{ width: '52px', height: 'auto', objectFit: 'contain' }}
+              style={{ width: '67px', height: 'auto', objectFit: 'contain' }}
             />
           </div>
         </div>
