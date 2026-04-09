@@ -602,10 +602,10 @@ function HomeScene({ onModelLoaded, onOpenRoom }) {
 
   return (
     <KeyboardControls map={keyboardMap}>
-      <Canvas shadows camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'inherit' }}>
+      <Canvas camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'inherit' }}>
         <color attach="background" args={['#fff']} />
         <Suspense fallback={null}>
-          <Stage environment="city" intensity={0.5} contactShadows={{ opacity: 0.7, blur: 2 }} adjustCamera={false}>
+          <Stage environment="city" intensity={0.5} shadows={false} adjustCamera={false}>
             <Model url="assets/home.glb" onLoaded={handleHomeModelLoaded}>
               <DoorLinks doors={DOOR_LINKS} onOpenRoom={onOpenRoom} occluderRoot={homeOccluderRoot} />
             </Model>
@@ -689,10 +689,10 @@ function CornerPreview({ corners, activeCornerIndex }) {
 
 function HomeEditorScene({ corners, activeCornerIndex, onPickPoint }) {
   return (
-    <Canvas shadows camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'crosshair' }}>
+    <Canvas camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'crosshair' }}>
       <color attach="background" args={['#fff']} />
       <Suspense fallback={null}>
-        <Stage environment="city" intensity={0.5} contactShadows={{ opacity: 0.7, blur: 2 }} adjustCamera={false}>
+        <Stage environment="city" intensity={0.5} shadows={false} adjustCamera={false}>
           <group
             onClick={(event) => {
               if (activeCornerIndex == null) return
@@ -901,10 +901,10 @@ function RoomPage({ roomNumber, roomFile, cameraPosition, onBack, onOpenNextRoom
       </button>
 
       <KeyboardControls map={keyboardMap}>
-        <Canvas shadows camera={{ position: cameraPosition, fov: 47.5 }} style={{ cursor: 'inherit' }} gl={{ toneMapping: THREE.NoToneMapping }}>
+        <Canvas camera={{ position: cameraPosition, fov: 47.5 }} style={{ cursor: 'inherit' }} gl={{ toneMapping: THREE.NoToneMapping }}>
           <color attach="background" args={['#fff']} />
           <Suspense fallback={<LoadingCursor />}>
-            <Stage environment="studio" intensity={0.6} contactShadows={{ opacity: 0.7, blur: 2 }} adjustCamera={false}>
+            <Stage environment="studio" intensity={0.6} shadows={false} adjustCamera={false}>
               <Model url={`rooms/${roomFile}`} />
             </Stage>
             <Controls />
