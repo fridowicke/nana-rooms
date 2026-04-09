@@ -217,6 +217,33 @@ const FOLDER_DEFINITIONS = [
   },
 ]
 const FOLDER_MAP = new Map(FOLDER_DEFINITIONS.map((folder) => [folder.id, folder]))
+const TONE_MAPPING_OPTIONS = [
+  { value: 'none', label: 'None', threeValue: THREE.NoToneMapping },
+  { value: 'linear', label: 'Linear', threeValue: THREE.LinearToneMapping },
+  { value: 'reinhard', label: 'Reinhard', threeValue: THREE.ReinhardToneMapping },
+  { value: 'cineon', label: 'Cineon', threeValue: THREE.CineonToneMapping },
+  { value: 'aces', label: 'ACES', threeValue: THREE.ACESFilmicToneMapping },
+  { value: 'agx', label: 'AgX', threeValue: THREE.AgXToneMapping },
+  { value: 'neutral', label: 'Neutral', threeValue: THREE.NeutralToneMapping },
+]
+const DEFAULT_ROOM_RENDER_SETTINGS = {
+  shadingMode: 'shadeless',
+  toneMapping: 'linear',
+  exposure: 1,
+  environmentIntensity: 1.95,
+  baseColorIntensity: 1,
+  metalness: 0,
+  roughness: 1,
+  envMapIntensity: 1,
+  opacity: 1,
+  emissiveIntensity: 5,
+  textureColorSpace: 'srgb',
+  transparent: true,
+  depthWrite: true,
+  doubleSided: false,
+  flatShading: false,
+  wireframe: false,
+}
 
 function buildCursorValue(cursorUrl, fallback = 'auto', hotspot = MAIN_KEY_CURSOR_HOTSPOT) {
   const cursorStack = [`url("${cursorUrl}") ${hotspot}`]
@@ -334,6 +361,490 @@ function Model({ url, children, onLoaded }) {
   }, [onLoaded, scene])
 
   return <primitive object={scene}>{children}</primitive>
+}
+
+function RendererSettings({ toneMapping, exposure }) {
+  const { gl, scene } = useThree()
+
+  useEffect(() => {
+    const toneMappingMode = TONE_MAPPING_OPTIONS.find((option) => option.value === toneMapping)?.threeValue ?? THREE.NoToneMapping
+    gl.toneMapping = toneMappingMode
+    gl.toneMappingExposure = exposure
+    gl.outputColorSpace = THREE.SRGBColorSpace
+    scene.environmentIntensity = 1
+  }, [exposure, gl, scene, toneMapping])
+
+  return null
+}
+
+function RoomMaterialOverrides({ sceneRoot, settings }) {
+  useEffect(() => {
+    if (!sceneRoot) return undefined
+
+    const touchedMaterials = new Set()
+    const touchedMeshes = new Set()
+
+    sceneRoot.traverse((child) => {
+      if (!child?.isMesh) return
+      touchedMeshes.add(child)
+
+      if (!child.userData.__roomOriginalMaterial) {
+        child.userData.__roomOriginalMaterial = child.material
+      }
+
+      const originalMaterials = Array.isArray(child.userData.__roomOriginalMaterial)
+        ? child.userData.__roomOriginalMaterial
+        : [child.userData.__roomOriginalMaterial]
+
+      const resolvedMaterials = originalMaterials.map((originalMaterial) => {
+        if (!originalMaterial) return originalMaterial
+
+        if (settings.shadingMode !== 'shadeless') {
+          return originalMaterial
+        }
+
+        if (!originalMaterial.userData.__roomShadelessMaterial) {
+          const basicMaterial = new THREE.MeshBasicMaterial()
+
+          if (originalMaterial.color) basicMaterial.color.copy(originalMaterial.color)
+          if (originalMaterial.map) basicMaterial.map = originalMaterial.map
+          if (originalMaterial.alphaMap) basicMaterial.alphaMap = originalMaterial.alphaMap
+          if (originalMaterial.transparent != null) basicMaterial.transparent = originalMaterial.transparent
+          if (originalMaterial.opacity != null) basicMaterial.opacity = originalMaterial.opacity
+          if (originalMaterial.side != null) basicMaterial.side = originalMaterial.side
+          if (originalMaterial.wireframe != null) basicMaterial.wireframe = originalMaterial.wireframe
+
+          originalMaterial.userData.__roomShadelessMaterial = basicMaterial
+        }
+
+        return originalMaterial.userData.__roomShadelessMaterial
+      })
+
+      child.material = Array.isArray(child.userData.__roomOriginalMaterial) ? resolvedMaterials : resolvedMaterials[0]
+
+      const materials = Array.isArray(child.material) ? child.material : [child.material]
+      materials.forEach((material) => {
+        if (!material || touchedMaterials.has(material)) return
+        touchedMaterials.add(material)
+
+        if (!material.userData.__roomDefaults) {
+          material.userData.__roomDefaults = {
+            color: material.color?.clone?.() ?? null,
+            metalness: material.metalness,
+            roughness: material.roughness,
+            envMapIntensity: material.envMapIntensity,
+            opacity: material.opacity,
+            emissiveIntensity: material.emissiveIntensity,
+            transparent: material.transparent,
+            depthWrite: material.depthWrite,
+            side: material.side,
+            flatShading: material.flatShading,
+            wireframe: material.wireframe,
+            mapColorSpace: material.map?.colorSpace,
+          }
+        }
+
+        const defaults = material.userData.__roomDefaults
+        const intensityColor = defaults.color?.clone?.() ?? new THREE.Color('#ffffff')
+        intensityColor.multiplyScalar(settings.baseColorIntensity)
+
+        if (material.color) material.color.copy(intensityColor)
+        if (typeof material.metalness === 'number') material.metalness = settings.metalness
+        if (typeof material.roughness === 'number') material.roughness = settings.roughness
+        if (typeof material.envMapIntensity === 'number') material.envMapIntensity = settings.envMapIntensity
+        if (typeof material.opacity === 'number') material.opacity = settings.opacity
+        if (typeof material.emissiveIntensity === 'number') material.emissiveIntensity = settings.emissiveIntensity
+
+        material.transparent = settings.transparent || settings.opacity < 1
+        material.depthWrite = settings.depthWrite
+        material.side = settings.doubleSided ? THREE.DoubleSide : THREE.FrontSide
+        material.flatShading = settings.flatShading
+        material.wireframe = settings.wireframe
+
+        if (material.map) {
+          material.map.colorSpace = settings.textureColorSpace === 'linear' ? THREE.LinearSRGBColorSpace : THREE.SRGBColorSpace
+          material.map.needsUpdate = true
+        }
+
+        material.needsUpdate = true
+      })
+    })
+
+    return () => {
+      touchedMeshes.forEach((mesh) => {
+        if (mesh.userData.__roomOriginalMaterial) {
+          mesh.material = mesh.userData.__roomOriginalMaterial
+        }
+      })
+
+      touchedMaterials.forEach((material) => {
+        const defaults = material.userData.__roomDefaults
+        if (!defaults) return
+
+        if (defaults.color && material.color) material.color.copy(defaults.color)
+        if (typeof defaults.metalness === 'number' && typeof material.metalness === 'number') material.metalness = defaults.metalness
+        if (typeof defaults.roughness === 'number' && typeof material.roughness === 'number') material.roughness = defaults.roughness
+        if (typeof defaults.envMapIntensity === 'number' && typeof material.envMapIntensity === 'number') material.envMapIntensity = defaults.envMapIntensity
+        if (typeof defaults.opacity === 'number' && typeof material.opacity === 'number') material.opacity = defaults.opacity
+        if (typeof defaults.emissiveIntensity === 'number' && typeof material.emissiveIntensity === 'number') material.emissiveIntensity = defaults.emissiveIntensity
+
+        material.transparent = defaults.transparent
+        material.depthWrite = defaults.depthWrite
+        material.side = defaults.side ?? THREE.FrontSide
+        material.flatShading = defaults.flatShading ?? false
+        material.wireframe = defaults.wireframe ?? false
+
+        if (material.map && defaults.mapColorSpace) {
+          material.map.colorSpace = defaults.mapColorSpace
+          material.map.needsUpdate = true
+        }
+
+        material.needsUpdate = true
+      })
+    }
+  }, [sceneRoot, settings])
+
+  return null
+}
+
+function RoomControlRow({ label, children }) {
+  return (
+    <label style={{ display: 'grid', gridTemplateColumns: '92px 1fr', gap: '8px', alignItems: 'center' }}>
+      <span style={{ color: '#aaa' }}>{label}</span>
+      {children}
+    </label>
+  )
+}
+
+function RoomStepButtons({ onDecrement, onIncrement }) {
+  const buttonStyle = {
+    width: '18px',
+    height: '18px',
+    border: '1px solid rgba(255,255,255,0.25)',
+    background: 'rgba(255,255,255,0.08)',
+    color: '#f4f4f4',
+    borderRadius: '4px',
+    font: 'inherit',
+    lineHeight: 1,
+    padding: 0,
+    cursor: HOVER_KEY_CURSOR,
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+      <button type="button" onClick={onDecrement} style={buttonStyle} aria-label="Decrease value">
+        {'<'}
+      </button>
+      <button type="button" onClick={onIncrement} style={buttonStyle} aria-label="Increase value">
+        {'>'}
+      </button>
+    </div>
+  )
+}
+
+function RoomSlider({ min, max, step, value, onChange, onStepDown, onStepUp }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 52px 40px', gap: '8px', alignItems: 'center' }}>
+      <RoomStepButtons onDecrement={onStepDown} onIncrement={onStepUp} />
+      <input type="range" min={min} max={max} step={step} value={value} onChange={onChange} />
+      <span style={{ textAlign: 'right' }}>{Number(value).toFixed(2)}</span>
+      <div />
+    </div>
+  )
+}
+
+function RoomSelect({ value, onChange, options, onStepDown, onStepUp }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr', gap: '8px', alignItems: 'center' }}>
+      <RoomStepButtons onDecrement={onStepDown} onIncrement={onStepUp} />
+      <select value={value} onChange={onChange}>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
+function RoomToggle({ checked, onChange, label, onStepDown, onStepUp }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr', gap: '8px', alignItems: 'center' }}>
+      <RoomStepButtons onDecrement={onStepDown} onIncrement={onStepUp} />
+      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+        <input type="checkbox" checked={checked} onChange={onChange} />
+        <span>{label}</span>
+      </label>
+    </div>
+  )
+}
+
+function RoomDebugPanel({ camInfo, settings, isCollapsed, onToggleCollapsed, onSettingChange, onReset }) {
+  const stepNumber = useCallback((key, min, max, step, direction) => {
+    const nextValue = Number((settings[key] + direction * step).toFixed(4))
+    const clamped = Math.min(max, Math.max(min, nextValue))
+    onSettingChange(key, clamped)
+  }, [onSettingChange, settings])
+
+  const cycleOption = useCallback((key, options, direction) => {
+    const currentIndex = options.findIndex((option) => option.value === settings[key])
+    const safeIndex = currentIndex >= 0 ? currentIndex : 0
+    const nextIndex = (safeIndex + direction + options.length) % options.length
+    onSettingChange(key, options[nextIndex].value)
+  }, [onSettingChange, settings])
+
+  const toggleBoolean = useCallback((key, direction) => {
+    if (direction < 0) {
+      onSettingChange(key, false)
+      return
+    }
+
+    onSettingChange(key, true)
+  }, [onSettingChange])
+
+  const shadingOptions = [
+    { value: 'lit', label: 'Lit' },
+    { value: 'shadeless', label: 'Shadeless' },
+  ]
+  const textureSpaceOptions = [
+    { value: 'srgb', label: 'sRGB' },
+    { value: 'linear', label: 'Linear' },
+  ]
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: '24px',
+        right: '24px',
+        zIndex: 30,
+        background: 'rgba(0,0,0,0.68)',
+        color: '#e8e8e8',
+        fontFamily: 'monospace',
+        fontSize: '11px',
+        lineHeight: 1.5,
+        padding: '10px 12px',
+        borderRadius: '8px',
+        width: isCollapsed ? 'auto' : 'min(340px, calc(100vw - 48px))',
+        pointerEvents: 'auto',
+        userSelect: 'text',
+        boxSizing: 'border-box',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+        <div style={{ color: '#aaa' }}>room controls</div>
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          style={{
+            border: '1px solid rgba(255,255,255,0.2)',
+            background: 'rgba(255,255,255,0.08)',
+            color: '#f4f4f4',
+            padding: '3px 8px',
+            borderRadius: '4px',
+            font: 'inherit',
+            cursor: HOVER_KEY_CURSOR,
+          }}
+        >
+          {isCollapsed ? 'Open' : 'Collapse'}
+        </button>
+      </div>
+
+      {!isCollapsed ? (
+        <>
+          <div style={{ marginTop: '8px', marginBottom: '10px' }}>
+            <div style={{ color: '#aaa', marginBottom: '2px' }}>camera</div>
+            <div>pos&nbsp;&nbsp;[{fmt3(camInfo.position)}]</div>
+            <div>look [{fmt3(camInfo.target)}]</div>
+          </div>
+
+          <div style={{ display: 'grid', gap: '8px' }}>
+            <RoomControlRow label="Shading">
+              <RoomSelect
+                value={settings.shadingMode}
+                onChange={(event) => onSettingChange('shadingMode', event.target.value)}
+                options={shadingOptions}
+                onStepDown={() => cycleOption('shadingMode', shadingOptions, -1)}
+                onStepUp={() => cycleOption('shadingMode', shadingOptions, 1)}
+              />
+            </RoomControlRow>
+
+            <RoomControlRow label="Tone map">
+              <RoomSelect
+                value={settings.toneMapping}
+                onChange={(event) => onSettingChange('toneMapping', event.target.value)}
+                options={TONE_MAPPING_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
+                onStepDown={() => cycleOption('toneMapping', TONE_MAPPING_OPTIONS, -1)}
+                onStepUp={() => cycleOption('toneMapping', TONE_MAPPING_OPTIONS, 1)}
+              />
+            </RoomControlRow>
+
+            <RoomControlRow label="Exposure">
+              <RoomSlider
+                min={0}
+                max={8}
+                step={0.01}
+                value={settings.exposure}
+                onChange={(event) => onSettingChange('exposure', Number(event.target.value))}
+                onStepDown={() => stepNumber('exposure', 0, 8, 0.01, -1)}
+                onStepUp={() => stepNumber('exposure', 0, 8, 0.01, 1)}
+              />
+            </RoomControlRow>
+
+            <RoomControlRow label="Env light">
+              <RoomSlider
+                min={0}
+                max={10}
+                step={0.01}
+                value={settings.environmentIntensity}
+                onChange={(event) => onSettingChange('environmentIntensity', Number(event.target.value))}
+                onStepDown={() => stepNumber('environmentIntensity', 0, 10, 0.01, -1)}
+                onStepUp={() => stepNumber('environmentIntensity', 0, 10, 0.01, 1)}
+              />
+            </RoomControlRow>
+
+            <RoomControlRow label="Base gain">
+              <RoomSlider
+                min={0}
+                max={8}
+                step={0.01}
+                value={settings.baseColorIntensity}
+                onChange={(event) => onSettingChange('baseColorIntensity', Number(event.target.value))}
+                onStepDown={() => stepNumber('baseColorIntensity', 0, 8, 0.01, -1)}
+                onStepUp={() => stepNumber('baseColorIntensity', 0, 8, 0.01, 1)}
+              />
+            </RoomControlRow>
+
+            <RoomControlRow label="Metalness">
+              <RoomSlider
+                min={0}
+                max={2}
+                step={0.01}
+                value={settings.metalness}
+                onChange={(event) => onSettingChange('metalness', Number(event.target.value))}
+                onStepDown={() => stepNumber('metalness', 0, 2, 0.01, -1)}
+                onStepUp={() => stepNumber('metalness', 0, 2, 0.01, 1)}
+              />
+            </RoomControlRow>
+
+            <RoomControlRow label="Roughness">
+              <RoomSlider
+                min={0}
+                max={2}
+                step={0.01}
+                value={settings.roughness}
+                onChange={(event) => onSettingChange('roughness', Number(event.target.value))}
+                onStepDown={() => stepNumber('roughness', 0, 2, 0.01, -1)}
+                onStepUp={() => stepNumber('roughness', 0, 2, 0.01, 1)}
+              />
+            </RoomControlRow>
+
+            <RoomControlRow label="Env map">
+              <RoomSlider
+                min={0}
+                max={20}
+                step={0.01}
+                value={settings.envMapIntensity}
+                onChange={(event) => onSettingChange('envMapIntensity', Number(event.target.value))}
+                onStepDown={() => stepNumber('envMapIntensity', 0, 20, 0.01, -1)}
+                onStepUp={() => stepNumber('envMapIntensity', 0, 20, 0.01, 1)}
+              />
+            </RoomControlRow>
+
+            <RoomControlRow label="Emissive">
+              <RoomSlider
+                min={0}
+                max={20}
+                step={0.01}
+                value={settings.emissiveIntensity}
+                onChange={(event) => onSettingChange('emissiveIntensity', Number(event.target.value))}
+                onStepDown={() => stepNumber('emissiveIntensity', 0, 20, 0.01, -1)}
+                onStepUp={() => stepNumber('emissiveIntensity', 0, 20, 0.01, 1)}
+              />
+            </RoomControlRow>
+
+            <RoomControlRow label="Opacity">
+              <RoomSlider
+                min={0}
+                max={1}
+                step={0.01}
+                value={settings.opacity}
+                onChange={(event) => onSettingChange('opacity', Number(event.target.value))}
+                onStepDown={() => stepNumber('opacity', 0, 1, 0.01, -1)}
+                onStepUp={() => stepNumber('opacity', 0, 1, 0.01, 1)}
+              />
+            </RoomControlRow>
+
+            <RoomControlRow label="Tex space">
+              <RoomSelect
+                value={settings.textureColorSpace}
+                onChange={(event) => onSettingChange('textureColorSpace', event.target.value)}
+                options={textureSpaceOptions}
+                onStepDown={() => cycleOption('textureColorSpace', textureSpaceOptions, -1)}
+                onStepUp={() => cycleOption('textureColorSpace', textureSpaceOptions, 1)}
+              />
+            </RoomControlRow>
+
+            <RoomToggle
+              checked={settings.transparent}
+              onChange={(event) => onSettingChange('transparent', event.target.checked)}
+              label="Transparent material"
+              onStepDown={() => toggleBoolean('transparent', -1)}
+              onStepUp={() => toggleBoolean('transparent', 1)}
+            />
+            <RoomToggle
+              checked={settings.depthWrite}
+              onChange={(event) => onSettingChange('depthWrite', event.target.checked)}
+              label="Depth write"
+              onStepDown={() => toggleBoolean('depthWrite', -1)}
+              onStepUp={() => toggleBoolean('depthWrite', 1)}
+            />
+            <RoomToggle
+              checked={settings.doubleSided}
+              onChange={(event) => onSettingChange('doubleSided', event.target.checked)}
+              label="Double sided"
+              onStepDown={() => toggleBoolean('doubleSided', -1)}
+              onStepUp={() => toggleBoolean('doubleSided', 1)}
+            />
+            <RoomToggle
+              checked={settings.flatShading}
+              onChange={(event) => onSettingChange('flatShading', event.target.checked)}
+              label="Flat shading"
+              onStepDown={() => toggleBoolean('flatShading', -1)}
+              onStepUp={() => toggleBoolean('flatShading', 1)}
+            />
+            <RoomToggle
+              checked={settings.wireframe}
+              onChange={(event) => onSettingChange('wireframe', event.target.checked)}
+              label="Wireframe"
+              onStepDown={() => toggleBoolean('wireframe', -1)}
+              onStepUp={() => toggleBoolean('wireframe', 1)}
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={onReset}
+            style={{
+              marginTop: '10px',
+              border: '1px solid rgba(255,255,255,0.2)',
+              background: 'rgba(255,255,255,0.08)',
+              color: '#f4f4f4',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              font: 'inherit',
+              cursor: HOVER_KEY_CURSOR,
+            }}
+          >
+            Reset
+          </button>
+        </>
+      ) : (
+        <div style={{ marginTop: '8px' }}>camera [{fmt3(camInfo.position)}]</div>
+      )}
+    </div>
+  )
 }
 
 function parseRouteFromHash(hashValue) {
@@ -595,25 +1106,45 @@ function EditorControls() {
 
 function HomeScene({ onModelLoaded, onOpenRoom }) {
   const [homeOccluderRoot, setHomeOccluderRoot] = useState(null)
+  const [camInfo, setCamInfo] = useState({ position: LANDING_CAMERA_POSITION, target: [0, 0, 0] })
+  const [homeSettings, setHomeSettings] = useState(DEFAULT_ROOM_RENDER_SETTINGS)
+  const [areControlsCollapsed, setAreControlsCollapsed] = useState(false)
   const handleHomeModelLoaded = useCallback((scene) => {
     setHomeOccluderRoot(scene)
     if (onModelLoaded) onModelLoaded(scene)
   }, [onModelLoaded])
+  const handleHomeSettingChange = useCallback((key, value) => {
+    setHomeSettings((current) => ({ ...current, [key]: value }))
+  }, [])
+  const handleResetHomeSettings = useCallback(() => {
+    setHomeSettings(DEFAULT_ROOM_RENDER_SETTINGS)
+  }, [])
 
   return (
     <KeyboardControls map={keyboardMap}>
       <Canvas camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'inherit' }}>
         <color attach="background" args={['#fff']} />
         <Suspense fallback={null}>
-          <Stage environment="city" intensity={0.5} shadows={false} adjustCamera={false}>
+          <RendererSettings toneMapping={homeSettings.toneMapping} exposure={homeSettings.exposure} />
+          <Stage environment="city" intensity={homeSettings.environmentIntensity} shadows={false} adjustCamera={false}>
             <Model url="assets/home.glb" onLoaded={handleHomeModelLoaded}>
               <DoorLinks doors={DOOR_LINKS} onOpenRoom={onOpenRoom} occluderRoot={homeOccluderRoot} />
             </Model>
           </Stage>
+          <RoomMaterialOverrides sceneRoot={homeOccluderRoot} settings={homeSettings} />
           <Controls />
           <CameraReset position={LANDING_CAMERA_POSITION} />
+          <CameraTracker onUpdate={setCamInfo} />
         </Suspense>
       </Canvas>
+      <RoomDebugPanel
+        camInfo={camInfo}
+        settings={homeSettings}
+        isCollapsed={areControlsCollapsed}
+        onToggleCollapsed={() => setAreControlsCollapsed((current) => !current)}
+        onSettingChange={handleHomeSettingChange}
+        onReset={handleResetHomeSettings}
+      />
     </KeyboardControls>
   )
 }
@@ -863,7 +1394,26 @@ function fmt3(v) {
 
 function RoomPage({ roomNumber, roomFile, cameraPosition, onBack, onOpenNextRoom }) {
   const [camInfo, setCamInfo] = useState({ position: cameraPosition, target: [0, 0, 0] })
+  const [roomSettings, setRoomSettings] = useState(DEFAULT_ROOM_RENDER_SETTINGS)
+  const [areControlsCollapsed, setAreControlsCollapsed] = useState(false)
+  const [roomSceneRoot, setRoomSceneRoot] = useState(null)
   const handleCamUpdate = useCallback((info) => setCamInfo(info), [])
+  const handleRoomModelLoaded = useCallback((scene) => {
+    setRoomSceneRoot(scene)
+  }, [])
+  const handleRoomSettingChange = useCallback((key, value) => {
+    setRoomSettings((current) => ({ ...current, [key]: value }))
+  }, [])
+  const handleResetRoomSettings = useCallback(() => {
+    setRoomSettings(DEFAULT_ROOM_RENDER_SETTINGS)
+  }, [])
+
+  useEffect(() => {
+    setCamInfo({ position: cameraPosition, target: [0, 0, 0] })
+    setRoomSettings(DEFAULT_ROOM_RENDER_SETTINGS)
+    setRoomSceneRoot(null)
+    setAreControlsCollapsed(false)
+  }, [cameraPosition, roomFile])
 
   return (
     <div
@@ -901,12 +1451,14 @@ function RoomPage({ roomNumber, roomFile, cameraPosition, onBack, onOpenNextRoom
       </button>
 
       <KeyboardControls map={keyboardMap}>
-        <Canvas camera={{ position: cameraPosition, fov: 47.5 }} style={{ cursor: 'inherit' }} gl={{ toneMapping: THREE.NoToneMapping }}>
+        <Canvas camera={{ position: cameraPosition, fov: 47.5 }} style={{ cursor: 'inherit' }}>
           <color attach="background" args={['#fff']} />
           <Suspense fallback={<LoadingCursor />}>
-            <Stage environment="studio" intensity={0.6} shadows={false} adjustCamera={false}>
-              <Model url={`rooms/${roomFile}`} />
+            <RendererSettings toneMapping={roomSettings.toneMapping} exposure={roomSettings.exposure} />
+            <Stage environment="studio" intensity={roomSettings.environmentIntensity} shadows={false} adjustCamera={false}>
+              <Model url={`rooms/${roomFile}`} onLoaded={handleRoomModelLoaded} />
             </Stage>
+            <RoomMaterialOverrides sceneRoot={roomSceneRoot} settings={roomSettings} />
             <Controls />
             <CameraReset position={cameraPosition} />
             <CameraTracker onUpdate={handleCamUpdate} />
@@ -914,28 +1466,14 @@ function RoomPage({ roomNumber, roomFile, cameraPosition, onBack, onOpenNextRoom
         </Canvas>
       </KeyboardControls>
 
-      <div
-        style={{
-          position: 'absolute',
-          top: '24px',
-          right: '24px',
-          zIndex: 30,
-          background: 'rgba(0,0,0,0.65)',
-          color: '#e8e8e8',
-          fontFamily: 'monospace',
-          fontSize: '11px',
-          lineHeight: 1.6,
-          padding: '8px 12px',
-          borderRadius: '6px',
-          pointerEvents: 'none',
-          userSelect: 'text',
-          minWidth: '220px',
-        }}
-      >
-        <div style={{ color: '#aaa', marginBottom: '2px' }}>camera</div>
-        <div>pos&nbsp;&nbsp;[{fmt3(camInfo.position)}]</div>
-        <div>look [{fmt3(camInfo.target)}]</div>
-      </div>
+      <RoomDebugPanel
+        camInfo={camInfo}
+        settings={roomSettings}
+        isCollapsed={areControlsCollapsed}
+        onToggleCollapsed={() => setAreControlsCollapsed((current) => !current)}
+        onSettingChange={handleRoomSettingChange}
+        onReset={handleResetRoomSettings}
+      />
 
       <button
         type="button"
@@ -1440,8 +1978,8 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
           style={{
             position: 'absolute',
             top: '118px',
-            left: '2%',
-            right: '8%',
+            left: '50%',
+            transform: 'translateX(-50%)',
             zIndex: 12,
             display: 'flex',
             flexDirection: 'column',
@@ -1455,18 +1993,18 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
               src="assets/zodiac.gif"
               alt=""
               aria-hidden="true"
-              style={{ width: '40px', height: 'auto', objectFit: 'contain' }}
+              style={{ width: '52px', height: 'auto', objectFit: 'contain' }}
             />
             <img
               src="assets/shelestvetrovki-glitter.gif"
               alt="shelestvetrovki"
-              style={{ width: 'min(280px, 40%)', height: 'auto', objectFit: 'contain' }}
+              style={{ width: 'min(364px, 52%)', height: 'auto', objectFit: 'contain' }}
             />
             <img
               src="assets/7ADo.gif"
               alt=""
               aria-hidden="true"
-              style={{ width: '40px', height: 'auto', objectFit: 'contain' }}
+              style={{ width: '52px', height: 'auto', objectFit: 'contain' }}
             />
           </div>
         </div>
