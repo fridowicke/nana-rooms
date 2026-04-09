@@ -1745,7 +1745,7 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
     window.addEventListener('mouseup', onUp)
   }, [])
 
-  const startFolderDrag = useCallback((folderId, e, onClickCb) => {
+  const startFolderDrag = useCallback((folderId, e) => {
     if (e.button !== 0) return
     e.preventDefault()
     e.stopPropagation()
@@ -1773,7 +1773,6 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
     const onUp = () => {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
-      if (!moved) onClickCb()
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
@@ -1885,7 +1884,7 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
     >
       {/* ── Welcome gif (static) ── */}
       {!isFolderView && (
-        <div style={{ position: 'absolute', left: '24px', top: '132px', zIndex: 21, pointerEvents: 'none' }}>
+        <div style={{ position: 'fixed', left: aboutWinPos.x, top: '132px', zIndex: 21, pointerEvents: 'none' }}>
           <img
             src="assets/welcome.webp"
             alt="welcome to my page"
@@ -2088,18 +2087,18 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
                 src="assets/zodiac.gif"
                 alt=""
                 aria-hidden="true"
-                style={{ width: '46px', height: 'auto', objectFit: 'contain' }}
+                style={{ width: '23px', height: 'auto', objectFit: 'contain' }}
               />
               <img
                 src="assets/shelestvetrovki-glitter.gif"
                 alt="shelestvetrovki"
-                style={{ width: 'min(344px, 28.8vw)', height: 'auto', objectFit: 'contain' }}
+                style={{ width: 'min(172px, 14.4vw)', height: 'auto', objectFit: 'contain' }}
               />
               <img
                 src="assets/7ADo.gif"
                 alt=""
                 aria-hidden="true"
-                style={{ width: '46px', height: 'auto', objectFit: 'contain' }}
+                style={{ width: '23px', height: 'auto', objectFit: 'contain' }}
               />
             </div>
           </div>
@@ -2127,7 +2126,7 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
             <img
               src={ABOUT_HOME_GIF}
               alt="home"
-              style={{ width: '78px', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
+              style={{ width: '51px', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
             />
           </button>
         )}
@@ -2189,7 +2188,8 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
             <button
               key={folder.id}
               type="button"
-              onMouseDown={(e) => startFolderDrag(folder.id, e, () => handleFolderOpen(folder.id))}
+              onMouseDown={(e) => startFolderDrag(folder.id, e)}
+              onClick={() => handleFolderOpen(folder.id)}
               className="cursor-grab"
               style={{
                 position: 'absolute',
@@ -2268,18 +2268,18 @@ function AboutFolderContent({ folder }) {
               src="assets/zodiac.gif"
               alt=""
               aria-hidden="true"
-              style={{ width: '46px', height: 'auto', objectFit: 'contain' }}
+              style={{ width: '23px', height: 'auto', objectFit: 'contain' }}
             />
             <img
               src="assets/shelestvetrovki-glitter.gif"
               alt="shelestvetrovki"
-              style={{ width: 'min(344px, 28.8vw)', height: 'auto', objectFit: 'contain' }}
+              style={{ width: 'min(172px, 14.4vw)', height: 'auto', objectFit: 'contain' }}
             />
             <img
               src="assets/7ADo.gif"
               alt=""
               aria-hidden="true"
-              style={{ width: '46px', height: 'auto', objectFit: 'contain' }}
+              style={{ width: '23px', height: 'auto', objectFit: 'contain' }}
             />
           </div>
 
