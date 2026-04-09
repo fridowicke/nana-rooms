@@ -72,14 +72,7 @@ const DEFAULT_ABOUT_HTML = `Anastasiia Pishchanska is a Ukrainian-born, Tokyo-ba
 
 <br><br>Her practice moves between moving image, installation, and art direction, focusing on digital memory, migration, and cultural identity.`
 const ABOUT_BASE_URL = 'http://shelestvetrovki.com/'
-const ABOUT_BROWSER_TABS = [
-  { id: 'about', label: 'About', address: `${ABOUT_BASE_URL}about`, kind: 'about' },
-  { id: 'works', label: 'Works', address: `${ABOUT_BASE_URL}works`, kind: 'works' },
-  { id: 'writing', label: 'Writing', address: `${ABOUT_BASE_URL}writing`, kind: 'folder', folderId: 'writing' },
-  { id: 'press', label: 'Press', address: `${ABOUT_BASE_URL}press`, kind: 'folder', folderId: 'press' },
-  { id: 'films', label: 'Films', address: `${ABOUT_BASE_URL}filmmaking`, kind: 'folder', folderId: 'filmmaking' },
-  { id: 'cv', label: 'CV', address: `${ABOUT_BASE_URL}cv`, kind: 'folder', folderId: 'cv' },
-]
+const ABOUT_HOME_TAB = { id: 'about', label: 'About', address: `${ABOUT_BASE_URL}about`, kind: 'about' }
 
 const SONGS = [
   { title: 'Hysterical Love Project', artist: 'Motion Ward', src: 'assets/music/song1.mp3' },
@@ -214,6 +207,12 @@ const FOLDER_DEFINITIONS = [
         ],
       },
     ],
+  },
+  {
+    id: 'submit-room',
+    label: 'submit room',
+    title: 'Submit Room',
+    sections: [],
   },
 ]
 const FOLDER_MAP = new Map(FOLDER_DEFINITIONS.map((folder) => [folder.id, folder]))
@@ -895,18 +894,25 @@ function getAboutAddress(folderId, tabId = 'about') {
     return `${ABOUT_BASE_URL}${folderId}`
   }
 
-  const tab = ABOUT_BROWSER_TABS.find((item) => item.id === tabId)
-  return tab?.address ?? ABOUT_BROWSER_TABS[0].address
+  if (tabId === ABOUT_HOME_TAB.id) {
+    return ABOUT_HOME_TAB.address
+  }
+
+  const folder = FOLDER_MAP.get(tabId)
+  if (folder) {
+    return `${ABOUT_BASE_URL}${folder.id}`
+  }
+
+  return ABOUT_HOME_TAB.address
 }
 
 function getAboutTabId(folderId) {
-  if (!folderId) return 'about'
-  if (folderId === 'filmmaking') return 'films'
-  if (ABOUT_BROWSER_TABS.some((tab) => tab.id === folderId)) return folderId
-  return 'works'
+  if (!folderId) return ABOUT_HOME_TAB.id
+  if (FOLDER_MAP.has(folderId)) return folderId
+  return ABOUT_HOME_TAB.id
 }
 
-function AboutBrowserChrome({ activeTabId, addressValue, onSelectTab }) {
+function AboutBrowserChrome({ tabs, activeTabId, addressValue, onSelectTab }) {
   return (
     <div
       style={{
@@ -919,7 +925,7 @@ function AboutBrowserChrome({ activeTabId, addressValue, onSelectTab }) {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', overflow: 'hidden' }}>
-        {ABOUT_BROWSER_TABS.map((tab) => {
+        {tabs.map((tab) => {
           const isActive = tab.id === activeTabId
 
           return (
@@ -1039,6 +1045,53 @@ function AboutBrowserChrome({ activeTabId, addressValue, onSelectTab }) {
         </div>
       </div>
     </div>
+  )
+}
+
+function TallyEmbed() {
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined
+
+    const scriptSrc = 'https://tally.so/widgets/embed.js'
+    const loadEmbeds = () => {
+      if (typeof window !== 'undefined' && window.Tally && typeof window.Tally.loadEmbeds === 'function') {
+        window.Tally.loadEmbeds()
+        return
+      }
+
+      document.querySelectorAll('iframe[data-tally-src]:not([src])').forEach((iframe) => {
+        iframe.src = iframe.dataset.tallySrc
+      })
+    }
+
+    const existingScript = document.querySelector(`script[src="${scriptSrc}"]`)
+    if (existingScript) {
+      loadEmbeds()
+      return undefined
+    }
+
+    const script = document.createElement('script')
+    script.src = scriptSrc
+    script.async = true
+    script.onload = loadEmbeds
+    script.onerror = loadEmbeds
+    document.body.appendChild(script)
+
+    return undefined
+  }, [])
+
+  return (
+    <iframe
+      data-tally-src="https://tally.so/embed/LZYxkJ?alignLeft=1&hideTitle=1&transparentBackground=1&dynamicHeight=1"
+      loading="lazy"
+      width="100%"
+      height="3693"
+      frameBorder="0"
+      marginHeight="0"
+      marginWidth="0"
+      title="girl is a spectrum: open archive of 3D messes"
+      style={{ display: 'block', width: '100%', minHeight: '3693px', border: 'none', background: 'transparent' }}
+    />
   )
 }
 
@@ -1646,7 +1699,7 @@ function TinyPlayer({ onTitleBarMouseDown }) {
   )
 }
 
-function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = null }) {
+function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = null, openedFolderIds = [], onRememberFolderOpen }) {
   const editorContentRef = useRef(null)
   const [editorScrollbar, setEditorScrollbar] = useState({ top: 0, height: 100, enabled: false })
   const rightStageRef = useRef(null)
@@ -1658,7 +1711,8 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
     { id: 'writing', left: '30%', top: '36%' },
     { id: 'press', left: '52%', top: '24%' },
     { id: 'filmmaking', left: '73%', top: '42%' },
-    { id: 'cv', left: '89%', top: '65%' },
+    { id: 'cv', left: '84%', top: '65%' },
+    { id: 'submit-room', left: '94%', top: '43%' },
   ]
   const [folderPositions, setFolderPositions] = useState(
     () => new Map(folderArcLayout.map((p) => [p.id, { left: p.left, top: p.top }]))
@@ -1757,8 +1811,6 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
   }, [])
 
   useEffect(() => {
-    const el = editorContentRef.current
-    if (el && !el.innerHTML) el.innerHTML = DEFAULT_ABOUT_HTML
     if (typeof window === 'undefined') return undefined
     const frame = window.requestAnimationFrame(updateEditorScrollbar)
     return () => window.cancelAnimationFrame(frame)
@@ -1777,6 +1829,28 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
     setBrowserAddress(getAboutAddress(activeFolderId, nextTab))
   }, [activeFolderId])
 
+  useEffect(() => {
+    if (!activeFolderId || !FOLDER_MAP.has(activeFolderId)) return
+    onRememberFolderOpen?.(activeFolderId)
+  }, [activeFolderId, onRememberFolderOpen])
+
+  const browserTabs = useMemo(() => [
+    ABOUT_HOME_TAB,
+    ...openedFolderIds
+      .map((folderId) => FOLDER_MAP.get(folderId))
+      .filter(Boolean)
+      .map((folder) => ({
+        id: folder.id,
+        label: folder.title,
+        address: getAboutAddress(folder.id, folder.id),
+        kind: 'folder',
+        folderId: folder.id,
+      })),
+  ], [openedFolderIds])
+
+  const activeFolder = activeFolderId ? FOLDER_MAP.get(activeFolderId) ?? null : null
+  const isFolderView = Boolean(activeFolder)
+
   const handleBrowserTabSelect = useCallback((tab) => {
     setActiveBrowserTab(tab.id)
     setBrowserAddress(tab.address)
@@ -1792,10 +1866,11 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
   }, [onOpenFolder, onShowAbout])
 
   const handleFolderOpen = useCallback((folderId) => {
+    onRememberFolderOpen?.(folderId)
     setActiveBrowserTab(getAboutTabId(folderId))
     setBrowserAddress(getAboutAddress(folderId, getAboutTabId(folderId)))
     onOpenFolder(folderId)
-  }, [onOpenFolder])
+  }, [onOpenFolder, onRememberFolderOpen])
 
   return (
     <div
@@ -1809,140 +1884,147 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
       }}
     >
       {/* ── Welcome gif (static) ── */}
-      <div style={{ position: 'absolute', left: '24px', top: '96px', zIndex: 21, pointerEvents: 'none' }}>
-        <img
-          src="assets/welcome.webp"
-          alt="welcome to my page"
-          style={{ width: '160px', maxWidth: 'min(22vw, 290px)', height: 'auto', objectFit: 'contain' }}
-        />
-      </div>
+      {!isFolderView && (
+        <div style={{ position: 'absolute', left: '24px', top: '132px', zIndex: 21, pointerEvents: 'none' }}>
+          <img
+            src="assets/welcome.webp"
+            alt="welcome to my page"
+            style={{ width: '160px', maxWidth: 'min(22vw, 290px)', height: 'auto', objectFit: 'contain' }}
+          />
+        </div>
+      )}
 
       {/* ── About window (draggable) ── */}
-      <div
-        style={{
-          position: 'fixed',
-          left: aboutWinPos.x,
-          top: aboutWinPos.y,
-          zIndex: 21,
-          width: 'min(22vw, 290px)',
-        }}
-        onClick={(event) => event.stopPropagation()}
-      >
-
+      {!isFolderView && (
         <div
           style={{
-            width: '100%',
-            borderRadius: '8px',
-            overflow: 'hidden',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
-            fontFamily: MAC_LIGHT_FONT_STACK,
+            position: 'fixed',
+            left: aboutWinPos.x,
+            top: aboutWinPos.y + 36,
+            zIndex: 21,
+            width: 'min(22vw, 290px)',
           }}
+          onClick={(event) => event.stopPropagation()}
         >
-          {/* Title bar */}
           <div
-            onMouseDown={makeTitleBarDrag(aboutWinPosRef, setAboutWinPos)}
-            className="cursor-grab"
-            style={{ background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid #b0b0b0', userSelect: 'none' }}
+            style={{
+              width: '100%',
+              borderRadius: '8px',
+              overflow: 'hidden',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+              fontFamily: MAC_LIGHT_FONT_STACK,
+            }}
           >
-            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-block' }} />
-            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d4a017', display: 'inline-block' }} />
-            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'inline-block' }} />
-            <span style={{ flex: 1, textAlign: 'center', fontSize: '11px', fontWeight: 500, color: '#333', marginRight: '30px' }}>About</span>
-          </div>
-
-          {/* Body */}
-          <div style={{ background: '#f5f5f5', position: 'relative', height: '300px' }}>
+            {/* Title bar */}
             <div
-              ref={editorContentRef}
-              className="classic-textedit-scroll"
-              contentEditable
-              suppressContentEditableWarning
-              onInput={updateEditorScrollbar}
-              onScroll={updateEditorScrollbar}
-              onClick={(event) => {
-                const anchor = event.target.closest?.('a')
-                if (!anchor) return
-                event.preventDefault()
-                event.stopPropagation()
-                window.open(anchor.href, '_blank', 'noopener,noreferrer')
-              }}
-              style={{
-                position: 'absolute',
-                inset: 0,
-                border: 'none',
-                outline: 'none',
-                background: 'transparent',
-                color: '#1a1a1a',
-                fontFamily: MAC_LIGHT_FONT_STACK,
-                fontSize: '13px',
-                fontWeight: 300,
-                lineHeight: 1.5,
-                whiteSpace: 'pre-wrap',
-                overflowX: 'hidden',
-                overflowY: 'auto',
-                padding: '8px 22px 8px 10px',
-                boxSizing: 'border-box',
-              }}
-            />
-
-            <div
-              style={{
-                position: 'absolute',
-                top: '2px',
-                bottom: '2px',
-                right: '3px',
-                width: '14px',
-                pointerEvents: 'none',
-                opacity: editorScrollbar.enabled ? 1 : 0.55,
-              }}
+              onMouseDown={makeTitleBarDrag(aboutWinPosRef, setAboutWinPos)}
+              className="cursor-grab"
+              style={{ background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid #b0b0b0', userSelect: 'none' }}
             >
-              <img
-                src="assets/nana_scroll.png"
-                alt=""
-                aria-hidden="true"
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-block' }} />
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d4a017', display: 'inline-block' }} />
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'inline-block' }} />
+              <span style={{ flex: 1, textAlign: 'center', fontSize: '11px', fontWeight: 500, color: '#333', marginRight: '30px' }}>About</span>
+            </div>
+
+            {/* Body */}
+            <div style={{ background: '#f5f5f5', position: 'relative', height: '300px' }}>
+              <div
+                ref={editorContentRef}
+                className="classic-textedit-scroll"
+                onScroll={updateEditorScrollbar}
+                onClick={(event) => {
+                  const anchor = event.target.closest?.('a')
+                  if (!anchor) return
+                  event.preventDefault()
+                  event.stopPropagation()
+                  window.open(anchor.href, '_blank', 'noopener,noreferrer')
+                }}
                 style={{
                   position: 'absolute',
-                  top: `${editorScrollbar.top}%`,
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: '14px',
-                  height: `${editorScrollbar.height}%`,
-                  objectFit: 'fill',
+                  inset: 0,
+                  border: 'none',
+                  outline: 'none',
+                  background: 'transparent',
+                  color: '#1a1a1a',
+                  fontFamily: MAC_LIGHT_FONT_STACK,
+                  fontSize: '13px',
+                  fontWeight: 300,
+                  lineHeight: 1.5,
+                  whiteSpace: 'pre-wrap',
+                  overflowX: 'hidden',
+                  overflowY: 'auto',
+                  padding: '8px 22px 8px 10px',
+                  boxSizing: 'border-box',
                 }}
+                dangerouslySetInnerHTML={{ __html: DEFAULT_ABOUT_HTML }}
               />
+
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '2px',
+                  bottom: '2px',
+                  right: '3px',
+                  width: '14px',
+                  pointerEvents: 'none',
+                  opacity: editorScrollbar.enabled ? 1 : 0.55,
+                }}
+              >
+                <img
+                  src="assets/nana_scroll.png"
+                  alt=""
+                  aria-hidden="true"
+                  style={{
+                    position: 'absolute',
+                    top: `${editorScrollbar.top}%`,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: '14px',
+                    height: `${editorScrollbar.height}%`,
+                    objectFit: 'fill',
+                  }}
+                />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* ── Safety pin (between left col and right stage) ── */}
-      <div style={{ position: 'absolute', left: 'min(25vw, 330px)', top: '36%', zIndex: 20, pointerEvents: 'none' }}>
-        <img
-          src="assets/safety-pin.gif"
-          alt=""
-          aria-hidden="true"
-          style={{ width: '56px', height: 'auto', objectFit: 'contain' }}
-        />
-      </div>
+      {!isFolderView && (
+        <div style={{ position: 'absolute', left: 'min(25vw, 330px)', top: '42%', zIndex: 20, pointerEvents: 'none' }}>
+          <img
+            src="assets/safety-pin.gif"
+            alt=""
+            aria-hidden="true"
+            style={{ width: '56px', height: 'auto', objectFit: 'contain' }}
+          />
+        </div>
+      )}
 
       {/* ── Radio gif (static) ── */}
-      <div style={{ position: 'absolute', left: '24px', bottom: '247px', zIndex: 21, pointerEvents: 'none', width: 'min(22vw, 290px)', display: 'flex', justifyContent: 'center' }}>
-        <img src="assets/radio.gif" alt="" aria-hidden="true" style={{ width: '48px', height: 'auto', objectFit: 'contain' }} />
-      </div>
+      {!isFolderView && (
+        <div style={{ position: 'absolute', left: '24px', bottom: '247px', zIndex: 21, pointerEvents: 'none', width: 'min(22vw, 290px)', display: 'flex', justifyContent: 'center' }}>
+          <img src="assets/radio.gif" alt="" aria-hidden="true" style={{ width: '48px', height: 'auto', objectFit: 'contain' }} />
+        </div>
+      )}
 
       {/* ── Player (draggable) ── */}
-      <div
-        style={{
-          position: 'fixed',
-          left: playerPos.x,
-          top: playerPos.y,
-          zIndex: 21,
-          width: 'min(22vw, 290px)',
-        }}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <TinyPlayer onTitleBarMouseDown={makeTitleBarDrag(playerPosRef, setPlayerPos)} />
-      </div>
+      {!isFolderView && (
+        <div
+          style={{
+            position: 'fixed',
+            left: playerPos.x,
+            top: playerPos.y + 36,
+            zIndex: 21,
+            width: 'min(22vw, 290px)',
+          }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <TinyPlayer onTitleBarMouseDown={makeTitleBarDrag(playerPosRef, setPlayerPos)} />
+        </div>
+      )}
 
       {/* ── Right stage ── */}
       <div
@@ -1967,6 +2049,7 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
           }}
         >
           <AboutBrowserChrome
+            tabs={browserTabs}
             activeTabId={activeBrowserTab}
             addressValue={browserAddress}
             onSelectTab={handleBrowserTabSelect}
@@ -1974,95 +2057,117 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
         </div>
 
         {/* Title banner + subtitle */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '110px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 12,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '3px',
-            pointerEvents: 'none',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img
-              src="assets/zodiac.gif"
-              alt=""
-              aria-hidden="true"
-              style={{ width: '67px', height: 'auto', objectFit: 'contain' }}
-            />
-            <img
-              src="assets/shelestvetrovki-glitter.gif"
-              alt="shelestvetrovki"
-              style={{ width: 'min(470px, 67%)', height: 'auto', objectFit: 'contain' }}
-            />
-            <img
-              src="assets/7ADo.gif"
-              alt=""
-              aria-hidden="true"
-              style={{ width: '67px', height: 'auto', objectFit: 'contain' }}
-            />
+        {!isFolderView && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '146px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 12,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '3px',
+              pointerEvents: 'none',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <img
+                src="assets/zodiac.gif"
+                alt=""
+                aria-hidden="true"
+                style={{ width: '67px', height: 'auto', objectFit: 'contain' }}
+              />
+              <img
+                src="assets/shelestvetrovki-glitter.gif"
+                alt="shelestvetrovki"
+                style={{ width: 'min(470px, 67%)', height: 'auto', objectFit: 'contain' }}
+              />
+              <img
+                src="assets/7ADo.gif"
+                alt=""
+                aria-hidden="true"
+                style={{ width: '67px', height: 'auto', objectFit: 'contain' }}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
-        <button
-          type="button"
-          onClick={onBackHome}
-          aria-label="Go back home"
-          style={{
-            position: 'absolute',
-            top: '56px',
-            right: '18px',
-            zIndex: 13,
-            border: 'none',
-            background: 'transparent',
-            padding: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: HOVER_KEY_CURSOR,
-          }}
-        >
-          <img
-            src={ABOUT_HOME_GIF}
-            alt="home"
-            style={{ width: '78px', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
-          />
-        </button>
+        {!isFolderView && (
+          <button
+            type="button"
+            onClick={onBackHome}
+            aria-label="Go back home"
+            style={{
+              position: 'absolute',
+              top: '92px',
+              right: '18px',
+              zIndex: 13,
+              border: 'none',
+              background: 'transparent',
+              padding: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: HOVER_KEY_CURSOR,
+            }}
+          >
+            <img
+              src={ABOUT_HOME_GIF}
+              alt="home"
+              style={{ width: '78px', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
+            />
+          </button>
+        )}
 
         {/* Knock knock button */}
-        <a
-          href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('knock knock')}`}
-          style={{
-            position: 'absolute',
-            right: '16px',
-            bottom: '16px',
-            zIndex: 22,
-            width: '100px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '4px',
-          }}
-        >
-          <img
-            src="assets/envelope.gif"
-            alt="knock knock"
-            style={{ width: '56px', height: 'auto', objectFit: 'contain' }}
-          />
-          <img
-            src="assets/knock-knock.gif"
-            alt="knock knock"
-            style={{ width: '100px', height: 'auto', objectFit: 'contain' }}
-          />
-        </a>
+        {!isFolderView && (
+          <a
+            href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('knock knock')}`}
+            style={{
+              position: 'absolute',
+              right: '16px',
+              bottom: '16px',
+              zIndex: 22,
+              width: '100px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            <img
+              src="assets/envelope.gif"
+              alt="knock knock"
+              style={{ width: '56px', height: 'auto', objectFit: 'contain' }}
+            />
+            <img
+              src="assets/knock-knock.gif"
+              alt="knock knock"
+              style={{ width: '100px', height: 'auto', objectFit: 'contain' }}
+            />
+          </a>
+        )}
+
+        {isFolderView && activeFolder && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '86px',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 9,
+              overflow: 'hidden',
+            }}
+          >
+            <AboutFolderContent folder={activeFolder} />
+          </div>
+        )}
 
         {/* Folders */}
-        {folderArcLayout.map((placement) => {
+        {!isFolderView && folderArcLayout.map((placement) => {
           const folder = FOLDER_MAP.get(placement.id)
           if (!folder) return null
           const pos = folderPositions.get(folder.id) ?? placement
@@ -2119,126 +2224,110 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
   )
 }
 
-function FolderPage({ folder, onBackToAbout }) {
-  const [isOpen, setIsOpen] = useState(false)
-  const [minimized, setMinimized] = useState(false)
-  const [enlarged, setEnlarged] = useState(false)
-  const [dotsHovered, setDotsHovered] = useState(false)
-  const [pos, setPos] = useState(() => ({
-    x: typeof window !== 'undefined' ? window.innerWidth / 2 - 230 : 200,
-    y: typeof window !== 'undefined' ? window.innerHeight / 2 - 200 : 150,
-  }))
-  const posRef = useRef(pos)
-  posRef.current = pos
+function AboutFolderContent({ folder }) {
+  if (folder.id === 'submit-room') {
+    return (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          overflowY: 'auto',
+          fontFamily: MAC_LIGHT_FONT_STACK,
+          background: 'linear-gradient(180deg, #fbfbfb 0%, #efefef 100%)',
+        }}
+      >
+        <div
+          style={{
+            width: 'min(100%, 980px)',
+            margin: '0 auto',
+            padding: '24px 24px 40px',
+            boxSizing: 'border-box',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              marginBottom: '18px',
+            }}
+          >
+            <img
+              src="assets/zodiac.gif"
+              alt=""
+              aria-hidden="true"
+              style={{ width: '67px', height: 'auto', objectFit: 'contain' }}
+            />
+            <img
+              src="assets/shelestvetrovki-glitter.gif"
+              alt="shelestvetrovki"
+              style={{ width: 'min(470px, 67vw)', height: 'auto', objectFit: 'contain' }}
+            />
+            <img
+              src="assets/7ADo.gif"
+              alt=""
+              aria-hidden="true"
+              style={{ width: '67px', height: 'auto', objectFit: 'contain' }}
+            />
+          </div>
 
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => setIsOpen(true))
-    return () => window.cancelAnimationFrame(frame)
-  }, [])
-
-  const onTitleBarMouseDown = useCallback((e) => {
-    if (e.button !== 0) return
-    e.preventDefault()
-    const startMx = e.clientX
-    const startMy = e.clientY
-    const startPx = posRef.current.x
-    const startPy = posRef.current.y
-    const onMove = (me) => setPos({ x: startPx + me.clientX - startMx, y: startPy + me.clientY - startMy })
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-  }, [])
+          <TallyEmbed />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
       style={{
-        position: 'fixed',
-        left: pos.x,
-        top: pos.y,
-        width: enlarged ? 'min(820px, 92vw)' : '460px',
-        maxWidth: '92vw',
-        maxHeight: minimized ? 'none' : (enlarged ? '88vh' : '72vh'),
-        borderRadius: '8px',
-        overflow: 'hidden',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.22)',
+        width: '100%',
+        height: '100%',
         fontFamily: MAC_LIGHT_FONT_STACK,
         display: 'flex',
         flexDirection: 'column',
-        transform: isOpen ? 'scale(1) translateY(0)' : 'scale(0.94) translateY(12px)',
-        opacity: isOpen ? 1 : 0,
-        transition: 'transform 280ms ease, opacity 280ms ease, width 220ms ease, max-height 220ms ease',
-        pointerEvents: 'auto',
+        background: 'linear-gradient(180deg, #fbfbfb 0%, #efefef 100%)',
       }}
     >
-      {/* Title bar */}
       <div
-        onMouseDown={onTitleBarMouseDown}
-        className="cursor-grab"
-        style={{ background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)', padding: '5px 8px', display: 'flex', alignItems: 'center', borderBottom: '1px solid #b0b0b0', flexShrink: 0, userSelect: 'none' }}
+        style={{
+          padding: '22px 28px 18px',
+          borderBottom: '1px solid #d8d8d8',
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(239,239,239,0.92) 100%)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.85)',
+        }}
       >
-        <span
-          onMouseEnter={() => setDotsHovered(true)}
-          onMouseLeave={() => setDotsHovered(false)}
-          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-        >
-          <span
-            role="button"
-            tabIndex={0}
-            onClick={onBackToAbout}
-            onKeyDown={(e) => e.key === 'Enter' && onBackToAbout()}
-            style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'inherit', fontSize: '9px', color: '#7a0c00', fontWeight: 900, lineHeight: 1 }}
-          >{dotsHovered ? '×' : ''}</span>
-          <span
-            role="button"
-            tabIndex={0}
-            onClick={() => setMinimized((m) => !m)}
-            onKeyDown={(e) => e.key === 'Enter' && setMinimized((m) => !m)}
-            style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d4a017', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'inherit', fontSize: '9px', color: '#7a4800', fontWeight: 900, lineHeight: 1 }}
-          >{dotsHovered ? '−' : ''}</span>
-          <span
-            role="button"
-            tabIndex={0}
-            onClick={() => setEnlarged((z) => !z)}
-            onKeyDown={(e) => e.key === 'Enter' && setEnlarged((z) => !z)}
-            style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'inherit', fontSize: '10px', color: '#0a4a0a', fontWeight: 900, lineHeight: 1 }}
-          >{dotsHovered ? (enlarged ? '⤡' : '⤢') : ''}</span>
-        </span>
-        <span style={{ flex: 1, textAlign: 'center', fontSize: '11px', fontWeight: 500, color: '#333', marginRight: '30px' }}>{folder.title}</span>
-      </div>
-
-      {/* Body */}
-      <div style={{ background: '#f5f5f5', overflowY: 'auto', flex: 1, padding: '14px 16px', display: minimized ? 'none' : undefined }}>
+        <div style={{ fontSize: '26px', fontWeight: 500, color: '#1a1a1a', letterSpacing: '0.01em' }}>{folder.title}</div>
         {folder.bio && (
-          <div style={{ marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #ddd' }}>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#1a1a1a', letterSpacing: '0.05em', marginBottom: '4px' }}>{folder.bio.name}</div>
-            <div style={{ fontSize: '11px', fontWeight: 300, color: '#555', lineHeight: 1.5 }}>{folder.bio.born}</div>
-            <div style={{ fontSize: '11px', fontWeight: 300, color: '#555', lineHeight: 1.5 }}>{folder.bio.lives}</div>
+          <div style={{ marginTop: '10px' }}>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: '#1a1a1a', letterSpacing: '0.08em' }}>{folder.bio.name}</div>
+            <div style={{ fontSize: '12px', fontWeight: 300, color: '#555', lineHeight: 1.6, marginTop: '4px' }}>{folder.bio.born}</div>
+            <div style={{ fontSize: '12px', fontWeight: 300, color: '#555', lineHeight: 1.6 }}>{folder.bio.lives}</div>
           </div>
         )}
+      </div>
+
+      <div style={{ overflowY: 'auto', flex: 1, padding: '24px 28px 42px' }}>
         {folder.sections.map((section) => (
-          <div key={section.heading} style={{ marginBottom: '16px' }}>
-            <div style={{ fontSize: '10px', fontWeight: 600, color: '#888', letterSpacing: '0.08em', marginBottom: '8px', borderBottom: '1px solid #ddd', paddingBottom: '3px' }}>
+          <div key={section.heading} style={{ marginBottom: '26px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#777', letterSpacing: '0.12em', marginBottom: '12px', borderBottom: '1px solid #ddd', paddingBottom: '8px' }}>
               {section.heading}
             </div>
             {section.entries && section.entries.map((entry, i) => (
               // eslint-disable-next-line react/no-array-index-key
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '76px 1fr', gap: '6px', marginBottom: '5px' }}>
-                <div style={{ fontSize: '11px', fontWeight: 300, color: '#888', lineHeight: 1.4 }}>{entry.year}</div>
-                <div style={{ fontSize: '11px', fontWeight: 300, color: '#1a1a1a', lineHeight: 1.4 }}>{entry.item}</div>
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '14px', marginBottom: '10px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 300, color: '#888', lineHeight: 1.5 }}>{entry.year}</div>
+                <div style={{ fontSize: '13px', fontWeight: 300, color: '#1a1a1a', lineHeight: 1.5 }}>{entry.item}</div>
               </div>
             ))}
             {section.links && section.links.map((link) => (
-              <div key={link.url} style={{ marginBottom: '5px' }}>
+              <div key={link.url} style={{ marginBottom: '10px' }}>
                 <a
                   href={link.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="about-folder-link"
-                  onClick={(e) => e.stopPropagation()}
-                  style={{ fontSize: '11px', fontWeight: 300, color: '#4a90d9', textDecoration: 'none', lineHeight: 1.6 }}
+                  style={{ fontSize: '13px', fontWeight: 300, color: '#4a90d9', textDecoration: 'none', lineHeight: 1.6 }}
                 >
                   {link.label}
                 </a>
@@ -2628,6 +2717,7 @@ export default function App() {
   const [route, setRoute] = useState(() =>
     parseRouteFromHash(typeof window !== 'undefined' ? window.location.hash : ''),
   )
+  const [openedAboutFolderIds, setOpenedAboutFolderIds] = useState([])
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [hasOpenedPreview, setHasOpenedPreview] = useState(false)
   const [editorCorners, setEditorCorners] = useState([null, null, null, null])
@@ -2773,6 +2863,11 @@ export default function App() {
     navigateWithHash(ABOUT_HASH)
   }, [])
 
+  const rememberAboutFolderOpen = useCallback((folderId) => {
+    if (!folderId || !FOLDER_MAP.has(folderId)) return
+    setOpenedAboutFolderIds((current) => (current.includes(folderId) ? current : [...current, folderId]))
+  }, [])
+
   const closePreview = useCallback(() => {
     setIsPreviewOpen(false)
     setHasOpenedPreview(true)
@@ -2862,22 +2957,29 @@ export default function App() {
   if (route.type === 'about') {
     return (
       <>
-        <AboutPage onBackHome={closeAbout} onShowAbout={openAbout} onOpenFolder={openFolder} />
+        <AboutPage
+          onBackHome={closeAbout}
+          onShowAbout={openAbout}
+          onOpenFolder={openFolder}
+          openedFolderIds={openedAboutFolderIds}
+          onRememberFolderOpen={rememberAboutFolderOpen}
+        />
         <CursorSparkles />
       </>
     )
   }
 
   if (route.type === 'folder') {
-    const folder = FOLDER_MAP.get(route.folderId)
     return (
       <>
-        <AboutPage onBackHome={closeAbout} onShowAbout={closeFolder} onOpenFolder={openFolder} activeFolderId={route.folderId} />
-        {folder && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 200, pointerEvents: 'none' }}>
-            <FolderPage folder={folder} onBackToAbout={closeFolder} />
-          </div>
-        )}
+        <AboutPage
+          onBackHome={closeAbout}
+          onShowAbout={closeFolder}
+          onOpenFolder={openFolder}
+          activeFolderId={route.folderId}
+          openedFolderIds={openedAboutFolderIds}
+          onRememberFolderOpen={rememberAboutFolderOpen}
+        />
         <CursorSparkles />
       </>
     )
