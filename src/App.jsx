@@ -2609,28 +2609,6 @@ export default function App() {
         <HomeScene onModelLoaded={undefined} onOpenRoom={openRoom} />
       </div>
 
-      {hasOpenedPreview && !isPreviewOpen && (
-        <button
-          type="button"
-          onClick={openAbout}
-          style={{
-            position: 'absolute',
-            top: '24px',
-            left: '24px',
-            zIndex: 41,
-            border: 'none',
-            background: 'transparent',
-            color: '#000',
-            padding: 0,
-            fontFamily: MAC_LIGHT_FONT_STACK,
-            fontSize: '18px',
-            fontWeight: 300,
-          }}
-        >
-          about
-        </button>
-      )}
-
       <div
         style={{
           position: 'absolute',
@@ -2661,8 +2639,12 @@ export default function App() {
           />
         )}
 
-        <div
+        <button
+          type="button"
+          onClick={openAbout}
           style={{
+            border: 'none',
+            background: 'transparent',
             color: '#000',
             padding: 0,
             width: 'min(220px, 32vw)',
@@ -2673,10 +2655,11 @@ export default function App() {
             lineHeight: 1,
             textAlign: 'center',
             textTransform: 'lowercase',
+            cursor: 'inherit',
           }}
         >
           {HOME_TITLE}
-        </div>
+        </button>
       </div>
 
       {!hasOpenedPreview && !isPreviewOpen && <PreviewLauncher onOpen={openPreview} />}
