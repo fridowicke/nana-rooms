@@ -104,6 +104,66 @@ const DIARY_PHOTOS = Object.entries(DIARY_PHOTO_MODULES)
       label: stem.replace(/_/g, ' '),
     }
   })
+const EXHIBITION_IMAGE_MODULES = import.meta.glob('../target/exhibitions/**/*.{jpeg,jpg,png,webp,JPEG,JPG,PNG,WEBP}', { eager: true, import: 'default' })
+const EXHIBITIONS = [
+  {
+    id: 'bed-doesnt-ask-questions',
+    title: "Bed doesn't ask questions",
+    year: '2025',
+    venue: 'Festival Panoramic',
+    location: 'Barcelona, Spain',
+    medium: '6x3m digital print',
+    artists: 'Chantal Akerman · Anne Glassner · Naked Space · shelestvetrovki',
+    curators: 'Estela Ortiz & Juan Evaristo Valls Boix',
+    description: [
+      'The exhibition reflects on rest, centering on the bed and the private room, taking Chantal Akerman’s La chambre as its point of departure.',
+      'Through a dialogue between artistic works and memetic expressions from recent years, this group show explores which bodies have access to rest and highlights the public dimension of practices that, at first glance, appear to be private.',
+      'In the contemporary world, the imperatives of work infiltrate our beds and encroach upon our intimacy, while idleness and pause too often remain privileges accessible to only a few. For this reason, a sleeping body today stands as a radical image of freedom, yet also the most elusive: the embrace of time without purpose.',
+    ],
+    links: [
+      { url: 'https://festivalpanoramic.cat/en/project/panoramic-review-2025/', label: 'Festival Panoramic — Panoramic Review 2025' },
+    ],
+    imageFolder: 'Bed Doesn_t Ask Questions - Panoramic Photo Festival Barcelona',
+  },
+  {
+    id: 'mom-post-internet-is-not-a-phase',
+    title: 'MOM, POST-INTERNET IS NOT A PHASE ;(',
+    year: '2024',
+    venue: 'Okay Initiative Space',
+    location: 'Athens, Greece',
+    curators: 'Yan Tashtoush',
+    description: [
+      '"Mom, post-internet is not a phase ;(" is a group exhibition exploring the shifting relationship between humans and our digital landscapes amidst visceral cry against the erasure of lives, bombed-out cities and abandoned homes in a global apathy that watches wars unfold, as entire populations are reduced to digital fragments, while the cries for justice are drowned by the endless cycle of "click, scroll, refresh."',
+    ],
+    links: [
+      { url: 'https://www.kubaparis.com/submission/469655', label: 'Kuba Paris' },
+    ],
+    imageFolder: 'MOM, POST-INTERNET IS NOT A PHASE _(',
+  },
+]
+const EXHIBITION_IMAGES_BY_FOLDER = Object.entries(EXHIBITION_IMAGE_MODULES).reduce((collection, [path, src], index) => {
+  const normalizedPath = path.replace(/\\/g, '/')
+  const segments = normalizedPath.split('/')
+  const folderName = segments[segments.length - 2] ?? 'exhibition'
+  const filename = segments[segments.length - 1] ?? `image-${index + 1}`
+  const stem = filename.replace(/\.[^.]+$/, '')
+
+  if (!collection.has(folderName)) {
+    collection.set(folderName, [])
+  }
+
+  collection.get(folderName).push({
+    src,
+    alt: stem.replace(/_/g, ' '),
+    sortKey: filename,
+  })
+
+  return collection
+}, new Map())
+
+EXHIBITION_IMAGES_BY_FOLDER.forEach((images) => {
+  images.sort((a, b) => a.sortKey.localeCompare(b.sortKey, undefined, { numeric: true }))
+})
 
 const FOLDER_DEFINITIONS = [
   {
@@ -225,6 +285,12 @@ const FOLDER_DEFINITIONS = [
         ],
       },
     ],
+  },
+  {
+    id: 'exhibitions',
+    label: 'exhibitions',
+    title: 'Exhibitions',
+    sections: [],
   },
   {
     id: 'submit-room',
@@ -1010,10 +1076,13 @@ function CameraReset({ position, target = [0, 0, 0] }) {
   return null
 }
 
-function DoorLinkArea({ door, onOpenRoom, occluderMeshes }) {
+function DoorLinkArea({ door, onOpenRoom, occluderMeshes, isHovered = false, onHoverChange }) {
   const corners = Array.isArray(door.corners) ? door.corners : []
   const meshRef = useRef(null)
+  const hoverFillMaterialRef = useRef(null)
+  const hoverOutlineMaterialRef = useRef(null)
   const occlusionRaycaster = useMemo(() => new THREE.Raycaster(), [])
+  const sparklePhase = useMemo(() => Math.random() * Math.PI * 2, [])
 
   const geometry = useMemo(() => {
     if (corners.length !== 4) return null
@@ -1033,7 +1102,27 @@ function DoorLinkArea({ door, onOpenRoom, occluderMeshes }) {
     return next
   }, [corners])
 
+  const outlineGeometry = useMemo(() => {
+    if (corners.length !== 4) return null
+
+    const vertices = new Float32Array([
+      ...corners[0],
+      ...corners[1],
+      ...corners[1],
+      ...corners[2],
+      ...corners[2],
+      ...corners[3],
+      ...corners[3],
+      ...corners[0],
+    ])
+
+    const next = new THREE.BufferGeometry()
+    next.setAttribute('position', new THREE.BufferAttribute(vertices, 3))
+    return next
+  }, [corners])
+
   useEffect(() => () => geometry?.dispose(), [geometry])
+  useEffect(() => () => outlineGeometry?.dispose(), [outlineGeometry])
 
   const isDoorClearlyOccluded = useCallback((raycaster, doorDistance) => {
     if (!occluderMeshes?.length) return false
@@ -1062,6 +1151,26 @@ function DoorLinkArea({ door, onOpenRoom, occluderMeshes }) {
     })
   }, [isDoorClearlyOccluded])
 
+  useFrame(({ clock }) => {
+    const fillMaterial = hoverFillMaterialRef.current
+    const outlineMaterial = hoverOutlineMaterialRef.current
+    if (!fillMaterial && !outlineMaterial) return
+
+    const shimmer = (Math.sin(clock.elapsedTime * 8 + sparklePhase) + 1) * 0.5
+    const fillOpacity = isHovered ? 0.09 + shimmer * 0.14 : 0
+    const outlineOpacity = isHovered ? 0.38 + shimmer * 0.42 : 0
+
+    if (fillMaterial) {
+      fillMaterial.opacity = fillOpacity
+      fillMaterial.color.setHSL(0.15 + shimmer * 0.04, 0.95, 0.68 + shimmer * 0.12)
+    }
+
+    if (outlineMaterial) {
+      outlineMaterial.opacity = outlineOpacity
+      outlineMaterial.color.setHSL(0.12 + shimmer * 0.05, 1, 0.8)
+    }
+  })
+
   if (!geometry) return null
 
   const applyDoorCursor = (event, cursorValue) => {
@@ -1078,9 +1187,11 @@ function DoorLinkArea({ door, onOpenRoom, occluderMeshes }) {
       userData={{ isDoorHitArea: true }}
       onPointerOver={(event) => {
         event.stopPropagation()
+        onHoverChange?.(door.roomIndex)
         applyDoorCursor(event, door.cursor || MAIN_KEY_CURSOR)
       }}
       onPointerOut={(event) => {
+        onHoverChange?.(null)
         applyDoorCursor(event, MAIN_KEY_CURSOR)
       }}
       onPointerDown={(event) => {
@@ -1092,11 +1203,40 @@ function DoorLinkArea({ door, onOpenRoom, occluderMeshes }) {
       }}
     >
       <meshBasicMaterial transparent opacity={0} side={THREE.DoubleSide} depthTest={false} depthWrite={false} />
+      <mesh
+        geometry={geometry}
+        renderOrder={1001}
+        raycast={() => null}
+        scale={1.012}
+      >
+        <meshBasicMaterial
+          ref={hoverFillMaterialRef}
+          transparent
+          opacity={0}
+          side={THREE.DoubleSide}
+          depthTest={false}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+      {outlineGeometry ? (
+        <lineSegments geometry={outlineGeometry} renderOrder={1002} raycast={() => null} scale={1.02}>
+          <lineBasicMaterial
+            ref={hoverOutlineMaterialRef}
+            transparent
+            opacity={0}
+            depthTest={false}
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+          />
+        </lineSegments>
+      ) : null}
     </mesh>
   )
 }
 
 function DoorLinks({ doors, onOpenRoom, occluderRoot }) {
+  const [hoveredRoomIndex, setHoveredRoomIndex] = useState(null)
   const occluderMeshes = useMemo(() => {
     if (!occluderRoot) return []
 
@@ -1112,7 +1252,14 @@ function DoorLinks({ doors, onOpenRoom, occluderRoot }) {
   return (
     <group>
       {doors.map((door) => (
-        <DoorLinkArea key={door.id} door={door} onOpenRoom={onOpenRoom} occluderMeshes={occluderMeshes} />
+        <DoorLinkArea
+          key={door.id}
+          door={door}
+          onOpenRoom={onOpenRoom}
+          occluderMeshes={occluderMeshes}
+          isHovered={hoveredRoomIndex === door.roomIndex}
+          onHoverChange={setHoveredRoomIndex}
+        />
       ))}
     </group>
   )
@@ -1616,6 +1763,7 @@ function AboutPage({
   const folderArcLayout = [
     { id: 'performance', left: '22%', top: '62%' },
     { id: 'writing', left: '30%', top: '36%' },
+    { id: 'exhibitions', left: '47%', top: '56%' },
     { id: 'filmmaking', left: '73%', top: '42%' },
     { id: 'cv', left: '84%', top: '65%' },
     { id: 'submit-room', left: '94%', top: '43%' },
@@ -2235,6 +2383,153 @@ function AboutFolderContent({ folder }) {
           </div>
 
           <TallyEmbed />
+        </div>
+      </div>
+    )
+  }
+
+  if (folder.id === 'exhibitions') {
+    return (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          overflowY: 'auto',
+          fontFamily: MAC_LIGHT_FONT_STACK,
+          background: 'linear-gradient(180deg, #fbfbfb 0%, #efefef 100%)',
+        }}
+      >
+        <div
+          style={{
+            width: 'min(100%, 1120px)',
+            margin: '0 auto',
+            padding: '28px 28px 44px',
+            boxSizing: 'border-box',
+          }}
+        >
+          <div style={{ marginBottom: '28px' }}>
+            <div style={{ fontSize: '30px', fontWeight: 500, color: '#161616', letterSpacing: '0.01em' }}>Exhibitions</div>
+            <div style={{ marginTop: '8px', fontSize: '13px', fontWeight: 300, color: '#666', lineHeight: 1.6 }}>
+              Selected group exhibitions, installation views, and exhibition texts.
+            </div>
+          </div>
+
+          {EXHIBITIONS.map((exhibition) => {
+            const images = EXHIBITION_IMAGES_BY_FOLDER.get(exhibition.imageFolder) ?? []
+
+            return (
+              <section
+                key={exhibition.id}
+                style={{
+                  marginBottom: '34px',
+                  border: '1px solid #dddddd',
+                  borderRadius: '18px',
+                  overflow: 'hidden',
+                  background: 'rgba(255,255,255,0.82)',
+                  boxShadow: '0 12px 32px rgba(0,0,0,0.06)',
+                }}
+              >
+                <div
+                  style={{
+                    padding: '20px 22px 18px',
+                    borderBottom: '1px solid #e6e6e6',
+                    background: 'linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(244,244,244,0.92) 100%)',
+                  }}
+                >
+                  <div style={{ fontSize: '24px', fontWeight: 500, color: '#181818', lineHeight: 1.15 }}>{exhibition.title}</div>
+                  <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 300, color: '#666', lineHeight: 1.7 }}>
+                    {[exhibition.year, exhibition.venue, exhibition.location].filter(Boolean).join(' · ')}
+                  </div>
+                  {exhibition.medium && (
+                    <div style={{ marginTop: '6px', fontSize: '12px', fontWeight: 300, color: '#666' }}>{exhibition.medium}</div>
+                  )}
+                  {exhibition.artists && (
+                    <div style={{ marginTop: '6px', fontSize: '12px', fontWeight: 300, color: '#444', lineHeight: 1.6 }}>
+                      {exhibition.artists}
+                    </div>
+                  )}
+                  {exhibition.curators && (
+                    <div style={{ marginTop: '4px', fontSize: '12px', fontWeight: 300, color: '#444', lineHeight: 1.6 }}>
+                      Curated by {exhibition.curators}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ padding: '20px 22px 24px' }}>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                      gap: '24px',
+                    }}
+                  >
+                    <div>
+                      {exhibition.description.map((paragraph) => (
+                        <p
+                          key={paragraph}
+                          style={{ margin: '0 0 14px', fontSize: '13px', fontWeight: 300, color: '#222', lineHeight: 1.75 }}
+                        >
+                          {paragraph}
+                        </p>
+                      ))}
+
+                      {exhibition.links?.length > 0 && (
+                        <div style={{ paddingTop: '4px' }}>
+                          {exhibition.links.map((link) => (
+                            <div key={link.url} style={{ marginBottom: '8px' }}>
+                              <a
+                                href={link.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="about-folder-link"
+                                style={{ fontSize: '13px', fontWeight: 300, color: '#4a90d9', textDecoration: 'none', lineHeight: 1.6 }}
+                              >
+                                {link.label}
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: images.length > 1 ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 1fr)',
+                        gap: '12px',
+                        alignContent: 'start',
+                      }}
+                    >
+                      {images.map((image) => (
+                        <figure
+                          key={image.src}
+                          style={{
+                            margin: 0,
+                            borderRadius: '14px',
+                            overflow: 'hidden',
+                            background: '#f2f2f2',
+                            border: '1px solid #ececec',
+                          }}
+                        >
+                          <img
+                            src={image.src}
+                            alt={image.alt}
+                            style={{
+                              display: 'block',
+                              width: '100%',
+                              height: '100%',
+                              minHeight: images.length > 1 ? '180px' : '280px',
+                              objectFit: 'cover',
+                            }}
+                          />
+                        </figure>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )
+          })}
         </div>
       </div>
     )
