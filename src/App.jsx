@@ -68,6 +68,7 @@ const DOOR_OCCLUSION_CLEARANCE = 0.04
 const MAIN_KEY_CURSOR_HOTSPOT = '28 24'
 const HOVER_KEY_CURSOR_HOTSPOT = '13 12'
 const HOME_EDITOR_STORAGE_KEY = 'nana-home-editor-state'
+const FOLDER_DRAG_THRESHOLD_PX = 4
 const DEFAULT_ABOUT_HTML = `Anastasiia Pishchanska is a Ukrainian-born, Tokyo-based artist, filmmaker, and art director. She is the co-founder of the established Ukrainian art print publication localstickerbook (<a href="https://localgr0up.com/" target="_blank" rel="noreferrer">local.group</a>), which curates exhibitions, events, and fundraisers worldwide, presenting contemporary artists through the lens of post-internet culture. In 2023, following the full-scale invasion of Ukraine, she was awarded a research scholarship at...
 
 <br><br>Her practice moves between moving image, installation, and art direction, focusing on digital memory, migration, and cultural identity.`
@@ -1702,6 +1703,7 @@ function TinyPlayer({ onTitleBarMouseDown }) {
 function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = null, openedFolderIds = [], onRememberFolderOpen }) {
   const editorContentRef = useRef(null)
   const [editorScrollbar, setEditorScrollbar] = useState({ top: 0, height: 100, enabled: false })
+  const draggedFolderRef = useRef(null)
   const rightStageRef = useRef(null)
   const [activeBrowserTab, setActiveBrowserTab] = useState(getAboutTabId(activeFolderId))
   const [browserAddress, setBrowserAddress] = useState(() => getAboutAddress(activeFolderId, getAboutTabId(activeFolderId)))
@@ -1749,6 +1751,7 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
     if (e.button !== 0) return
     e.preventDefault()
     e.stopPropagation()
+    draggedFolderRef.current = null
     const container = rightStageRef.current
     if (!container) return
     const containerRect = container.getBoundingClientRect()
@@ -1762,8 +1765,9 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
     const onMove = (me) => {
       const dx = me.clientX - startMx
       const dy = me.clientY - startMy
-      if (!moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return
+      if (!moved && Math.abs(dx) < FOLDER_DRAG_THRESHOLD_PX && Math.abs(dy) < FOLDER_DRAG_THRESHOLD_PX) return
       moved = true
+      draggedFolderRef.current = folderId
       setFolderPositions((prev) => {
         const next = new Map(prev)
         next.set(folderId, { left: startPx + dx, top: startPy + dy, isPx: true })
@@ -1871,6 +1875,17 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
     onOpenFolder(folderId)
   }, [onOpenFolder, onRememberFolderOpen])
 
+
+  const handleFolderClick = useCallback((folderId, e) => {
+    if (draggedFolderRef.current === folderId) {
+      e.preventDefault()
+      e.stopPropagation()
+      draggedFolderRef.current = null
+      return
+    }
+
+    handleFolderOpen(folderId)
+  }, [handleFolderOpen])
   return (
     <div
       style={{
@@ -2189,7 +2204,7 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
               key={folder.id}
               type="button"
               onMouseDown={(e) => startFolderDrag(folder.id, e)}
-              onClick={() => handleFolderOpen(folder.id)}
+              onClick={(e) => handleFolderClick(folder.id, e)}
               className="cursor-grab"
               style={{
                 position: 'absolute',
