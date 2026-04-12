@@ -11,11 +11,23 @@ const keyboardMap = [
 ]
 
 const LANDING_CAMERA_POSITION = [-0.55, 0.24, 0.48]
-const ROOM_CAMERA_POSITIONS = [
-  [0.096, 0.513, 0.403],
-  [0, 0, 10],
-  [0, 0, 10],
-  [0, 0, 10],
+const ROOM_CAMERA_DEFAULTS = [
+  {
+    position: [0.581, 0.731, -0.849],
+    target: [0.675, 0.381, -1.095],
+  },
+  {
+    position: [-0.494, 0.854, -1.423],
+    target: [1.119, 0.027, -1.104],
+  },
+  {
+    position: [0.060, -0.227, 0.230],
+    target: [0.049, -0.253, 0.150],
+  },
+  {
+    position: [-0.509, 1.244, -0.583],
+    target: [-0.607, 0.029, -0.652],
+  },
 ]
 const ROOM_FILES = [
   'YUNA WEB.glb',
@@ -80,6 +92,18 @@ const SONGS = [
   { title: 'oral', artist: 'björk ft. rosalía', src: 'assets/music/song2.m4a' },
   { title: 'love again', artist: 'DJ LOSTBOI x Young Thug', src: 'assets/music/song3.mp3' },
 ]
+const DIARY_PHOTO_MODULES = import.meta.glob('../target/diary photos/*.{jpeg,jpg,png,webp}', { eager: true, import: 'default' })
+const DIARY_PHOTOS = Object.entries(DIARY_PHOTO_MODULES)
+  .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+  .map(([path, src], index) => {
+    const filename = path.split('/').pop() ?? `entry-${index + 1}`
+    const stem = filename.replace(/\.[^.]+$/, '')
+    return {
+      src,
+      alt: `Diary photo ${index + 1}`,
+      label: stem.replace(/_/g, ' '),
+    }
+  })
 
 const FOLDER_DEFINITIONS = [
   {
@@ -507,346 +531,6 @@ function RoomMaterialOverrides({ sceneRoot, settings }) {
   return null
 }
 
-function RoomControlRow({ label, children }) {
-  return (
-    <label style={{ display: 'grid', gridTemplateColumns: '92px 1fr', gap: '8px', alignItems: 'center' }}>
-      <span style={{ color: '#aaa' }}>{label}</span>
-      {children}
-    </label>
-  )
-}
-
-function RoomStepButtons({ onDecrement, onIncrement }) {
-  const buttonStyle = {
-    width: '18px',
-    height: '18px',
-    border: '1px solid rgba(255,255,255,0.25)',
-    background: 'rgba(255,255,255,0.08)',
-    color: '#f4f4f4',
-    borderRadius: '4px',
-    font: 'inherit',
-    lineHeight: 1,
-    padding: 0,
-    cursor: HOVER_KEY_CURSOR,
-  }
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-      <button type="button" onClick={onDecrement} style={buttonStyle} aria-label="Decrease value">
-        {'<'}
-      </button>
-      <button type="button" onClick={onIncrement} style={buttonStyle} aria-label="Increase value">
-        {'>'}
-      </button>
-    </div>
-  )
-}
-
-function RoomSlider({ min, max, step, value, onChange, onStepDown, onStepUp }) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 52px 40px', gap: '8px', alignItems: 'center' }}>
-      <RoomStepButtons onDecrement={onStepDown} onIncrement={onStepUp} />
-      <input type="range" min={min} max={max} step={step} value={value} onChange={onChange} />
-      <span style={{ textAlign: 'right' }}>{Number(value).toFixed(2)}</span>
-      <div />
-    </div>
-  )
-}
-
-function RoomSelect({ value, onChange, options, onStepDown, onStepUp }) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr', gap: '8px', alignItems: 'center' }}>
-      <RoomStepButtons onDecrement={onStepDown} onIncrement={onStepUp} />
-      <select value={value} onChange={onChange}>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  )
-}
-
-function RoomToggle({ checked, onChange, label, onStepDown, onStepUp }) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr', gap: '8px', alignItems: 'center' }}>
-      <RoomStepButtons onDecrement={onStepDown} onIncrement={onStepUp} />
-      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-        <input type="checkbox" checked={checked} onChange={onChange} />
-        <span>{label}</span>
-      </label>
-    </div>
-  )
-}
-
-function RoomDebugPanel({ camInfo, settings, isCollapsed, onToggleCollapsed, onSettingChange, onReset }) {
-  const stepNumber = useCallback((key, min, max, step, direction) => {
-    const nextValue = Number((settings[key] + direction * step).toFixed(4))
-    const clamped = Math.min(max, Math.max(min, nextValue))
-    onSettingChange(key, clamped)
-  }, [onSettingChange, settings])
-
-  const cycleOption = useCallback((key, options, direction) => {
-    const currentIndex = options.findIndex((option) => option.value === settings[key])
-    const safeIndex = currentIndex >= 0 ? currentIndex : 0
-    const nextIndex = (safeIndex + direction + options.length) % options.length
-    onSettingChange(key, options[nextIndex].value)
-  }, [onSettingChange, settings])
-
-  const toggleBoolean = useCallback((key, direction) => {
-    if (direction < 0) {
-      onSettingChange(key, false)
-      return
-    }
-
-    onSettingChange(key, true)
-  }, [onSettingChange])
-
-  const shadingOptions = [
-    { value: 'lit', label: 'Lit' },
-    { value: 'shadeless', label: 'Shadeless' },
-  ]
-  const textureSpaceOptions = [
-    { value: 'srgb', label: 'sRGB' },
-    { value: 'linear', label: 'Linear' },
-  ]
-
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        top: '24px',
-        right: '24px',
-        zIndex: 30,
-        background: 'rgba(0,0,0,0.68)',
-        color: '#e8e8e8',
-        fontFamily: 'monospace',
-        fontSize: '11px',
-        lineHeight: 1.5,
-        padding: '10px 12px',
-        borderRadius: '8px',
-        width: isCollapsed ? 'auto' : 'min(340px, calc(100vw - 48px))',
-        pointerEvents: 'auto',
-        userSelect: 'text',
-        boxSizing: 'border-box',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-        <div style={{ color: '#aaa' }}>room controls</div>
-        <button
-          type="button"
-          onClick={onToggleCollapsed}
-          style={{
-            border: '1px solid rgba(255,255,255,0.2)',
-            background: 'rgba(255,255,255,0.08)',
-            color: '#f4f4f4',
-            padding: '3px 8px',
-            borderRadius: '4px',
-            font: 'inherit',
-            cursor: HOVER_KEY_CURSOR,
-          }}
-        >
-          {isCollapsed ? 'Open' : 'Collapse'}
-        </button>
-      </div>
-
-      {!isCollapsed ? (
-        <>
-          <div style={{ marginTop: '8px', marginBottom: '10px' }}>
-            <div style={{ color: '#aaa', marginBottom: '2px' }}>camera</div>
-            <div>pos&nbsp;&nbsp;[{fmt3(camInfo.position)}]</div>
-            <div>look [{fmt3(camInfo.target)}]</div>
-          </div>
-
-          <div style={{ display: 'grid', gap: '8px' }}>
-            <RoomControlRow label="Shading">
-              <RoomSelect
-                value={settings.shadingMode}
-                onChange={(event) => onSettingChange('shadingMode', event.target.value)}
-                options={shadingOptions}
-                onStepDown={() => cycleOption('shadingMode', shadingOptions, -1)}
-                onStepUp={() => cycleOption('shadingMode', shadingOptions, 1)}
-              />
-            </RoomControlRow>
-
-            <RoomControlRow label="Tone map">
-              <RoomSelect
-                value={settings.toneMapping}
-                onChange={(event) => onSettingChange('toneMapping', event.target.value)}
-                options={TONE_MAPPING_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
-                onStepDown={() => cycleOption('toneMapping', TONE_MAPPING_OPTIONS, -1)}
-                onStepUp={() => cycleOption('toneMapping', TONE_MAPPING_OPTIONS, 1)}
-              />
-            </RoomControlRow>
-
-            <RoomControlRow label="Exposure">
-              <RoomSlider
-                min={0}
-                max={8}
-                step={0.01}
-                value={settings.exposure}
-                onChange={(event) => onSettingChange('exposure', Number(event.target.value))}
-                onStepDown={() => stepNumber('exposure', 0, 8, 0.01, -1)}
-                onStepUp={() => stepNumber('exposure', 0, 8, 0.01, 1)}
-              />
-            </RoomControlRow>
-
-            <RoomControlRow label="Env light">
-              <RoomSlider
-                min={0}
-                max={10}
-                step={0.01}
-                value={settings.environmentIntensity}
-                onChange={(event) => onSettingChange('environmentIntensity', Number(event.target.value))}
-                onStepDown={() => stepNumber('environmentIntensity', 0, 10, 0.01, -1)}
-                onStepUp={() => stepNumber('environmentIntensity', 0, 10, 0.01, 1)}
-              />
-            </RoomControlRow>
-
-            <RoomControlRow label="Base gain">
-              <RoomSlider
-                min={0}
-                max={8}
-                step={0.01}
-                value={settings.baseColorIntensity}
-                onChange={(event) => onSettingChange('baseColorIntensity', Number(event.target.value))}
-                onStepDown={() => stepNumber('baseColorIntensity', 0, 8, 0.01, -1)}
-                onStepUp={() => stepNumber('baseColorIntensity', 0, 8, 0.01, 1)}
-              />
-            </RoomControlRow>
-
-            <RoomControlRow label="Metalness">
-              <RoomSlider
-                min={0}
-                max={2}
-                step={0.01}
-                value={settings.metalness}
-                onChange={(event) => onSettingChange('metalness', Number(event.target.value))}
-                onStepDown={() => stepNumber('metalness', 0, 2, 0.01, -1)}
-                onStepUp={() => stepNumber('metalness', 0, 2, 0.01, 1)}
-              />
-            </RoomControlRow>
-
-            <RoomControlRow label="Roughness">
-              <RoomSlider
-                min={0}
-                max={2}
-                step={0.01}
-                value={settings.roughness}
-                onChange={(event) => onSettingChange('roughness', Number(event.target.value))}
-                onStepDown={() => stepNumber('roughness', 0, 2, 0.01, -1)}
-                onStepUp={() => stepNumber('roughness', 0, 2, 0.01, 1)}
-              />
-            </RoomControlRow>
-
-            <RoomControlRow label="Env map">
-              <RoomSlider
-                min={0}
-                max={20}
-                step={0.01}
-                value={settings.envMapIntensity}
-                onChange={(event) => onSettingChange('envMapIntensity', Number(event.target.value))}
-                onStepDown={() => stepNumber('envMapIntensity', 0, 20, 0.01, -1)}
-                onStepUp={() => stepNumber('envMapIntensity', 0, 20, 0.01, 1)}
-              />
-            </RoomControlRow>
-
-            <RoomControlRow label="Emissive">
-              <RoomSlider
-                min={0}
-                max={20}
-                step={0.01}
-                value={settings.emissiveIntensity}
-                onChange={(event) => onSettingChange('emissiveIntensity', Number(event.target.value))}
-                onStepDown={() => stepNumber('emissiveIntensity', 0, 20, 0.01, -1)}
-                onStepUp={() => stepNumber('emissiveIntensity', 0, 20, 0.01, 1)}
-              />
-            </RoomControlRow>
-
-            <RoomControlRow label="Opacity">
-              <RoomSlider
-                min={0}
-                max={1}
-                step={0.01}
-                value={settings.opacity}
-                onChange={(event) => onSettingChange('opacity', Number(event.target.value))}
-                onStepDown={() => stepNumber('opacity', 0, 1, 0.01, -1)}
-                onStepUp={() => stepNumber('opacity', 0, 1, 0.01, 1)}
-              />
-            </RoomControlRow>
-
-            <RoomControlRow label="Tex space">
-              <RoomSelect
-                value={settings.textureColorSpace}
-                onChange={(event) => onSettingChange('textureColorSpace', event.target.value)}
-                options={textureSpaceOptions}
-                onStepDown={() => cycleOption('textureColorSpace', textureSpaceOptions, -1)}
-                onStepUp={() => cycleOption('textureColorSpace', textureSpaceOptions, 1)}
-              />
-            </RoomControlRow>
-
-            <RoomToggle
-              checked={settings.transparent}
-              onChange={(event) => onSettingChange('transparent', event.target.checked)}
-              label="Transparent material"
-              onStepDown={() => toggleBoolean('transparent', -1)}
-              onStepUp={() => toggleBoolean('transparent', 1)}
-            />
-            <RoomToggle
-              checked={settings.depthWrite}
-              onChange={(event) => onSettingChange('depthWrite', event.target.checked)}
-              label="Depth write"
-              onStepDown={() => toggleBoolean('depthWrite', -1)}
-              onStepUp={() => toggleBoolean('depthWrite', 1)}
-            />
-            <RoomToggle
-              checked={settings.doubleSided}
-              onChange={(event) => onSettingChange('doubleSided', event.target.checked)}
-              label="Double sided"
-              onStepDown={() => toggleBoolean('doubleSided', -1)}
-              onStepUp={() => toggleBoolean('doubleSided', 1)}
-            />
-            <RoomToggle
-              checked={settings.flatShading}
-              onChange={(event) => onSettingChange('flatShading', event.target.checked)}
-              label="Flat shading"
-              onStepDown={() => toggleBoolean('flatShading', -1)}
-              onStepUp={() => toggleBoolean('flatShading', 1)}
-            />
-            <RoomToggle
-              checked={settings.wireframe}
-              onChange={(event) => onSettingChange('wireframe', event.target.checked)}
-              label="Wireframe"
-              onStepDown={() => toggleBoolean('wireframe', -1)}
-              onStepUp={() => toggleBoolean('wireframe', 1)}
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={onReset}
-            style={{
-              marginTop: '10px',
-              border: '1px solid rgba(255,255,255,0.2)',
-              background: 'rgba(255,255,255,0.08)',
-              color: '#f4f4f4',
-              padding: '4px 8px',
-              borderRadius: '4px',
-              font: 'inherit',
-              cursor: HOVER_KEY_CURSOR,
-            }}
-          >
-            Reset
-          </button>
-        </>
-      ) : (
-        <div style={{ marginTop: '8px' }}>camera [{fmt3(camInfo.position)}]</div>
-      )}
-    </div>
-  )
-}
-
 function parseRouteFromHash(hashValue) {
   const normalized = (hashValue || '').replace(/^#/, '')
   if (HOME_EDITOR_ENABLED && normalized === 'home-editor') {
@@ -1160,45 +844,26 @@ function EditorControls() {
 
 function HomeScene({ onModelLoaded, onOpenRoom }) {
   const [homeOccluderRoot, setHomeOccluderRoot] = useState(null)
-  const [camInfo, setCamInfo] = useState({ position: LANDING_CAMERA_POSITION, target: [0, 0, 0] })
-  const [homeSettings, setHomeSettings] = useState(DEFAULT_ROOM_RENDER_SETTINGS)
-  const [areControlsCollapsed, setAreControlsCollapsed] = useState(false)
   const handleHomeModelLoaded = useCallback((scene) => {
     setHomeOccluderRoot(scene)
     if (onModelLoaded) onModelLoaded(scene)
   }, [onModelLoaded])
-  const handleHomeSettingChange = useCallback((key, value) => {
-    setHomeSettings((current) => ({ ...current, [key]: value }))
-  }, [])
-  const handleResetHomeSettings = useCallback(() => {
-    setHomeSettings(DEFAULT_ROOM_RENDER_SETTINGS)
-  }, [])
 
   return (
     <KeyboardControls map={keyboardMap}>
       <Canvas camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'inherit' }}>
         <color attach="background" args={['#fff']} />
         <Suspense fallback={null}>
-          <RendererSettings toneMapping={homeSettings.toneMapping} exposure={homeSettings.exposure} />
-          <Stage environment="city" intensity={homeSettings.environmentIntensity} shadows={false} adjustCamera={false}>
+          <RendererSettings toneMapping={DEFAULT_ROOM_RENDER_SETTINGS.toneMapping} exposure={DEFAULT_ROOM_RENDER_SETTINGS.exposure} />
+          <Stage environment="city" intensity={DEFAULT_ROOM_RENDER_SETTINGS.environmentIntensity} shadows={false} adjustCamera={false}>
             <Model url="assets/home.glb" onLoaded={handleHomeModelLoaded}>
               <DoorLinks doors={DOOR_LINKS} onOpenRoom={onOpenRoom} occluderRoot={homeOccluderRoot} />
             </Model>
           </Stage>
-          <RoomMaterialOverrides sceneRoot={homeOccluderRoot} settings={homeSettings} />
           <Controls />
           <CameraReset position={LANDING_CAMERA_POSITION} />
-          <CameraTracker onUpdate={setCamInfo} />
         </Suspense>
       </Canvas>
-      <RoomDebugPanel
-        camInfo={camInfo}
-        settings={homeSettings}
-        isCollapsed={areControlsCollapsed}
-        onToggleCollapsed={() => setAreControlsCollapsed((current) => !current)}
-        onSettingChange={handleHomeSettingChange}
-        onReset={handleResetHomeSettings}
-      />
     </KeyboardControls>
   )
 }
@@ -1297,39 +962,19 @@ function HomeEditorScene({ corners, activeCornerIndex, onPickPoint }) {
   )
 }
 
-function CameraTracker({ onUpdate }) {
-  const { camera, controls } = useThree()
-  const lastRef = useRef('')
-
-  useFrame(() => {
-    const p = camera.position
-    const t = controls?.target
-    const str = `${p.x.toFixed(3)},${p.y.toFixed(3)},${p.z.toFixed(3)}|${t ? `${t.x.toFixed(3)},${t.y.toFixed(3)},${t.z.toFixed(3)}` : '0,0,0'}`
-    if (str !== lastRef.current) {
-      lastRef.current = str
-      onUpdate({
-        position: [p.x, p.y, p.z],
-        target: t ? [t.x, t.y, t.z] : [0, 0, 0],
-      })
-    }
-  })
-
-  return null
-}
-
-function CameraReset({ position }) {
+function CameraReset({ position, target = [0, 0, 0] }) {
   const camera = useThree((state) => state.camera)
   const controls = useThree((state) => state.controls)
 
   useLayoutEffect(() => {
     camera.position.set(...position)
     if (controls?.target) {
-      controls.target.set(0, 0, 0)
+      controls.target.set(...target)
       controls.update()
     } else {
-      camera.lookAt(0, 0, 0)
+      camera.lookAt(...target)
     }
-  }, [camera, controls, position])
+  }, [camera, controls, position, target])
 
   return null
 }
@@ -1442,32 +1087,15 @@ function DoorLinks({ doors, onOpenRoom, occluderRoot }) {
   )
 }
 
-function fmt3(v) {
-  return v.map((n) => n.toFixed(3)).join(', ')
-}
-
-function RoomPage({ roomNumber, roomFile, cameraPosition, onBack, onOpenNextRoom }) {
-  const [camInfo, setCamInfo] = useState({ position: cameraPosition, target: [0, 0, 0] })
-  const [roomSettings, setRoomSettings] = useState(DEFAULT_ROOM_RENDER_SETTINGS)
-  const [areControlsCollapsed, setAreControlsCollapsed] = useState(false)
+function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onOpenNextRoom }) {
   const [roomSceneRoot, setRoomSceneRoot] = useState(null)
-  const handleCamUpdate = useCallback((info) => setCamInfo(info), [])
   const handleRoomModelLoaded = useCallback((scene) => {
     setRoomSceneRoot(scene)
   }, [])
-  const handleRoomSettingChange = useCallback((key, value) => {
-    setRoomSettings((current) => ({ ...current, [key]: value }))
-  }, [])
-  const handleResetRoomSettings = useCallback(() => {
-    setRoomSettings(DEFAULT_ROOM_RENDER_SETTINGS)
-  }, [])
 
   useEffect(() => {
-    setCamInfo({ position: cameraPosition, target: [0, 0, 0] })
-    setRoomSettings(DEFAULT_ROOM_RENDER_SETTINGS)
     setRoomSceneRoot(null)
-    setAreControlsCollapsed(false)
-  }, [cameraPosition, roomFile])
+  }, [roomFile])
 
   return (
     <div
@@ -1505,29 +1133,19 @@ function RoomPage({ roomNumber, roomFile, cameraPosition, onBack, onOpenNextRoom
       </button>
 
       <KeyboardControls map={keyboardMap}>
-        <Canvas camera={{ position: cameraPosition, fov: 47.5 }} style={{ cursor: 'inherit' }}>
+        <Canvas camera={{ position: cameraDefault.position, fov: 47.5 }} style={{ cursor: 'inherit' }}>
           <color attach="background" args={['#fff']} />
           <Suspense fallback={<LoadingCursor />}>
-            <RendererSettings toneMapping={roomSettings.toneMapping} exposure={roomSettings.exposure} />
-            <Stage environment="studio" intensity={roomSettings.environmentIntensity} shadows={false} adjustCamera={false}>
+            <RendererSettings toneMapping={DEFAULT_ROOM_RENDER_SETTINGS.toneMapping} exposure={DEFAULT_ROOM_RENDER_SETTINGS.exposure} />
+            <Stage environment="studio" intensity={DEFAULT_ROOM_RENDER_SETTINGS.environmentIntensity} shadows={false} adjustCamera={false}>
               <Model url={`rooms/${roomFile}`} onLoaded={handleRoomModelLoaded} />
             </Stage>
-            <RoomMaterialOverrides sceneRoot={roomSceneRoot} settings={roomSettings} />
+            <RoomMaterialOverrides sceneRoot={roomSceneRoot} settings={DEFAULT_ROOM_RENDER_SETTINGS} />
             <Controls />
-            <CameraReset position={cameraPosition} />
-            <CameraTracker onUpdate={handleCamUpdate} />
+            <CameraReset position={cameraDefault.position} target={cameraDefault.target} />
           </Suspense>
         </Canvas>
       </KeyboardControls>
-
-      <RoomDebugPanel
-        camInfo={camInfo}
-        settings={roomSettings}
-        isCollapsed={areControlsCollapsed}
-        onToggleCollapsed={() => setAreControlsCollapsed((current) => !current)}
-        onSettingChange={handleRoomSettingChange}
-        onReset={handleResetRoomSettings}
-      />
 
       <button
         type="button"
@@ -1554,12 +1172,13 @@ function RoomPage({ roomNumber, roomFile, cameraPosition, onBack, onOpenNextRoom
   )
 }
 
-function TinyPlayer({ onTitleBarMouseDown }) {
+function TinyPlayer({ onTitleBarMouseDown, width = 290 }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const audioRef = useRef(null)
+  const scale = width / 290
 
   const song = SONGS[currentIndex]
 
@@ -1652,45 +1271,45 @@ function TinyPlayer({ onTitleBarMouseDown }) {
   const pct = duration > 0 ? (currentTime / duration) * 100 : 0
 
   return (
-    <div style={{ width: '290px', userSelect: 'none', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.18)', fontFamily: MAC_LIGHT_FONT_STACK }}>
+    <div style={{ width: `${width}px`, userSelect: 'none', borderRadius: `${8 * scale}px`, overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.18)', fontFamily: MAC_LIGHT_FONT_STACK }}>
       {/* Title bar */}
-      <div onMouseDown={onTitleBarMouseDown} className={onTitleBarMouseDown ? 'cursor-grab' : ''} style={{ background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid #b0b0b0', userSelect: 'none' }}>
-        <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-block' }} />
-        <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d4a017', display: 'inline-block' }} />
-        <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'inline-block' }} />
-        <span style={{ flex: 1, textAlign: 'center', fontSize: '11px', fontWeight: 500, color: '#333', marginRight: '30px' }}>Tiny Player</span>
+      <div onMouseDown={onTitleBarMouseDown} className={onTitleBarMouseDown ? 'cursor-grab' : ''} style={{ background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)', padding: `${5 * scale}px ${8 * scale}px`, display: 'flex', alignItems: 'center', gap: `${6 * scale}px`, borderBottom: '1px solid #b0b0b0', userSelect: 'none' }}>
+        <span style={{ width: `${10 * scale}px`, height: `${10 * scale}px`, borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-block' }} />
+        <span style={{ width: `${10 * scale}px`, height: `${10 * scale}px`, borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d4a017', display: 'inline-block' }} />
+        <span style={{ width: `${10 * scale}px`, height: `${10 * scale}px`, borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'inline-block' }} />
+        <span style={{ flex: 1, textAlign: 'center', fontSize: `${11 * scale}px`, fontWeight: 500, color: '#333', marginRight: `${30 * scale}px` }}>Tiny Player</span>
       </div>
 
       {/* Body */}
-      <div style={{ background: '#f5f5f5', padding: '8px 10px 6px' }}>
-        <div style={{ fontWeight: 700, fontSize: '12px', color: '#1a1a1a', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', textAlign: 'center' }}>{song.title}</div>
-        <div style={{ fontWeight: 300, fontSize: '11px', color: '#666', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', textAlign: 'center', marginTop: '1px' }}>{song.artist}</div>
+      <div style={{ background: '#f5f5f5', padding: `${8 * scale}px ${10 * scale}px ${6 * scale}px` }}>
+        <div style={{ fontWeight: 700, fontSize: `${12 * scale}px`, color: '#1a1a1a', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', textAlign: 'center' }}>{song.title}</div>
+        <div style={{ fontWeight: 300, fontSize: `${11 * scale}px`, color: '#666', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', textAlign: 'center', marginTop: `${1 * scale}px` }}>{song.artist}</div>
 
         {/* Transport buttons */}
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '18px', margin: '9px 0 8px' }}>
-          <button type="button" aria-label="Previous" onClick={prevSong} style={{ width: '32px', height: '32px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, fontSize: '16px', color: '#333', lineHeight: 1, cursor: 'inherit' }}>⏮</button>
-          <button type="button" aria-label={isPlaying ? 'Pause' : 'Play'} onClick={togglePlay} style={{ width: '36px', height: '36px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, fontSize: '18px', color: '#333', lineHeight: 1, cursor: 'inherit' }}>{isPlaying ? '⏸' : '▶'}</button>
-          <button type="button" aria-label="Next" onClick={nextSong} style={{ width: '32px', height: '32px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, fontSize: '16px', color: '#333', lineHeight: 1, cursor: 'inherit' }}>⏭</button>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: `${18 * scale}px`, margin: `${9 * scale}px 0 ${8 * scale}px` }}>
+          <button type="button" aria-label="Previous" onClick={prevSong} style={{ width: `${32 * scale}px`, height: `${32 * scale}px`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, fontSize: `${16 * scale}px`, color: '#333', lineHeight: 1, cursor: 'inherit' }}>⏮</button>
+          <button type="button" aria-label={isPlaying ? 'Pause' : 'Play'} onClick={togglePlay} style={{ width: `${36 * scale}px`, height: `${36 * scale}px`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, fontSize: `${18 * scale}px`, color: '#333', lineHeight: 1, cursor: 'inherit' }}>{isPlaying ? '⏸' : '▶'}</button>
+          <button type="button" aria-label="Next" onClick={nextSong} style={{ width: `${32 * scale}px`, height: `${32 * scale}px`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, fontSize: `${16 * scale}px`, color: '#333', lineHeight: 1, cursor: 'inherit' }}>⏭</button>
         </div>
 
         {/* Seek bar */}
         <div
           onClick={handleSeek}
-          style={{ position: 'relative', height: '6px', background: '#ccc', borderRadius: '3px', margin: '0 2px 4px', cursor: 'inherit' }}
+          style={{ position: 'relative', height: `${6 * scale}px`, background: '#ccc', borderRadius: `${3 * scale}px`, margin: `0 ${2 * scale}px ${4 * scale}px`, cursor: 'inherit' }}
         >
           <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${pct}%`, background: '#4a90d9', borderRadius: '3px' }} />
-          <div style={{ position: 'absolute', top: '50%', left: `${pct}%`, transform: 'translate(-50%,-50%)', width: '10px', height: '10px', borderRadius: '50%', background: '#fff', border: '1.5px solid #4a90d9', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: '50%', left: `${pct}%`, transform: 'translate(-50%,-50%)', width: `${10 * scale}px`, height: `${10 * scale}px`, borderRadius: '50%', background: '#fff', border: `${1.5 * scale}px solid #4a90d9`, pointerEvents: 'none' }} />
         </div>
 
         {/* Time display */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#888', padding: '0 2px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: `${10 * scale}px`, color: '#888', padding: `0 ${2 * scale}px` }}>
           <span>{fmt(currentTime)}</span>
           <span>{fmtNeg(currentTime, duration)}</span>
         </div>
       </div>
 
       {/* Footer */}
-      <div style={{ background: '#e0e0e0', borderTop: '1px solid #c0c0c0', padding: '3px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', color: '#888' }}>
+      <div style={{ background: '#e0e0e0', borderTop: '1px solid #c0c0c0', padding: `${3 * scale}px ${10 * scale}px`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: `${10 * scale}px`, color: '#888' }}>
         <span>320kbps</span>
         <span>{currentIndex + 1} / {SONGS.length}</span>
       </div>
@@ -1700,16 +1319,259 @@ function TinyPlayer({ onTitleBarMouseDown }) {
   )
 }
 
+function DiaryDeck({ left, top, width, availableHeight }) {
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const photoCount = DIARY_PHOTOS.length
+  const autoplayTimerRef = useRef(null)
+  const deckHeight = Math.max(154, Math.min(availableHeight, 220))
+  const cardWidth = Math.max(102, Math.min(width - 36, 142))
+  const cardHeight = Math.min(deckHeight - 30, cardWidth * 1.52)
+  const scale = cardWidth / 142
+  const titleSize = Math.max(11, 14 * scale)
+  const captionSize = Math.max(8.5, 11 * scale)
+
+  const scheduleAutoplay = useCallback(() => {
+    if (autoplayTimerRef.current) {
+      window.clearTimeout(autoplayTimerRef.current)
+    }
+
+    if (photoCount <= 1) return
+
+    autoplayTimerRef.current = window.setTimeout(() => {
+      setCurrentIndex((prev) => (prev + 1) % photoCount)
+    }, 5200)
+  }, [photoCount])
+
+  useEffect(() => {
+    scheduleAutoplay()
+
+    return () => {
+      if (autoplayTimerRef.current) {
+        window.clearTimeout(autoplayTimerRef.current)
+      }
+    }
+  }, [currentIndex, scheduleAutoplay])
+
+  const showPrev = useCallback(() => {
+    setCurrentIndex((prev) => (prev - 1 + photoCount) % photoCount)
+    scheduleAutoplay()
+  }, [photoCount, scheduleAutoplay])
+
+  const showNext = useCallback(() => {
+    setCurrentIndex((prev) => (prev + 1) % photoCount)
+    scheduleAutoplay()
+  }, [photoCount, scheduleAutoplay])
+
+  if (!photoCount) return null
+
+  const activePhoto = DIARY_PHOTOS[currentIndex]
+  const visibleCards = [-2, -1, 0, 1, 2]
+    .map((offset) => {
+      const photo = DIARY_PHOTOS[(currentIndex + offset + photoCount) % photoCount]
+      return { photo, offset }
+    })
+    .sort((a, b) => Math.abs(b.offset) - Math.abs(a.offset))
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        left,
+        top,
+        zIndex: 21,
+        width,
+        height: deckHeight,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        pointerEvents: 'none',
+      }}
+    >
+      <div
+        style={{
+          fontFamily: MAC_LIGHT_FONT_STACK,
+          fontSize: `${titleSize}px`,
+          fontWeight: 300,
+          lineHeight: 1,
+          color: '#5871a4',
+          letterSpacing: '-0.04em',
+          textTransform: 'lowercase',
+          marginBottom: `${4 * scale}px`,
+          textAlign: 'center',
+        }}
+      >
+        diary
+      </div>
+
+      <div
+        style={{
+          position: 'relative',
+          width: '100%',
+          height: `${cardHeight}px`,
+          pointerEvents: 'auto',
+        }}
+      >
+        {visibleCards.map(({ photo, offset }) => {
+          const isActive = offset === 0
+          const translateX = offset * (cardWidth * 0.105)
+          const rotate = offset * 3.2
+          const scaleValue = isActive ? 1 : Math.max(0.9, 0.97 - Math.abs(offset) * 0.028)
+          const opacity = isActive ? 1 : Math.max(0.5, 0.7 - Math.abs(offset) * 0.07)
+
+          return (
+            <button
+              key={`${photo.src}-${offset}`}
+              type="button"
+              onClick={offset < 0 ? showPrev : offset > 0 ? showNext : undefined}
+              aria-label={offset < 0 ? 'Show previous diary photo' : offset > 0 ? 'Show next diary photo' : activePhoto.label}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: '50%',
+                margin: '0 auto',
+                width: `${cardWidth}px`,
+                height: `${cardHeight}px`,
+                padding: 0,
+                border: 'none',
+                background: 'transparent',
+                transform: `translateX(calc(-50% + ${translateX}px)) rotate(${rotate}deg) scale(${scaleValue})`,
+                transformOrigin: 'center bottom',
+                opacity,
+                zIndex: 10 - Math.abs(offset),
+                pointerEvents: isActive ? 'none' : 'auto',
+              }}
+            >
+              <img
+                src={photo.src}
+                alt={photo.alt}
+                draggable="false"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'block',
+                  objectFit: 'cover',
+                  borderRadius: `${18 * scale}px`,
+                  boxShadow: isActive
+                    ? '0 14px 28px rgba(0,0,0,0.12)'
+                    : '0 9px 18px rgba(0,0,0,0.09)',
+                  userSelect: 'none',
+                }}
+              />
+            </button>
+          )
+        })}
+
+        <div
+          style={{
+            position: 'absolute',
+            left: '50%',
+            bottom: `${6 * scale}px`,
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: `${5 * scale}px`,
+          }}
+        >
+          <button
+            type="button"
+            onClick={showPrev}
+            aria-label="Show previous diary photo"
+            style={{
+              width: `${18 * scale}px`,
+              height: `${18 * scale}px`,
+              borderRadius: '999px',
+              border: '1px solid rgba(129,129,129,0.24)',
+              background: 'rgba(255,255,255,0.82)',
+              color: '#7a7a7a',
+              fontSize: `${9 * scale}px`,
+              lineHeight: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 3px 9px rgba(0,0,0,0.05)',
+            }}
+          >
+            ‹
+          </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: `${4 * scale}px` }}>
+            {DIARY_PHOTOS.slice(0, Math.min(photoCount, 5)).map((_, index) => {
+              const active = index === currentIndex % Math.min(photoCount, 5)
+              return (
+                <span
+                  key={`diary-dot-${index}`}
+                  aria-hidden="true"
+                  style={{
+                    width: `${active ? 8 * scale : 3.5 * scale}px`,
+                    height: `${3.5 * scale}px`,
+                    borderRadius: '999px',
+                    background: active ? 'rgba(88,113,164,0.82)' : 'rgba(88,113,164,0.24)',
+                    transition: 'all 180ms ease',
+                  }}
+                />
+              )
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={showNext}
+            aria-label="Show next diary photo"
+            style={{
+              width: `${18 * scale}px`,
+              height: `${18 * scale}px`,
+              borderRadius: '999px',
+              border: '1px solid rgba(129,129,129,0.24)',
+              background: 'rgba(255,255,255,0.82)',
+              color: '#7a7a7a',
+              fontSize: `${9 * scale}px`,
+              lineHeight: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 3px 9px rgba(0,0,0,0.05)',
+            }}
+          >
+            ›
+          </button>
+        </div>
+      </div>
+
+      <div
+        style={{
+          width: '100%',
+          paddingRight: `${10 * scale}px`,
+          marginTop: `${3 * scale}px`,
+          boxSizing: 'border-box',
+          textAlign: 'right',
+          fontFamily: MAC_LIGHT_FONT_STACK,
+          fontSize: `${captionSize}px`,
+          fontWeight: 300,
+          letterSpacing: '0.02em',
+          color: 'rgba(87, 87, 87, 0.52)',
+          textTransform: 'lowercase',
+        }}
+      >
+        {activePhoto.label}
+      </div>
+    </div>
+  )
+}
+
 function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = null, openedFolderIds = [], onRememberFolderOpen }) {
   const editorContentRef = useRef(null)
   const [editorScrollbar, setEditorScrollbar] = useState({ top: 0, height: 100, enabled: false })
-  const draggedFolderRef = useRef(null)
   const rightStageRef = useRef(null)
+  const draggedFolderRef = useRef(null)
+  const [viewport, setViewport] = useState(() => ({
+    width: typeof window !== 'undefined' ? window.innerWidth : 1440,
+    height: typeof window !== 'undefined' ? window.innerHeight : 900,
+  }))
   const [activeBrowserTab, setActiveBrowserTab] = useState(getAboutTabId(activeFolderId))
   const [browserAddress, setBrowserAddress] = useState(() => getAboutAddress(activeFolderId, getAboutTabId(activeFolderId)))
 
   const folderArcLayout = [
-    { id: 'performance', left: '15%', top: '62%' },
+    { id: 'performance', left: '22%', top: '62%' },
     { id: 'writing', left: '30%', top: '36%' },
     { id: 'press', left: '52%', top: '24%' },
     { id: 'filmmaking', left: '73%', top: '42%' },
@@ -1731,6 +1593,17 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
   }))
   const playerPosRef = useRef(playerPos)
   playerPosRef.current = playerPos
+  const leftColumnWidth = Math.max(212, Math.min(viewport.width * 0.17, 246))
+  const leftColumnX = Math.round((aboutWinPos.x + playerPos.x) / 2)
+  const aboutWindowTop = aboutWinPos.y + 36
+  const aboutWindowHeight = 197
+  const playerWindowTop = playerPos.y + 36
+  const diaryGapStart = aboutWindowTop + aboutWindowHeight + 10
+  const diaryGapHeight = Math.max(playerWindowTop - diaryGapStart - 10, 154)
+  const diaryHeight = Math.max(154, Math.min(diaryGapHeight, 220))
+  const diaryTop = diaryGapStart + Math.max((diaryGapHeight - diaryHeight) / 2, 0)
+  const diaryWidth = Math.max(Math.min(leftColumnWidth - 38, 148), 116)
+
   const makeTitleBarDrag = useCallback((posRef, setPos) => (e) => {
     if (e.button !== 0) return
     e.preventDefault()
@@ -1821,7 +1694,10 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
-    const onResize = () => updateEditorScrollbar()
+    const onResize = () => {
+      setViewport({ width: window.innerWidth, height: window.innerHeight })
+      updateEditorScrollbar()
+    }
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [updateEditorScrollbar])
@@ -1875,7 +1751,6 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
     onOpenFolder(folderId)
   }, [onOpenFolder, onRememberFolderOpen])
 
-
   const handleFolderClick = useCallback((folderId, e) => {
     if (draggedFolderRef.current === folderId) {
       e.preventDefault()
@@ -1886,6 +1761,7 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
 
     handleFolderOpen(folderId)
   }, [handleFolderOpen])
+
   return (
     <div
       style={{
@@ -1899,11 +1775,11 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
     >
       {/* ── Welcome gif (static) ── */}
       {!isFolderView && (
-        <div style={{ position: 'fixed', left: aboutWinPos.x, top: '132px', zIndex: 21, pointerEvents: 'none' }}>
+        <div style={{ position: 'fixed', left: leftColumnX, top: '132px', zIndex: 21, pointerEvents: 'none' }}>
           <img
             src="assets/welcome.webp"
             alt="welcome to my page"
-            style={{ width: '160px', maxWidth: 'min(22vw, 290px)', height: 'auto', objectFit: 'contain' }}
+            style={{ width: '144px', maxWidth: `${leftColumnWidth}px`, height: 'auto', objectFit: 'contain' }}
           />
         </div>
       )}
@@ -1913,10 +1789,10 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
         <div
           style={{
             position: 'fixed',
-            left: aboutWinPos.x,
+            left: leftColumnX,
             top: aboutWinPos.y + 36,
             zIndex: 21,
-            width: 'min(22vw, 290px)',
+            width: `${leftColumnWidth}px`,
           }}
           onClick={(event) => event.stopPropagation()}
         >
@@ -1942,7 +1818,7 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
             </div>
 
             {/* Body */}
-            <div style={{ background: '#f5f5f5', position: 'relative', height: '180px' }}>
+            <div style={{ background: '#f5f5f5', position: 'relative', height: '164px' }}>
               <div
                 ref={editorContentRef}
                 className="classic-textedit-scroll"
@@ -1962,13 +1838,13 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
                   background: 'transparent',
                   color: '#1a1a1a',
                   fontFamily: MAC_LIGHT_FONT_STACK,
-                  fontSize: '12px',
+                  fontSize: '11px',
                   fontWeight: 300,
                   lineHeight: 1.4,
                   whiteSpace: 'pre-wrap',
                   overflowX: 'hidden',
                   overflowY: 'auto',
-                  padding: '8px 22px 8px 10px',
+                  padding: '8px 20px 8px 9px',
                   boxSizing: 'border-box',
                 }}
                 dangerouslySetInnerHTML={{ __html: DEFAULT_ABOUT_HTML }}
@@ -2005,14 +1881,23 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
         </div>
       )}
 
+      {!isFolderView && (
+        <DiaryDeck
+          left={leftColumnX + (leftColumnWidth - diaryWidth) / 2}
+          top={diaryTop}
+          width={diaryWidth}
+          availableHeight={diaryGapHeight}
+        />
+      )}
+
       {/* ── Safety pin (between left col and right stage) ── */}
       {!isFolderView && (
-        <div style={{ position: 'absolute', left: 'min(25vw, 330px)', top: '42%', zIndex: 20, pointerEvents: 'none' }}>
+        <div style={{ position: 'absolute', left: `${leftColumnX + leftColumnWidth + 28}px`, top: '42%', zIndex: 20, pointerEvents: 'none' }}>
           <img
             src="assets/safety-pin.gif"
             alt=""
             aria-hidden="true"
-            style={{ width: '56px', height: 'auto', objectFit: 'contain' }}
+            style={{ width: '50px', height: 'auto', objectFit: 'contain' }}
           />
         </div>
       )}
@@ -2022,11 +1907,11 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
         <div
           style={{
             position: 'fixed',
-            left: playerPos.x,
+            left: leftColumnX,
             top: playerPos.y - 4,
             zIndex: 21,
             pointerEvents: 'none',
-            width: 'min(22vw, 290px)',
+            width: `${leftColumnWidth}px`,
             display: 'flex',
             justifyContent: 'center',
           }}
@@ -2040,14 +1925,14 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
         <div
           style={{
             position: 'fixed',
-            left: playerPos.x,
+            left: leftColumnX,
             top: playerPos.y + 36,
             zIndex: 21,
-            width: 'min(22vw, 290px)',
+            width: `${leftColumnWidth}px`,
           }}
           onClick={(event) => event.stopPropagation()}
         >
-          <TinyPlayer onTitleBarMouseDown={makeTitleBarDrag(playerPosRef, setPlayerPos)} />
+          <TinyPlayer onTitleBarMouseDown={makeTitleBarDrag(playerPosRef, setPlayerPos)} width={leftColumnWidth} />
         </div>
       )}
 
@@ -2124,6 +2009,7 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
             type="button"
             onClick={onBackHome}
             aria-label="Go back home"
+            className="cursor-pointer"
             style={{
               position: 'absolute',
               top: '92px',
@@ -2141,6 +2027,8 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
             <img
               src={ABOUT_HOME_GIF}
               alt="home"
+              draggable={false}
+              className="cursor-pointer"
               style={{ width: '51px', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
             />
           </button>
@@ -2259,7 +2147,7 @@ function AboutFolderContent({ folder }) {
           height: '100%',
           overflowY: 'auto',
           fontFamily: MAC_LIGHT_FONT_STACK,
-          background: 'linear-gradient(180deg, #fbfbfb 0%, #efefef 100%)',
+          background: '#fff',
         }}
       >
         <div
@@ -2268,6 +2156,7 @@ function AboutFolderContent({ folder }) {
             margin: '0 auto',
             padding: '24px 24px 40px',
             boxSizing: 'border-box',
+            background: '#fff',
           }}
         >
           <div
@@ -2975,7 +2864,7 @@ export default function App() {
     const roomFile = ROOM_FILES[route.roomIndex]
     return (
       <>
-        <RoomPage roomNumber={roomNumber} roomFile={roomFile} cameraPosition={ROOM_CAMERA_POSITIONS[route.roomIndex]} onBack={closeRoom} onOpenNextRoom={() => openNextRoom(roomNumber)} />
+        <RoomPage roomNumber={roomNumber} roomFile={roomFile} cameraDefault={ROOM_CAMERA_DEFAULTS[route.roomIndex]} onBack={closeRoom} onOpenNextRoom={() => openNextRoom(roomNumber)} />
       </>
     )
   }
