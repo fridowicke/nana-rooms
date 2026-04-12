@@ -597,7 +597,39 @@ function getAboutTabId(folderId) {
   return ABOUT_HOME_TAB.id
 }
 
-function AboutBrowserChrome({ tabs, activeTabId, addressValue, onSelectTab }) {
+function getAboutHistoryEntry(route) {
+  if (route?.type === 'folder' && route.folderId && FOLDER_MAP.has(route.folderId)) {
+    return route.folderId
+  }
+
+  return ABOUT_HOME_TAB.id
+}
+
+function getHashForAboutHistoryEntry(entryId) {
+  if (entryId && entryId !== ABOUT_HOME_TAB.id && FOLDER_MAP.has(entryId)) {
+    return `#${FOLDER_HASH_PREFIX}${entryId}`
+  }
+
+  return ABOUT_HASH
+}
+
+function AboutBrowserChrome({
+  tabs,
+  activeTabId,
+  addressValue,
+  onSelectTab,
+  onBack,
+  onForward,
+  onReload,
+  canGoBack,
+  canGoForward,
+}) {
+  const navButtons = [
+    { id: 'back', label: '<', onClick: onBack, disabled: !canGoBack },
+    { id: 'forward', label: '>', onClick: onForward, disabled: !canGoForward },
+    { id: 'reload', label: 'R', onClick: onReload, disabled: false },
+  ]
+
   return (
     <div
       style={{
@@ -657,26 +689,32 @@ function AboutBrowserChrome({ tabs, activeTabId, addressValue, onSelectTab }) {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-          {['<', '>', 'R'].map((symbol, index) => (
-            <span
-              key={`${symbol}-${index}`}
-              aria-hidden="true"
+          {navButtons.map((button) => (
+            <button
+              key={button.id}
+              type="button"
+              onClick={button.onClick}
+              disabled={button.disabled}
+              aria-label={button.id}
               style={{
                 width: '18px',
                 height: '18px',
                 borderRadius: '50%',
                 border: '1px solid #8e8e8e',
                 background: 'linear-gradient(180deg, #fbfbfb 0%, #cfcfcf 100%)',
-                color: '#666',
-                display: 'inline-flex',
+                color: button.disabled ? '#9a9a9a' : '#666',
+                display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: '10px',
                 lineHeight: 1,
+                opacity: button.disabled ? 0.55 : 1,
+                cursor: button.disabled ? 'default' : HOVER_KEY_CURSOR,
+                padding: 0,
               }}
             >
-              {symbol}
-            </span>
+              {button.label}
+            </button>
           ))}
         </div>
 
@@ -1558,7 +1596,19 @@ function DiaryDeck({ left, top, width, availableHeight }) {
   )
 }
 
-function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = null, openedFolderIds = [], onRememberFolderOpen }) {
+function AboutPage({
+  onBackHome,
+  onShowAbout,
+  onOpenFolder,
+  onBrowserBack,
+  onBrowserForward,
+  onBrowserReload,
+  canBrowserGoBack = false,
+  canBrowserGoForward = false,
+  activeFolderId = null,
+  openedFolderIds = [],
+  onRememberFolderOpen,
+}) {
   const editorContentRef = useRef(null)
   const [editorScrollbar, setEditorScrollbar] = useState({ top: 0, height: 100, enabled: false })
   const rightStageRef = useRef(null)
@@ -1963,6 +2013,11 @@ function AboutPage({ onBackHome, onShowAbout, onOpenFolder, activeFolderId = nul
             activeTabId={activeBrowserTab}
             addressValue={browserAddress}
             onSelectTab={handleBrowserTabSelect}
+            onBack={onBrowserBack}
+            onForward={onBrowserForward}
+            onReload={onBrowserReload}
+            canGoBack={canBrowserGoBack}
+            canGoForward={canBrowserGoForward}
           />
         </div>
 
@@ -2632,6 +2687,12 @@ export default function App() {
   const [route, setRoute] = useState(() =>
     parseRouteFromHash(typeof window !== 'undefined' ? window.location.hash : ''),
   )
+  const [aboutBrowserHistory, setAboutBrowserHistory] = useState(() => {
+    const initialRoute = parseRouteFromHash(typeof window !== 'undefined' ? window.location.hash : '')
+    const initialEntry = getAboutHistoryEntry(initialRoute)
+    return { entries: [initialEntry], index: 0 }
+  })
+  const [aboutBrowserReloadKey, setAboutBrowserReloadKey] = useState(0)
   const [openedAboutFolderIds, setOpenedAboutFolderIds] = useState([])
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [hasOpenedPreview, setHasOpenedPreview] = useState(false)
@@ -2761,6 +2822,12 @@ export default function App() {
   }, [])
 
   const openAbout = useCallback(() => {
+    setAboutBrowserHistory((current) => {
+      if (current.entries[current.index] === ABOUT_HOME_TAB.id) return current
+      const nextEntries = current.entries.slice(0, current.index + 1)
+      nextEntries.push(ABOUT_HOME_TAB.id)
+      return { entries: nextEntries, index: nextEntries.length - 1 }
+    })
     navigateWithHash(ABOUT_HASH)
   }, [])
 
@@ -2771,16 +2838,32 @@ export default function App() {
   }, [])
 
   const openFolder = useCallback((folderId) => {
+    setAboutBrowserHistory((current) => {
+      if (!folderId || !FOLDER_MAP.has(folderId) || current.entries[current.index] === folderId) return current
+      const nextEntries = current.entries.slice(0, current.index + 1)
+      nextEntries.push(folderId)
+      return { entries: nextEntries, index: nextEntries.length - 1 }
+    })
     navigateWithHash(`#${FOLDER_HASH_PREFIX}${folderId}`)
-  }, [])
-
-  const closeFolder = useCallback(() => {
-    navigateWithHash(ABOUT_HASH)
   }, [])
 
   const rememberAboutFolderOpen = useCallback((folderId) => {
     if (!folderId || !FOLDER_MAP.has(folderId)) return
     setOpenedAboutFolderIds((current) => (current.includes(folderId) ? current : [...current, folderId]))
+  }, [])
+
+  const navigateAboutHistory = useCallback((direction) => {
+    setAboutBrowserHistory((current) => {
+      const nextIndex = current.index + direction
+      if (nextIndex < 0 || nextIndex >= current.entries.length) return current
+
+      navigateWithHash(getHashForAboutHistoryEntry(current.entries[nextIndex]))
+      return { ...current, index: nextIndex }
+    })
+  }, [])
+
+  const reloadAboutHistory = useCallback(() => {
+    setAboutBrowserReloadKey((current) => current + 1)
   }, [])
 
   const closePreview = useCallback(() => {
@@ -2873,9 +2956,15 @@ export default function App() {
     return (
       <>
         <AboutPage
+          key={`about-${aboutBrowserReloadKey}`}
           onBackHome={closeAbout}
           onShowAbout={openAbout}
           onOpenFolder={openFolder}
+          onBrowserBack={() => navigateAboutHistory(-1)}
+          onBrowserForward={() => navigateAboutHistory(1)}
+          onBrowserReload={reloadAboutHistory}
+          canBrowserGoBack={aboutBrowserHistory.index > 0}
+          canBrowserGoForward={aboutBrowserHistory.index < aboutBrowserHistory.entries.length - 1}
           openedFolderIds={openedAboutFolderIds}
           onRememberFolderOpen={rememberAboutFolderOpen}
         />
@@ -2888,9 +2977,15 @@ export default function App() {
     return (
       <>
         <AboutPage
+          key={`about-${aboutBrowserReloadKey}`}
           onBackHome={closeAbout}
-          onShowAbout={closeFolder}
+          onShowAbout={openAbout}
           onOpenFolder={openFolder}
+          onBrowserBack={() => navigateAboutHistory(-1)}
+          onBrowserForward={() => navigateAboutHistory(1)}
+          onBrowserReload={reloadAboutHistory}
+          canBrowserGoBack={aboutBrowserHistory.index > 0}
+          canBrowserGoForward={aboutBrowserHistory.index < aboutBrowserHistory.entries.length - 1}
           activeFolderId={route.folderId}
           openedFolderIds={openedAboutFolderIds}
           onRememberFolderOpen={rememberAboutFolderOpen}
