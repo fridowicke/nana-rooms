@@ -175,22 +175,15 @@ const FOLDER_DEFINITIONS = [
     title: 'Writing',
     sections: [
       {
-        heading: 'PRINTED PUBLICATIONS AND WRITING',
+        heading: 'WRITING BY AND ABOUT',
         entries: [
           { year: '2024', item: '"Dialogues on CoreCore & the Contemporary Online Avant-Garde", Becoming Press Publishing' },
           { year: '', item: '"NPC Collapse", Localstickerbook ISSUE 04, Readellion Publishing' },
           { year: '', item: '"Spiritual Ecocides", Lexicon Of Nature, LocalGroup, Readellion Publishing' },
         ],
       },
-    ],
-  },
-  {
-    id: 'press',
-    label: 'press',
-    title: 'Press',
-    sections: [
       {
-        heading: 'SELECTED PRESS',
+        heading: 'WRITING ABOUT',
         links: [
           { url: 'https://www.vogue.com/article/a-project-about-gen-z-youth-in-ukraine', label: 'Vogue — A Project About Gen-Z Youth in Ukraine' },
           { url: 'https://www.vogue.com/article/women-by-women-the-shortlist', label: 'Vogue — Women By Women: The Shortlist' },
@@ -1623,7 +1616,6 @@ function AboutPage({
   const folderArcLayout = [
     { id: 'performance', left: '22%', top: '62%' },
     { id: 'writing', left: '30%', top: '36%' },
-    { id: 'press', left: '52%', top: '24%' },
     { id: 'filmmaking', left: '73%', top: '42%' },
     { id: 'cv', left: '84%', top: '65%' },
     { id: 'submit-room', left: '94%', top: '43%' },
