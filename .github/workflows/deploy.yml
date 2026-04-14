@@ -27,7 +27,7 @@ jobs:
       - name: Fetch required LFS assets
         run: |
           git lfs install --local
-          git lfs pull --include="public/assets/*.glb,public/assets/*.mp4,public/rooms/*.glb"
+          git lfs pull --include="public/assets/home.glb,public/assets/shelestvetrovki-scan-web.mp4,public/rooms/*.glb"
 
       - name: Install dependencies
         run: npm install
