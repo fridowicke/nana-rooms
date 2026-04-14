@@ -1,11 +1,19 @@
+html,
 body {
   margin: 0;
   padding: 0;
+  width: 100%;
+  min-height: 100%;
+}
+
+body {
   overflow: hidden;
   font-family: 'Helvetica', Arial, sans-serif;
   font-weight: 300;
   background-color: #fff;
   cursor: var(--app-cursor, auto);
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 *, *::before, *::after {
@@ -30,7 +38,8 @@ a, button, [role="button"], .cursor-pointer {
 
 #root {
   width: 100vw;
-  height: 100vh;
+  height: 100dvh;
+  min-height: 100dvh;
 }
 
 .classic-textedit-scroll {
