@@ -460,6 +460,17 @@ function RendererSettings({ toneMapping, exposure }) {
   return null
 }
 
+function isWithinDoorHitArea(object) {
+  let current = object
+
+  while (current) {
+    if (current.userData?.isDoorHitArea) return true
+    current = current.parent
+  }
+
+  return false
+}
+
 function RoomMaterialOverrides({ sceneRoot, settings }) {
   useEffect(() => {
     if (!sceneRoot) return undefined
@@ -468,7 +479,7 @@ function RoomMaterialOverrides({ sceneRoot, settings }) {
     const touchedMeshes = new Set()
 
     sceneRoot.traverse((child) => {
-      if (!child?.isMesh) return
+      if (!child?.isMesh || isWithinDoorHitArea(child)) return
       touchedMeshes.add(child)
 
       if (!child.userData.__roomOriginalMaterial) {
@@ -957,6 +968,7 @@ function HomeScene({ onModelLoaded, onOpenRoom }) {
               <DoorLinks doors={DOOR_LINKS} onOpenRoom={onOpenRoom} occluderRoot={homeOccluderRoot} />
             </Model>
           </Stage>
+          <RoomMaterialOverrides sceneRoot={homeOccluderRoot} settings={DEFAULT_ROOM_RENDER_SETTINGS} />
           <Controls />
           <CameraReset position={LANDING_CAMERA_POSITION} />
         </Suspense>
@@ -1242,7 +1254,7 @@ function DoorLinks({ doors, onOpenRoom, occluderRoot }) {
 
     const nextMeshes = []
     occluderRoot.traverse((child) => {
-      if (child?.isMesh && !child.userData?.isDoorHitArea) {
+      if (child?.isMesh && !isWithinDoorHitArea(child)) {
         nextMeshes.push(child)
       }
     })
