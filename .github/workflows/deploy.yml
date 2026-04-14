@@ -15,19 +15,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-        with:
-          lfs: false
 
       - name: Install Node.js
         uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: 'npm'
-
-      - name: Fetch required LFS assets
-        run: |
-          git lfs install --local
-          git lfs pull --include="public/assets/home.glb,public/assets/shelestvetrovki-scan-web.mp4,public/rooms/*.glb"
 
       - name: Install dependencies
         run: npm install
