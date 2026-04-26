@@ -1,6 +1,6 @@
 import React, { useState, Suspense, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls, Stage, useGLTF, KeyboardControls, useKeyboardControls } from '@react-three/drei'
+import { OrbitControls, Stage, Html, useGLTF, KeyboardControls, useKeyboardControls } from '@react-three/drei'
 import * as THREE from 'three'
 
 const keyboardMap = [
@@ -1187,10 +1187,7 @@ function CameraReset({ position, target = [0, 0, 0] }) {
 function DoorLinkArea({ door, onOpenRoom, occluderMeshes, isHovered = false, onHoverChange }) {
   const corners = Array.isArray(door.corners) ? door.corners : []
   const meshRef = useRef(null)
-  const hoverFillMaterialRef = useRef(null)
-  const hoverOutlineMaterialRef = useRef(null)
   const occlusionRaycaster = useMemo(() => new THREE.Raycaster(), [])
-  const sparklePhase = useMemo(() => Math.random() * Math.PI * 2, [])
 
   const geometry = useMemo(() => {
     if (corners.length !== 4) return null
@@ -1210,27 +1207,7 @@ function DoorLinkArea({ door, onOpenRoom, occluderMeshes, isHovered = false, onH
     return next
   }, [corners])
 
-  const outlineGeometry = useMemo(() => {
-    if (corners.length !== 4) return null
-
-    const vertices = new Float32Array([
-      ...corners[0],
-      ...corners[1],
-      ...corners[1],
-      ...corners[2],
-      ...corners[2],
-      ...corners[3],
-      ...corners[3],
-      ...corners[0],
-    ])
-
-    const next = new THREE.BufferGeometry()
-    next.setAttribute('position', new THREE.BufferAttribute(vertices, 3))
-    return next
-  }, [corners])
-
   useEffect(() => () => geometry?.dispose(), [geometry])
-  useEffect(() => () => outlineGeometry?.dispose(), [outlineGeometry])
 
   const isDoorClearlyOccluded = useCallback((raycaster, doorDistance) => {
     if (!occluderMeshes?.length) return false
@@ -1258,26 +1235,6 @@ function DoorLinkArea({ door, onOpenRoom, occluderMeshes, isHovered = false, onH
       }
     })
   }, [isDoorClearlyOccluded])
-
-  useFrame(({ clock }) => {
-    const fillMaterial = hoverFillMaterialRef.current
-    const outlineMaterial = hoverOutlineMaterialRef.current
-    if (!fillMaterial && !outlineMaterial) return
-
-    const shimmer = (Math.sin(clock.elapsedTime * 8 + sparklePhase) + 1) * 0.5
-    const fillOpacity = isHovered ? 0.09 + shimmer * 0.14 : 0
-    const outlineOpacity = isHovered ? 0.38 + shimmer * 0.42 : 0
-
-    if (fillMaterial) {
-      fillMaterial.opacity = fillOpacity
-      fillMaterial.color.setHSL(0.15 + shimmer * 0.04, 0.95, 0.68 + shimmer * 0.12)
-    }
-
-    if (outlineMaterial) {
-      outlineMaterial.opacity = outlineOpacity
-      outlineMaterial.color.setHSL(0.12 + shimmer * 0.05, 1, 0.8)
-    }
-  })
 
   if (!geometry) return null
 
@@ -1311,36 +1268,111 @@ function DoorLinkArea({ door, onOpenRoom, occluderMeshes, isHovered = false, onH
       }}
     >
       <meshBasicMaterial transparent opacity={0} side={THREE.DoubleSide} depthTest={false} depthWrite={false} />
-      <mesh
-        geometry={geometry}
-        renderOrder={1001}
-        raycast={() => null}
-        scale={1.012}
-      >
-        <meshBasicMaterial
-          ref={hoverFillMaterialRef}
-          transparent
-          opacity={0}
-          side={THREE.DoubleSide}
-          depthTest={false}
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-        />
-      </mesh>
-      {outlineGeometry ? (
-        <lineSegments geometry={outlineGeometry} renderOrder={1002} raycast={() => null} scale={1.02}>
-          <lineBasicMaterial
-            ref={hoverOutlineMaterialRef}
-            transparent
-            opacity={0}
-            depthTest={false}
-            depthWrite={false}
-            blending={THREE.AdditiveBlending}
-          />
-        </lineSegments>
-      ) : null}
+      <DoorHoverSparkles corners={corners} visible={isHovered} />
     </mesh>
   )
+}
+
+function DoorHoverSparkles({ corners, visible }) {
+  const [sparkles, setSparkles] = useState([])
+  const nextSparkleId = useRef(0)
+  const sparkleTimeouts = useRef([])
+  const sparkleInterval = useRef(null)
+  const sparkleGifIndex = useRef(Math.floor(Math.random() * CURSOR_TRAIL_GIFS.length))
+  const planeOffset = useMemo(() => {
+    if (corners.length !== 4) return new THREE.Vector3(0, 0, 0)
+
+    const a = new THREE.Vector3(...corners[0])
+    const b = new THREE.Vector3(...corners[1])
+    const c = new THREE.Vector3(...corners[2])
+    const ab = new THREE.Vector3().subVectors(b, a)
+    const ac = new THREE.Vector3().subVectors(c, a)
+    const normal = new THREE.Vector3().crossVectors(ab, ac)
+
+    if (normal.lengthSq() === 0) return new THREE.Vector3(0, 0, 0)
+    return normal.normalize().multiplyScalar(0.003)
+  }, [corners])
+
+  const samplePoint = useCallback(() => {
+    if (corners.length !== 4) return null
+
+    const topLeft = new THREE.Vector3(...corners[0])
+    const topRight = new THREE.Vector3(...corners[1])
+    const bottomRight = new THREE.Vector3(...corners[2])
+    const bottomLeft = new THREE.Vector3(...corners[3])
+    const u = Math.random()
+    const v = Math.random()
+    const top = topLeft.clone().lerp(topRight, u)
+    const bottom = bottomLeft.clone().lerp(bottomRight, u)
+    return top.lerp(bottom, v).add(planeOffset)
+  }, [corners, planeOffset])
+
+  useEffect(() => {
+    if (!visible || corners.length !== 4) {
+      if (sparkleInterval.current) {
+        window.clearInterval(sparkleInterval.current)
+        sparkleInterval.current = null
+      }
+      setSparkles([])
+      return undefined
+    }
+
+    const spawnSparkle = () => {
+      const position = samplePoint()
+      if (!position) return
+
+      const id = nextSparkleId.current++
+      const src = CURSOR_TRAIL_GIFS[sparkleGifIndex.current % CURSOR_TRAIL_GIFS.length]
+      sparkleGifIndex.current += 1
+      const size = 18 + Math.random() * 14
+      setSparkles((current) => [...current, { id, position, src, size }])
+
+      const timeoutId = window.setTimeout(() => {
+        setSparkles((current) => current.filter((sparkle) => sparkle.id !== id))
+      }, CURSOR_TRAIL_LIFETIME_MS)
+      sparkleTimeouts.current.push(timeoutId)
+    }
+
+    spawnSparkle()
+    sparkleInterval.current = window.setInterval(spawnSparkle, 120)
+
+    return () => {
+      if (sparkleInterval.current) {
+        window.clearInterval(sparkleInterval.current)
+        sparkleInterval.current = null
+      }
+      sparkleTimeouts.current.forEach((timeoutId) => window.clearTimeout(timeoutId))
+      sparkleTimeouts.current = []
+      setSparkles([])
+    }
+  }, [corners, samplePoint, visible])
+
+  return sparkles.map((sparkle) => (
+    <Html
+      key={sparkle.id}
+      position={sparkle.position.toArray()}
+      transform
+      sprite
+      distanceFactor={0.22}
+      zIndexRange={[1002, 1002]}
+      occlude={false}
+      pointerEvents="none"
+    >
+      <img
+        src={sparkle.src}
+        alt=""
+        draggable="false"
+        style={{
+          width: `${sparkle.size}px`,
+          height: `${sparkle.size}px`,
+          objectFit: 'contain',
+          userSelect: 'none',
+          pointerEvents: 'none',
+          transform: 'translate(-35%, -70%)',
+        }}
+      />
+    </Html>
+  ))
 }
 
 function DoorLinks({ doors, onOpenRoom, occluderRoot }) {
