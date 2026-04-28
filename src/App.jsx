@@ -516,7 +516,7 @@ const DOOR_LINKS = [
 function Model({ url, children, onLoaded }) {
   const { scene } = useGLTF(url)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (onLoaded) onLoaded(scene)
   }, [onLoaded, scene])
 
@@ -549,7 +549,7 @@ function isWithinDoorHitArea(object) {
 }
 
 function RoomMaterialOverrides({ sceneRoot, settings }) {
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!sceneRoot) return undefined
 
     const touchedMaterials = new Set()
@@ -4024,6 +4024,7 @@ export default function App() {
     return (
       <>
         <RoomPage
+          key={roomFile}
           roomNumber={roomNumber}
           roomFile={roomFile}
           cameraDefault={ROOM_CAMERA_DEFAULTS[route.roomIndex]}
