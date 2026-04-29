@@ -2588,56 +2588,36 @@ function AboutPage({
 }
 
 function AboutFolderContent({ folder }) {
+  const plainPageStyle = {
+    width: '100%',
+    height: '100%',
+    overflowY: 'auto',
+    fontFamily: ARIAL_FONT_STACK,
+    fontSize: '13px',
+    lineHeight: 1.45,
+    color: '#000',
+    background: '#fff',
+    boxSizing: 'border-box',
+    padding: '14px 16px 48px',
+  }
+  const plainLinkStyle = {
+    color: '#00e',
+    textDecoration: 'underline',
+  }
+  const plainHeadingStyle = {
+    margin: '18px 0 8px',
+    fontSize: '13px',
+    fontWeight: 700,
+    textTransform: 'uppercase',
+  }
+
   if (folder.id === 'submit-room') {
     return (
       <div
-        style={{
-          width: '100%',
-          height: '100%',
-          overflowY: 'auto',
-          fontFamily: MAC_LIGHT_FONT_STACK,
-          background: '#fff',
-        }}
+        style={plainPageStyle}
       >
-        <div
-          style={{
-            width: 'min(100%, 980px)',
-            margin: '0 auto',
-            padding: '24px 24px 40px',
-            boxSizing: 'border-box',
-            background: '#fff',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '2px',
-              marginBottom: '18px',
-            }}
-          >
-            <img
-              src="assets/zodiac.gif"
-              alt=""
-              aria-hidden="true"
-              style={{ width: '23px', height: 'auto', objectFit: 'contain' }}
-            />
-            <img
-              src="assets/shelestvetrovki-glitter.gif"
-              alt="shelestvetrovki"
-              style={{ width: 'min(172px, 14.4vw)', height: 'auto', objectFit: 'contain' }}
-            />
-            <img
-              src="assets/7ADo.gif"
-              alt=""
-              aria-hidden="true"
-              style={{ width: '23px', height: 'auto', objectFit: 'contain' }}
-            />
-          </div>
-
-          <TallyEmbed />
-        </div>
+        <h1 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: 700 }}>{folder.title}</h1>
+        <TallyEmbed />
       </div>
     )
   }
@@ -2645,210 +2625,119 @@ function AboutFolderContent({ folder }) {
   if (folder.id === 'exhibitions') {
     return (
       <div
-        style={{
-          width: '100%',
-          height: '100%',
-          overflowY: 'auto',
-          fontFamily: MAC_LIGHT_FONT_STACK,
-          background: 'linear-gradient(180deg, #fbfbfb 0%, #efefef 100%)',
-        }}
+        style={plainPageStyle}
       >
-        <div
-          style={{
-            width: 'min(100%, 1120px)',
-            margin: '0 auto',
-            padding: '28px 28px 44px',
-            boxSizing: 'border-box',
-          }}
-        >
-          <div style={{ marginBottom: '28px' }}>
-            <div style={{ fontSize: '30px', fontWeight: 500, color: '#161616', letterSpacing: '0.01em' }}>Exhibitions</div>
-            <div style={{ marginTop: '8px', fontSize: '13px', fontWeight: 300, color: '#666', lineHeight: 1.6, maxWidth: 'none' }}>
-              Selected group exhibitions, installation views, and exhibition texts.
-            </div>
-          </div>
+        <h1 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: 700 }}>Exhibitions</h1>
+        <p style={{ margin: '0 0 18px' }}>Selected group exhibitions, installation views, and exhibition texts.</p>
 
-          {EXHIBITIONS.map((exhibition) => {
-            const images = EXHIBITION_IMAGES_BY_FOLDER.get(exhibition.imageFolder) ?? []
+        {EXHIBITIONS.map((exhibition) => {
+          const images = EXHIBITION_IMAGES_BY_FOLDER.get(exhibition.imageFolder) ?? []
 
-            return (
-              <section
-                key={exhibition.id}
-                style={{
-                  marginBottom: '34px',
-                  border: '1px solid #dddddd',
-                  borderRadius: '18px',
-                  overflow: 'hidden',
-                  background: 'rgba(255,255,255,0.82)',
-                  boxShadow: '0 12px 32px rgba(0,0,0,0.06)',
-                }}
-              >
-                <div
-                  style={{
-                    padding: '20px 22px 18px',
-                    borderBottom: '1px solid #e6e6e6',
-                    background: 'linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(244,244,244,0.92) 100%)',
-                  }}
-                >
-                  <div style={{ fontSize: '24px', fontWeight: 500, color: '#181818', lineHeight: 1.15 }}>{exhibition.title}</div>
-                  <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 300, color: '#666', lineHeight: 1.7 }}>
-                    {[exhibition.year, exhibition.venue, exhibition.location].filter(Boolean).join(' · ')}
-                  </div>
-                  {exhibition.medium && (
-                    <div style={{ marginTop: '6px', fontSize: '12px', fontWeight: 300, color: '#666' }}>{exhibition.medium}</div>
-                  )}
-                  {exhibition.artists && (
-                    <div style={{ marginTop: '6px', fontSize: '12px', fontWeight: 300, color: '#444', lineHeight: 1.6 }}>
-                      {exhibition.artists}
-                    </div>
-                  )}
-                  {exhibition.curators && (
-                    <div style={{ marginTop: '4px', fontSize: '12px', fontWeight: 300, color: '#444', lineHeight: 1.6 }}>
-                      Curated by {exhibition.curators}
-                    </div>
-                  )}
-                </div>
+          return (
+            <section key={exhibition.id} style={{ margin: '0 0 28px' }}>
+              <h2 style={plainHeadingStyle}>{exhibition.title}</h2>
+              <p style={{ margin: '0 0 8px' }}>
+                {[exhibition.year, exhibition.venue, exhibition.location].filter(Boolean).join(' / ')}
+                {exhibition.medium ? <><br />{exhibition.medium}</> : null}
+                {exhibition.artists ? <><br />{exhibition.artists}</> : null}
+                {exhibition.curators ? <><br />Curated by {exhibition.curators}</> : null}
+              </p>
 
-                <div style={{ padding: '20px 22px 24px' }}>
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                      gap: '24px',
-                    }}
-                  >
-                    <div>
-                      {exhibition.description.map((paragraph) => (
-                        <p
-                          key={paragraph}
-                          style={{ margin: '0 0 14px', fontSize: '13px', fontWeight: 300, color: '#222', lineHeight: 1.75 }}
-                        >
-                          {paragraph}
-                        </p>
-                      ))}
+              {exhibition.description.map((paragraph) => (
+                <p key={paragraph} style={{ margin: '0 0 10px', maxWidth: '86ch' }}>
+                  {paragraph}
+                </p>
+              ))}
 
-                      {exhibition.links?.length > 0 && (
-                        <div style={{ paddingTop: '4px' }}>
-                          {exhibition.links.map((link) => (
-                            <div key={link.url} style={{ marginBottom: '8px' }}>
-                              <a
-                                href={link.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="about-folder-link"
-                                style={{ fontSize: '13px', fontWeight: 300, color: '#4a90d9', textDecoration: 'none', lineHeight: 1.6 }}
-                              >
-                                {link.label}
-                              </a>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+              {exhibition.links?.length > 0 && (
+                <ul style={{ margin: '8px 0 14px', paddingLeft: '22px' }}>
+                  {exhibition.links.map((link) => (
+                    <li key={link.url}>
+                      <a
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="about-folder-link"
+                        style={plainLinkStyle}
+                      >
+                        {link.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
 
-                    <div
+              <div>
+                {images.map((image) => (
+                  <figure key={image.src} style={{ margin: '14px 0' }}>
+                    <img
+                      src={image.src}
+                      alt={image.alt}
+                      loading="lazy"
+                      decoding="async"
                       style={{
-                        display: 'grid',
-                        gridTemplateColumns: images.length > 1 ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 1fr)',
-                        gap: '12px',
-                        alignContent: 'start',
+                        display: 'block',
+                        width: 'min(100%, 620px)',
+                        height: 'auto',
                       }}
-                    >
-                      {images.map((image) => (
-                        <figure
-                          key={image.src}
-                          style={{
-                            margin: 0,
-                            borderRadius: '14px',
-                            overflow: 'hidden',
-                            background: '#f2f2f2',
-                            border: '1px solid #ececec',
-                          }}
-                        >
-                          <img
-                            src={image.src}
-                            alt={image.alt}
-                            loading="lazy"
-                            decoding="async"
-                            style={{
-                              display: 'block',
-                              width: '100%',
-                              height: '100%',
-                              minHeight: images.length > 1 ? '180px' : '280px',
-                              objectFit: 'cover',
-                            }}
-                          />
-                        </figure>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </section>
-            )
-          })}
-        </div>
+                    />
+                    <figcaption style={{ marginTop: '4px' }}>{image.alt}</figcaption>
+                  </figure>
+                ))}
+              </div>
+            </section>
+          )
+        })}
       </div>
     )
   }
 
   return (
-    <div
-      style={{
-        width: '100%',
-        height: '100%',
-        fontFamily: MAC_LIGHT_FONT_STACK,
-        display: 'flex',
-        flexDirection: 'column',
-        background: 'linear-gradient(180deg, #fbfbfb 0%, #efefef 100%)',
-      }}
-    >
-      <div
-        style={{
-          padding: '22px 28px 18px',
-          borderBottom: '1px solid #d8d8d8',
-          background: 'linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(239,239,239,0.92) 100%)',
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.85)',
-        }}
-      >
-        <div style={{ fontSize: '26px', fontWeight: 500, color: '#1a1a1a', letterSpacing: '0.01em' }}>{folder.title}</div>
-        {folder.bio && (
-          <div style={{ marginTop: '10px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#1a1a1a', letterSpacing: '0.08em' }}>{folder.bio.name}</div>
-            <div style={{ fontSize: '12px', fontWeight: 300, color: '#555', lineHeight: 1.6, marginTop: '4px' }}>{folder.bio.born}</div>
-            <div style={{ fontSize: '12px', fontWeight: 300, color: '#555', lineHeight: 1.6 }}>{folder.bio.lives}</div>
-          </div>
-        )}
-      </div>
+    <div style={plainPageStyle}>
+      <h1 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: 700 }}>{folder.title}</h1>
+      {folder.bio && (
+        <p style={{ margin: '0 0 18px' }}>
+          {folder.bio.name}
+          <br />
+          {folder.bio.born}
+          <br />
+          {folder.bio.lives}
+        </p>
+      )}
 
-      <div style={{ overflowY: 'auto', flex: 1, padding: '24px 28px 42px' }}>
-        {folder.sections.map((section) => (
-          <div key={section.heading} style={{ marginBottom: '26px' }}>
-            <div style={{ fontSize: '11px', fontWeight: 600, color: '#777', letterSpacing: '0.12em', marginBottom: '12px', borderBottom: '1px solid #ddd', paddingBottom: '8px' }}>
-              {section.heading}
-            </div>
-            {section.entries && section.entries.map((entry, i) => (
-              // eslint-disable-next-line react/no-array-index-key
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '14px', marginBottom: '10px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 300, color: '#888', lineHeight: 1.5 }}>{entry.year}</div>
-                <div style={{ fontSize: '13px', fontWeight: 300, color: '#1a1a1a', lineHeight: 1.5 }}>{entry.item}</div>
-              </div>
-            ))}
-            {section.links && section.links.map((link) => (
-              <div key={link.url} style={{ marginBottom: '10px' }}>
-                <a
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="about-folder-link"
-                  style={{ fontSize: '13px', fontWeight: 300, color: '#4a90d9', textDecoration: 'none', lineHeight: 1.6 }}
-                >
-                  {link.label}
-                </a>
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
+      {folder.sections.map((section) => (
+        <section key={section.heading} style={{ margin: '0 0 20px' }}>
+          <h2 style={plainHeadingStyle}>{section.heading}</h2>
+          {section.entries && (
+            <ul style={{ margin: 0, paddingLeft: '22px' }}>
+              {section.entries.map((entry, i) => (
+                // eslint-disable-next-line react/no-array-index-key
+                <li key={i} style={{ marginBottom: '6px' }}>
+                  {entry.year ? `${entry.year} - ` : ''}
+                  {entry.item}
+                </li>
+              ))}
+            </ul>
+          )}
+          {section.links && (
+            <ul style={{ margin: 0, paddingLeft: '22px' }}>
+              {section.links.map((link) => (
+                <li key={link.url} style={{ marginBottom: '6px' }}>
+                  <a
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="about-folder-link"
+                    style={plainLinkStyle}
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ))}
     </div>
   )
 }
