@@ -298,32 +298,65 @@ const FOLDER_DEFINITIONS = [
     ],
   },
   {
+    id: 'press',
+    label: 'press',
+    title: 'Press',
+    sections: [
+      {
+        heading: '2026',
+        links: [
+          { url: 'https://www.vogue.com/article/women-by-women-the-shortlist', label: 'Vogue: Women By Women: The Shortlist' },
+          { url: 'https://queerwararchive.com/2026/02/18/shelest-vetrovki-anastasiia-pischanska-gen-z/', label: 'Queer War Archive: Shelest Vetrovki' },
+        ],
+      },
+      {
+        heading: '2025',
+        links: [
+          { url: 'https://festivalpanoramic.cat/en/project/panoramic-review-2025/', label: 'Festival Panoramic: Panoramic Review 2025' },
+        ],
+      },
+      {
+        heading: '2024',
+        links: [
+          { url: 'https://www.yokogaomag.com/editorial/shes-so-hot-i-wanna-clean-her-room-shelestvetrovki', label: "Yokogao Mag: She's So Hot I Wanna Clean Her Room" },
+          { url: 'https://goodpress.co.uk/products/dialogues-on-corecore-the-contemporary-online-avant-garde-edited-by-0nty-onmycomputer', label: 'Good Press: Dialogues on CoreCore' },
+          { url: 'https://www.kubaparis.com/submission/469655', label: 'Kuba Paris: MOM, POST-INTERNET IS NOT A PHASE ;(' },
+          { url: 'https://becoming.press/dialogues-on-corecore', label: 'Becoming Press: Dialogues on CoreCore' },
+          { url: 'https://www.instagram.com/p/DDmLc2Th1PV/', label: 'Instagram: Localstickerbook' },
+        ],
+      },
+      {
+        heading: '2023',
+        links: [
+          { url: 'https://www.tamabi.ac.jp/news/55772/', label: 'Tama Art University: Artist at Risk Program' },
+          { url: 'https://i-d.co/article/daria-svertilova-photography-ukraine/', label: 'i-D: Daria Svertilova Photography Ukraine' },
+          { url: 'https://www.vogue.com/article/a-project-about-gen-z-youth-in-ukraine', label: 'Vogue: A Project About Gen-Z Youth in Ukraine' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'writing',
     label: 'writing',
     title: 'Writing',
     sections: [
       {
-        heading: 'WRITING BY AND ABOUT',
-        entries: [
-          { year: '2024', item: '"Dialogues on CoreCore & the Contemporary Online Avant-Garde", Becoming Press Publishing' },
-          { year: '', item: '"NPC Collapse", Localstickerbook ISSUE 04, Readellion Publishing' },
-          { year: '', item: '"Spiritual Ecocides", Lexicon Of Nature, LocalGroup, Readellion Publishing' },
+        heading: '2026',
+        links: [
+          { url: 'https://substack.com/@shelestvetrovki/note/p-194245632?utm_source=notes-share-action&r=33oaqu', label: 'Substack: and another fig was a girl wearing nipple patches' },
         ],
       },
       {
-        heading: 'WRITING ABOUT',
+        heading: '2025',
         links: [
-          { url: 'https://www.vogue.com/article/a-project-about-gen-z-youth-in-ukraine', label: 'Vogue — A Project About Gen-Z Youth in Ukraine' },
-          { url: 'https://www.vogue.com/article/women-by-women-the-shortlist', label: 'Vogue — Women By Women: The Shortlist' },
-          { url: 'https://festivalpanoramic.cat/en/project/panoramic-review-2025/', label: 'Festival Panoramic — Panoramic Review 2025' },
-          { url: 'https://queerwararchive.com/2026/02/18/shelest-vetrovki-anastasiia-pischanska-gen-z/', label: 'Queer War Archive — Shelest Vetrovki' },
-          { url: 'https://www.yokogaomag.com/editorial/shes-so-hot-i-wanna-clean-her-room-shelestvetrovki', label: "Yokogao Mag — She's So Hot I Wanna Clean Her Room" },
-          { url: 'https://goodpress.co.uk/products/dialogues-on-corecore-the-contemporary-online-avant-garde-edited-by-0nty-onmycomputer', label: 'Good Press — Dialogues on CoreCore' },
-          { url: 'https://www.kubaparis.com/submission/469655', label: 'Kuba Paris' },
-          { url: 'https://becoming.press/dialogues-on-corecore', label: 'Becoming Press — Dialogues on CoreCore' },
-          { url: 'https://www.instagram.com/p/DDmLc2Th1PV/', label: 'Instagram' },
-          { url: 'https://www.tamabi.ac.jp/news/55772/', label: 'Tama Art University' },
-          { url: 'https://i-d.co/article/daria-svertilova-photography-ukraine/', label: 'i-D — Daria Svertilova Photography Ukraine' },
+          { url: 'https://readellion.com/product/lexiconofnature/', label: 'Readellion Publishing: Spiritual Ecocides, Lexicon Of Nature, LocalGroup' },
+        ],
+      },
+      {
+        heading: '2024',
+        links: [
+          { url: 'https://becoming.press/dialogues-on-corecore', label: 'Becoming Press Publishing: Dialogues on CoreCore & the Contemporary Online Avant-Garde' },
+          { url: 'https://substack.com/@shelestvetrovki/p-151684169', label: 'Substack: notes on being unemployed (in a spiritual way)' },
         ],
       },
     ],
@@ -1575,7 +1608,7 @@ function DoorLinks({ doors, onOpenRoom, occluderRoot }) {
   )
 }
 
-function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onOpenNextRoom, onReady }) {
+function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenNextRoom, canGoBack, onReady }) {
   const prepareRoomScene = useCallback((scene) => {
     applyRoomMaterialOverrides(scene, DEFAULT_ROOM_RENDER_SETTINGS)
   }, [])
@@ -1611,6 +1644,7 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onOpenNextRoom,
       <button
         type="button"
         onClick={onBack}
+        disabled={!canGoBack}
         style={{
           position: 'absolute',
           bottom: '48px',
@@ -1619,13 +1653,36 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onOpenNextRoom,
           background: 'transparent',
           padding: 0,
           zIndex: 20,
-          cursor: HOVER_KEY_CURSOR,
+          cursor: canGoBack ? HOVER_KEY_CURSOR : 'default',
         }}
-        aria-label="Go back to house view"
+        aria-label="Go back to previous room"
       >
         <img
           src={GO_BACK_GIF}
           alt="Go back"
+          style={{ width: 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: canGoBack ? HOVER_KEY_CURSOR : 'default' }}
+        />
+      </button>
+
+      <button
+        type="button"
+        onClick={onHome}
+        aria-label="Go home"
+        style={{
+          position: 'absolute',
+          top: '24px',
+          right: '24px',
+          zIndex: 20,
+          border: 'none',
+          background: 'transparent',
+          padding: 0,
+          cursor: HOVER_KEY_CURSOR,
+        }}
+      >
+        <img
+          src={ABOUT_HOME_GIF}
+          alt="home"
+          draggable={false}
           style={{ width: 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
         />
       </button>
@@ -2103,7 +2160,8 @@ function AboutPage({
   const [browserAddress, setBrowserAddress] = useState(() => getAboutAddress(activeFolderId, getAboutTabId(activeFolderId), activeFolderDetailId, activeFolderImageIndex))
 
   const folderArcLayout = [
-    { id: 'writing', left: '30%', top: '36%' },
+    { id: 'press', left: '25%', top: '36%' },
+    { id: 'writing', left: '37%', top: '34%' },
     { id: 'exhibitions', left: '47%', top: '56%' },
     { id: 'filmmaking', left: '73%', top: '42%' },
     { id: 'cv', left: '84%', top: '65%' },
@@ -2986,7 +3044,9 @@ function AboutFolderContent({
 
   return (
     <div style={plainPageStyle}>
-      <h1 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: 700 }}>{folder.title}</h1>
+      {folder.id !== 'press' && folder.id !== 'writing' && (
+        <h1 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: 700 }}>{folder.title}</h1>
+      )}
       {folder.bio && (
         <p style={{ margin: '0 0 18px' }}>
           {folder.bio.name}
@@ -3517,6 +3577,7 @@ export default function App() {
   const [snapshotLabel, setSnapshotLabel] = useState('')
   const [savedSnapshots, setSavedSnapshots] = useState([])
   const pendingRoomNavigationRef = useRef(0)
+  const [visitedRoomHistory, setVisitedRoomHistory] = useState([])
   const [transitionSnapshotUrl, setTransitionSnapshotUrl] = useState(null)
   const [isSceneTransitioning, setIsSceneTransitioning] = useState(false)
 
@@ -3666,24 +3727,42 @@ export default function App() {
     const navigationId = pendingRoomNavigationRef.current + 1
     pendingRoomNavigationRef.current = navigationId
     beginSceneTransition()
+    setVisitedRoomHistory(route.type === 'room' ? [route.roomIndex] : [])
     await waitForRoomAsset(roomNumber - 1)
     if (pendingRoomNavigationRef.current !== navigationId) return
     navigateWithHash(`#${ROOM_HASH_PREFIX}${roomNumber}`)
-  }, [beginSceneTransition])
+  }, [beginSceneTransition, route])
 
   const openNextRoom = useCallback(async (roomNumber) => {
     const nextRoomNumber = roomNumber >= ROOM_FILES.length ? 1 : roomNumber + 1
     const navigationId = pendingRoomNavigationRef.current + 1
     pendingRoomNavigationRef.current = navigationId
     beginSceneTransition()
+    if (route.type === 'room') {
+      setVisitedRoomHistory((current) => [...current, route.roomIndex])
+    }
     await waitForRoomAsset(nextRoomNumber - 1)
     if (pendingRoomNavigationRef.current !== navigationId) return
     navigateWithHash(`#${ROOM_HASH_PREFIX}${nextRoomNumber}`)
-  }, [beginSceneTransition])
+  }, [beginSceneTransition, route])
+
+  const openPreviousRoom = useCallback(async () => {
+    const previousRoomIndex = visitedRoomHistory[visitedRoomHistory.length - 1]
+    if (previousRoomIndex == null) return
+
+    const navigationId = pendingRoomNavigationRef.current + 1
+    pendingRoomNavigationRef.current = navigationId
+    beginSceneTransition()
+    setVisitedRoomHistory((current) => current.slice(0, -1))
+    await waitForRoomAsset(previousRoomIndex)
+    if (pendingRoomNavigationRef.current !== navigationId) return
+    navigateWithHash(`#${ROOM_HASH_PREFIX}${previousRoomIndex + 1}`)
+  }, [beginSceneTransition, visitedRoomHistory])
 
   const closeRoom = useCallback(() => {
     setIsPreviewOpen(false)
     setHasOpenedPreview(true)
+    setVisitedRoomHistory([])
     beginSceneTransition()
     navigateWithHash(HOME_HASH)
   }, [beginSceneTransition])
@@ -3826,8 +3905,10 @@ export default function App() {
           roomNumber={roomNumber}
           roomFile={roomFile}
           cameraDefault={ROOM_CAMERA_DEFAULTS[route.roomIndex]}
-          onBack={closeRoom}
+          onBack={openPreviousRoom}
+          onHome={closeRoom}
           onOpenNextRoom={() => openNextRoom(roomNumber)}
+          canGoBack={visitedRoomHistory.length > 0}
           onReady={clearTransitionCover}
         />
         {sceneTransitionLayer}
