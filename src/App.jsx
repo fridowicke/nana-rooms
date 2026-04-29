@@ -2170,13 +2170,13 @@ function AboutPage({
   )
   const rightStageWidth = '100vw'
 
-  const [aboutWinPos, setAboutWinPos] = useState({ x: 24, y: 168 })
+  const [aboutWinPos, setAboutWinPos] = useState({ x: 24, y: 112 })
   const aboutWinPosRef = useRef(aboutWinPos)
   aboutWinPosRef.current = aboutWinPos
 
   const [playerPos, setPlayerPos] = useState(() => ({
     x: 24,
-    y: typeof window !== 'undefined' ? window.innerHeight - 200 : 400,
+    y: typeof window !== 'undefined' ? window.innerHeight - 150 : 450,
   }))
   const playerPosRef = useRef(playerPos)
   playerPosRef.current = playerPos
