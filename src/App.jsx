@@ -2033,6 +2033,9 @@ function AboutPage({
   const playerPosRef = useRef(playerPos)
   playerPosRef.current = playerPos
   const leftColumnWidth = Math.max(188, Math.min(viewport.width * 0.15, 218))
+  const aboutWindowWidth = leftColumnWidth + 34
+  const welcomeWidth = 126
+  const welcomeHeight = Math.round(welcomeWidth * (55 / 135))
   const leftColumnX = Math.round((aboutWinPos.x + playerPos.x) / 2)
   const aboutWindowTop = aboutWinPos.y + 36
   const aboutWindowHeight = 181
@@ -2216,11 +2219,11 @@ function AboutPage({
     >
       {/* ── Welcome gif (static) ── */}
       {!isFolderView && (
-        <div style={{ position: 'fixed', left: leftColumnX, top: '132px', zIndex: 21, pointerEvents: 'none' }}>
+        <div style={{ position: 'fixed', left: leftColumnX, top: aboutWindowTop - welcomeHeight + 2, zIndex: 21, pointerEvents: 'none' }}>
           <img
             src="assets/welcome.webp"
             alt="welcome to my page"
-            style={{ width: '126px', maxWidth: `${leftColumnWidth}px`, height: 'auto', objectFit: 'contain' }}
+            style={{ width: `${welcomeWidth}px`, maxWidth: `${aboutWindowWidth}px`, height: 'auto', objectFit: 'contain' }}
           />
         </div>
       )}
@@ -2233,7 +2236,7 @@ function AboutPage({
             left: leftColumnX,
             top: aboutWinPos.y + 36,
             zIndex: 21,
-            width: `${leftColumnWidth}px`,
+            width: `${aboutWindowWidth}px`,
           }}
           onClick={(event) => event.stopPropagation()}
         >
@@ -2279,13 +2282,13 @@ function AboutPage({
                   background: 'transparent',
                   color: '#1a1a1a',
                   fontFamily: MAC_LIGHT_FONT_STACK,
-                  fontSize: '10px',
+                  fontSize: '9.25px',
                   fontWeight: 300,
                   lineHeight: 1.38,
                   whiteSpace: 'pre-wrap',
                   overflowX: 'hidden',
                   overflowY: 'auto',
-                  padding: '8px 20px 8px 9px',
+                  padding: '8px 32px 8px 9px',
                   boxSizing: 'border-box',
                 }}
                 dangerouslySetInnerHTML={{ __html: DEFAULT_ABOUT_HTML }}
@@ -2333,7 +2336,7 @@ function AboutPage({
 
       {/* ── Safety pin (between left col and right stage) ── */}
       {!isFolderView && (
-        <div style={{ position: 'absolute', left: `${leftColumnX + leftColumnWidth + 24}px`, top: '42%', zIndex: 20, pointerEvents: 'none' }}>
+        <div style={{ position: 'absolute', left: `${leftColumnX + aboutWindowWidth + 24}px`, top: '42%', zIndex: 20, pointerEvents: 'none' }}>
           <img
             src="assets/safety-pin.gif"
             alt=""
