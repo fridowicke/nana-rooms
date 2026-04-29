@@ -2,6 +2,8 @@ import React, { useState, Suspense, useEffect, useLayoutEffect, useRef, useCallb
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Stage, Html, useGLTF, KeyboardControls, useKeyboardControls } from '@react-three/drei'
 import * as THREE from 'three'
+import { GLTFLoader } from 'three-stdlib'
+import { peek } from 'suspend-react'
 
 const keyboardMap = [
   { name: 'forward', keys: ['ArrowUp', 'w', 'W'] },
@@ -11,6 +13,7 @@ const keyboardMap = [
 ]
 
 const LANDING_CAMERA_POSITION = [-0.55, 0.24, 0.48]
+const DEFAULT_CAMERA_TARGET = [0, 0, 0]
 const ROOM_CAMERA_DEFAULTS = [
   {
     position: [0.581, 0.731, -0.849],
@@ -74,10 +77,16 @@ const CURSOR_TRAIL_LIFETIME_MS = 850
 const CURSOR_CLICK_LIFETIME_MS = 700
 const CURSOR_TRAIL_MIN_DISTANCE = 14
 const CURSOR_TRAIL_MIN_INTERVAL_MS = 24
+const LOADING_SPARKLE_LIFETIME_MS = 1750
+const LOADING_SPARKLE_INTERVAL_MS = 42
+const LOADING_SPARKLE_BURST_COUNT = 18
+const LOADING_SPARKLE_MAX_COUNT = 420
+const LOADING_SPARKLE_INITIAL_WAVES = 14
 const COMPACT_BREAKPOINT = 900
 const HOME_HEADER_TOP = 24
 const PREVIEW_WINDOW_TOP = 190
 const DOOR_OCCLUSION_CLEARANCE = 0.04
+const ROOM_PRELOAD_POLL_INTERVAL_MS = 50
 const MAIN_KEY_CURSOR_HOTSPOT = '28 24'
 const HOVER_KEY_CURSOR_HOTSPOT = '13 12'
 const HOME_EDITOR_STORAGE_KEY = 'nana-home-editor-state'
@@ -328,6 +337,7 @@ const DEFAULT_ROOM_RENDER_SETTINGS = {
   flatShading: false,
   wireframe: false,
 }
+const CANVAS_GL_OPTIONS = { preserveDrawingBuffer: true }
 
 function buildCursorValue(cursorUrl, fallback = 'auto', hotspot = MAIN_KEY_CURSOR_HOTSPOT) {
   const cursorStack = [`url("${cursorUrl}") ${hotspot}`]
@@ -345,6 +355,11 @@ const DEFAULT_RESPONSIVE_STATE = {
   prefersReducedMotion: false,
 }
 const preloadedRoomAssets = new Set()
+
+function getRoomAssetUrl(roomIndex) {
+  const roomFile = ROOM_FILES[roomIndex]
+  return roomFile ? `rooms/${roomFile}` : null
+}
 
 function addMediaQueryListener(query, listener) {
   if (typeof query.addEventListener === 'function') {
@@ -408,10 +423,59 @@ function useResponsiveShell() {
 }
 
 function preloadRoomAsset(roomIndex) {
-  const roomFile = ROOM_FILES[roomIndex]
-  if (!roomFile || preloadedRoomAssets.has(roomFile)) return
-  preloadedRoomAssets.add(roomFile)
-  useGLTF.preload(`rooms/${roomFile}`)
+  const roomUrl = getRoomAssetUrl(roomIndex)
+  if (!roomUrl || preloadedRoomAssets.has(roomUrl)) return
+  preloadedRoomAssets.add(roomUrl)
+  useGLTF.preload(roomUrl)
+}
+
+function isRoomAssetReady(roomIndex) {
+  const roomUrl = getRoomAssetUrl(roomIndex)
+  return Boolean(roomUrl && peek([GLTFLoader, roomUrl]))
+}
+
+function waitForRoomAsset(roomIndex) {
+  if (isRoomAssetReady(roomIndex)) return Promise.resolve()
+
+  preloadRoomAsset(roomIndex)
+
+  return new Promise((resolve) => {
+    const poll = () => {
+      if (isRoomAssetReady(roomIndex)) {
+        resolve()
+        return
+      }
+
+      window.setTimeout(poll, ROOM_PRELOAD_POLL_INTERVAL_MS)
+    }
+
+    poll()
+  })
+}
+
+function captureCurrentCanvasFrame() {
+  if (typeof document === 'undefined') return null
+
+  const canvas = document.querySelector('canvas')
+  if (!canvas) return null
+
+  try {
+    return canvas.toDataURL('image/png')
+  } catch {
+    return null
+  }
+}
+
+function runWhenIdle(callback) {
+  if (typeof window === 'undefined') return undefined
+
+  if ('requestIdleCallback' in window) {
+    const idleId = window.requestIdleCallback(callback, { timeout: 2500 })
+    return () => window.cancelIdleCallback(idleId)
+  }
+
+  const timeoutId = window.setTimeout(callback, 250)
+  return () => window.clearTimeout(timeoutId)
 }
 
 const DOOR_LINKS = [
@@ -513,12 +577,15 @@ const DOOR_LINKS = [
   },
 ]
 
-function Model({ url, children, onLoaded }) {
+function Model({ url, children, onLoaded, prepareScene }) {
   const { scene } = useGLTF(url)
+  const { gl, camera } = useThree()
 
   useLayoutEffect(() => {
+    prepareScene?.(scene)
+    gl.compile(scene, camera)
     if (onLoaded) onLoaded(scene)
-  }, [onLoaded, scene])
+  }, [camera, gl, onLoaded, prepareScene, scene])
 
   return <primitive object={scene}>{children}</primitive>
 }
@@ -548,134 +615,107 @@ function isWithinDoorHitArea(object) {
   return false
 }
 
-function RoomMaterialOverrides({ sceneRoot, settings }) {
-  useLayoutEffect(() => {
-    if (!sceneRoot) return undefined
+function applyRoomMaterialOverrides(sceneRoot, settings) {
+  if (!sceneRoot) return
 
-    const touchedMaterials = new Set()
-    const touchedMeshes = new Set()
+  const touchedMaterials = new Set()
 
-    sceneRoot.traverse((child) => {
-      if (!child?.isMesh || isWithinDoorHitArea(child)) return
-      touchedMeshes.add(child)
+  sceneRoot.traverse((child) => {
+    if (!child?.isMesh || isWithinDoorHitArea(child)) return
 
-      if (!child.userData.__roomOriginalMaterial) {
-        child.userData.__roomOriginalMaterial = child.material
+    if (!child.userData.__roomOriginalMaterial) {
+      child.userData.__roomOriginalMaterial = child.material
+    }
+
+    const originalMaterials = Array.isArray(child.userData.__roomOriginalMaterial)
+      ? child.userData.__roomOriginalMaterial
+      : [child.userData.__roomOriginalMaterial]
+
+    const resolvedMaterials = originalMaterials.map((originalMaterial) => {
+      if (!originalMaterial) return originalMaterial
+
+      if (settings.shadingMode !== 'shadeless') {
+        return originalMaterial
       }
 
-      const originalMaterials = Array.isArray(child.userData.__roomOriginalMaterial)
-        ? child.userData.__roomOriginalMaterial
-        : [child.userData.__roomOriginalMaterial]
+      if (!originalMaterial.userData.__roomShadelessMaterial) {
+        const basicMaterial = new THREE.MeshBasicMaterial()
 
-      const resolvedMaterials = originalMaterials.map((originalMaterial) => {
-        if (!originalMaterial) return originalMaterial
+        if (originalMaterial.color) basicMaterial.color.copy(originalMaterial.color)
+        if (originalMaterial.map) basicMaterial.map = originalMaterial.map
+        if (originalMaterial.alphaMap) basicMaterial.alphaMap = originalMaterial.alphaMap
+        if (originalMaterial.transparent != null) basicMaterial.transparent = originalMaterial.transparent
+        if (originalMaterial.opacity != null) basicMaterial.opacity = originalMaterial.opacity
+        if (originalMaterial.side != null) basicMaterial.side = originalMaterial.side
+        if (originalMaterial.wireframe != null) basicMaterial.wireframe = originalMaterial.wireframe
 
-        if (settings.shadingMode !== 'shadeless') {
-          return originalMaterial
-        }
+        originalMaterial.userData.__roomShadelessMaterial = basicMaterial
+      }
 
-        if (!originalMaterial.userData.__roomShadelessMaterial) {
-          const basicMaterial = new THREE.MeshBasicMaterial()
-
-          if (originalMaterial.color) basicMaterial.color.copy(originalMaterial.color)
-          if (originalMaterial.map) basicMaterial.map = originalMaterial.map
-          if (originalMaterial.alphaMap) basicMaterial.alphaMap = originalMaterial.alphaMap
-          if (originalMaterial.transparent != null) basicMaterial.transparent = originalMaterial.transparent
-          if (originalMaterial.opacity != null) basicMaterial.opacity = originalMaterial.opacity
-          if (originalMaterial.side != null) basicMaterial.side = originalMaterial.side
-          if (originalMaterial.wireframe != null) basicMaterial.wireframe = originalMaterial.wireframe
-
-          originalMaterial.userData.__roomShadelessMaterial = basicMaterial
-        }
-
-        return originalMaterial.userData.__roomShadelessMaterial
-      })
-
-      child.material = Array.isArray(child.userData.__roomOriginalMaterial) ? resolvedMaterials : resolvedMaterials[0]
-
-      const materials = Array.isArray(child.material) ? child.material : [child.material]
-      materials.forEach((material) => {
-        if (!material || touchedMaterials.has(material)) return
-        touchedMaterials.add(material)
-
-        if (!material.userData.__roomDefaults) {
-          material.userData.__roomDefaults = {
-            color: material.color?.clone?.() ?? null,
-            metalness: material.metalness,
-            roughness: material.roughness,
-            envMapIntensity: material.envMapIntensity,
-            opacity: material.opacity,
-            emissiveIntensity: material.emissiveIntensity,
-            transparent: material.transparent,
-            depthWrite: material.depthWrite,
-            side: material.side,
-            flatShading: material.flatShading,
-            wireframe: material.wireframe,
-            mapColorSpace: material.map?.colorSpace,
-          }
-        }
-
-        const defaults = material.userData.__roomDefaults
-        const intensityColor = defaults.color?.clone?.() ?? new THREE.Color('#ffffff')
-        intensityColor.multiplyScalar(settings.baseColorIntensity)
-
-        if (material.color) material.color.copy(intensityColor)
-        if (typeof material.metalness === 'number') material.metalness = settings.metalness
-        if (typeof material.roughness === 'number') material.roughness = settings.roughness
-        if (typeof material.envMapIntensity === 'number') material.envMapIntensity = settings.envMapIntensity
-        if (typeof material.opacity === 'number') material.opacity = settings.opacity
-        if (typeof material.emissiveIntensity === 'number') material.emissiveIntensity = settings.emissiveIntensity
-
-        material.transparent = settings.transparent || settings.opacity < 1
-        material.depthWrite = settings.depthWrite
-        material.side = settings.doubleSided ? THREE.DoubleSide : THREE.FrontSide
-        material.flatShading = settings.flatShading
-        material.wireframe = settings.wireframe
-
-        if (material.map) {
-          material.map.colorSpace = settings.textureColorSpace === 'linear' ? THREE.LinearSRGBColorSpace : THREE.SRGBColorSpace
-          material.map.needsUpdate = true
-        }
-
-        material.needsUpdate = true
-      })
+      return originalMaterial.userData.__roomShadelessMaterial
     })
 
-    return () => {
-      touchedMeshes.forEach((mesh) => {
-        if (mesh.userData.__roomOriginalMaterial) {
-          mesh.material = mesh.userData.__roomOriginalMaterial
+    child.material = Array.isArray(child.userData.__roomOriginalMaterial) ? resolvedMaterials : resolvedMaterials[0]
+
+    const materials = Array.isArray(child.material) ? child.material : [child.material]
+    materials.forEach((material) => {
+      if (!material || touchedMaterials.has(material)) return
+      touchedMaterials.add(material)
+
+      if (!material.userData.__roomDefaults) {
+        material.userData.__roomDefaults = {
+          color: material.color?.clone?.() ?? null,
+          metalness: material.metalness,
+          roughness: material.roughness,
+          envMapIntensity: material.envMapIntensity,
+          opacity: material.opacity,
+          emissiveIntensity: material.emissiveIntensity,
+          transparent: material.transparent,
+          depthWrite: material.depthWrite,
+          side: material.side,
+          flatShading: material.flatShading,
+          wireframe: material.wireframe,
+          mapColorSpace: material.map?.colorSpace,
         }
-      })
+      }
 
-      touchedMaterials.forEach((material) => {
-        const defaults = material.userData.__roomDefaults
-        if (!defaults) return
+      const defaults = material.userData.__roomDefaults
+      const intensityColor = defaults.color?.clone?.() ?? new THREE.Color('#ffffff')
+      intensityColor.multiplyScalar(settings.baseColorIntensity)
+      const nextTransparent = settings.transparent || settings.opacity < 1
+      const nextSide = settings.doubleSided ? THREE.DoubleSide : THREE.FrontSide
+      const materialProgramChanged =
+        material.transparent !== nextTransparent ||
+        material.side !== nextSide ||
+        material.flatShading !== settings.flatShading ||
+        material.wireframe !== settings.wireframe
 
-        if (defaults.color && material.color) material.color.copy(defaults.color)
-        if (typeof defaults.metalness === 'number' && typeof material.metalness === 'number') material.metalness = defaults.metalness
-        if (typeof defaults.roughness === 'number' && typeof material.roughness === 'number') material.roughness = defaults.roughness
-        if (typeof defaults.envMapIntensity === 'number' && typeof material.envMapIntensity === 'number') material.envMapIntensity = defaults.envMapIntensity
-        if (typeof defaults.opacity === 'number' && typeof material.opacity === 'number') material.opacity = defaults.opacity
-        if (typeof defaults.emissiveIntensity === 'number' && typeof material.emissiveIntensity === 'number') material.emissiveIntensity = defaults.emissiveIntensity
+      if (material.color) material.color.copy(intensityColor)
+      if (typeof material.metalness === 'number') material.metalness = settings.metalness
+      if (typeof material.roughness === 'number') material.roughness = settings.roughness
+      if (typeof material.envMapIntensity === 'number') material.envMapIntensity = settings.envMapIntensity
+      if (typeof material.opacity === 'number') material.opacity = settings.opacity
+      if (typeof material.emissiveIntensity === 'number') material.emissiveIntensity = settings.emissiveIntensity
 
-        material.transparent = defaults.transparent
-        material.depthWrite = defaults.depthWrite
-        material.side = defaults.side ?? THREE.FrontSide
-        material.flatShading = defaults.flatShading ?? false
-        material.wireframe = defaults.wireframe ?? false
+      material.transparent = nextTransparent
+      material.depthWrite = settings.depthWrite
+      material.side = nextSide
+      material.flatShading = settings.flatShading
+      material.wireframe = settings.wireframe
 
-        if (material.map && defaults.mapColorSpace) {
-          material.map.colorSpace = defaults.mapColorSpace
+      if (material.map) {
+        const nextColorSpace = settings.textureColorSpace === 'linear' ? THREE.LinearSRGBColorSpace : THREE.SRGBColorSpace
+        if (material.map.colorSpace !== nextColorSpace) {
+          material.map.colorSpace = nextColorSpace
           material.map.needsUpdate = true
         }
+      }
 
+      if (materialProgramChanged) {
         material.needsUpdate = true
-      })
-    }
-  }, [sceneRoot, settings])
-
-  return null
+      }
+    })
+  })
 }
 
 function parseRouteFromHash(hashValue) {
@@ -713,6 +753,33 @@ function LoadingCursor() {
     return () => el.classList.remove('cursor-working')
   }, [gl])
   return null
+}
+
+function LoadingCanvasFallback() {
+  return (
+    <>
+      <LoadingCursor />
+      <Html fullscreen zIndexRange={[1000, 1000]} pointerEvents="none">
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontFamily: MAC_LIGHT_FONT_STACK,
+            fontSize: '12px',
+            color: 'rgba(0,0,0,0.56)',
+            textTransform: 'lowercase',
+            letterSpacing: '0.08em',
+            background: 'rgba(255,255,255,0.18)',
+          }}
+        >
+          loading
+        </div>
+      </Html>
+    </>
+  )
 }
 
 function navigateWithHash(nextHash) {
@@ -1046,27 +1113,32 @@ function EditorControls() {
   )
 }
 
-function HomeScene({ onModelLoaded, onOpenRoom, isCompact = false }) {
+function HomeScene({ onModelLoaded, onOpenRoom, onReady, isCompact = false }) {
   const [homeOccluderRoot, setHomeOccluderRoot] = useState(null)
+  const prepareHomeScene = useCallback((scene) => {
+    applyRoomMaterialOverrides(scene, DEFAULT_ROOM_RENDER_SETTINGS)
+  }, [])
   const handleHomeModelLoaded = useCallback((scene) => {
     setHomeOccluderRoot(scene)
+    const roomIndexes = new Set(DOOR_LINKS.map((door) => door.roomIndex))
+    roomIndexes.forEach(preloadRoomAsset)
     if (onModelLoaded) onModelLoaded(scene)
   }, [onModelLoaded])
 
   return (
     <KeyboardControls map={keyboardMap}>
-      <Canvas camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'inherit', touchAction: isCompact ? 'none' : 'auto' }}>
+      <Canvas gl={CANVAS_GL_OPTIONS} camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'inherit', touchAction: isCompact ? 'none' : 'auto' }}>
         <color attach="background" args={['#fff']} />
-        <Suspense fallback={null}>
+        <Suspense fallback={<LoadingCanvasFallback />}>
           <RendererSettings toneMapping={DEFAULT_ROOM_RENDER_SETTINGS.toneMapping} exposure={DEFAULT_ROOM_RENDER_SETTINGS.exposure} />
-          <Stage environment="city" intensity={DEFAULT_ROOM_RENDER_SETTINGS.environmentIntensity} shadows={false} adjustCamera={false}>
-            <Model url="assets/home.glb" onLoaded={handleHomeModelLoaded}>
+          <Stage environment={null} intensity={DEFAULT_ROOM_RENDER_SETTINGS.environmentIntensity} shadows={false} adjustCamera={false}>
+            <Model url="assets/home.glb" onLoaded={handleHomeModelLoaded} prepareScene={prepareHomeScene}>
               <DoorLinks doors={DOOR_LINKS} onOpenRoom={onOpenRoom} occluderRoot={homeOccluderRoot} />
             </Model>
           </Stage>
-          <RoomMaterialOverrides sceneRoot={homeOccluderRoot} settings={DEFAULT_ROOM_RENDER_SETTINGS} />
           <Controls />
           <CameraReset position={LANDING_CAMERA_POSITION} />
+          <FirstFrameSignal onReady={onReady} />
         </Suspense>
       </Canvas>
     </KeyboardControls>
@@ -1144,9 +1216,9 @@ function CornerPreview({ corners, activeCornerIndex }) {
 
 function HomeEditorScene({ corners, activeCornerIndex, onPickPoint }) {
   return (
-    <Canvas camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'crosshair' }}>
+    <Canvas gl={CANVAS_GL_OPTIONS} camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'crosshair' }}>
       <color attach="background" args={['#fff']} />
-      <Suspense fallback={null}>
+      <Suspense fallback={<LoadingCanvasFallback />}>
         <Stage environment="city" intensity={0.5} shadows={false} adjustCamera={false}>
           <group
             onClick={(event) => {
@@ -1167,7 +1239,7 @@ function HomeEditorScene({ corners, activeCornerIndex, onPickPoint }) {
   )
 }
 
-function CameraReset({ position, target = [0, 0, 0] }) {
+function CameraReset({ position, target = DEFAULT_CAMERA_TARGET }) {
   const camera = useThree((state) => state.camera)
   const controls = useThree((state) => state.controls)
 
@@ -1180,6 +1252,18 @@ function CameraReset({ position, target = [0, 0, 0] }) {
       camera.lookAt(...target)
     }
   }, [camera, controls, position, target])
+
+  return null
+}
+
+function FirstFrameSignal({ onReady }) {
+  const hasSignaledRef = useRef(false)
+
+  useFrame(() => {
+    if (hasSignaledRef.current) return
+    hasSignaledRef.current = true
+    onReady?.()
+  })
 
   return null
 }
@@ -1405,15 +1489,10 @@ function DoorLinks({ doors, onOpenRoom, occluderRoot }) {
   )
 }
 
-function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onOpenNextRoom, isCompact = false }) {
-  const [roomSceneRoot, setRoomSceneRoot] = useState(null)
-  const handleRoomModelLoaded = useCallback((scene) => {
-    setRoomSceneRoot(scene)
+function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onOpenNextRoom, onReady, isCompact = false }) {
+  const prepareRoomScene = useCallback((scene) => {
+    applyRoomMaterialOverrides(scene, DEFAULT_ROOM_RENDER_SETTINGS)
   }, [])
-
-  useEffect(() => {
-    setRoomSceneRoot(null)
-  }, [roomFile])
 
   return (
     <div
@@ -1429,16 +1508,16 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onOpenNextRoom,
       }}
     >
       <KeyboardControls map={keyboardMap}>
-        <Canvas camera={{ position: cameraDefault.position, fov: 47.5 }} style={{ cursor: 'inherit', touchAction: isCompact ? 'none' : 'auto' }}>
+        <Canvas gl={CANVAS_GL_OPTIONS} camera={{ position: cameraDefault.position, fov: 47.5 }} style={{ cursor: 'inherit', touchAction: isCompact ? 'none' : 'auto' }}>
           <color attach="background" args={['#fff']} />
-          <Suspense fallback={<LoadingCursor />}>
+          <Suspense fallback={<LoadingCanvasFallback />}>
             <RendererSettings toneMapping={DEFAULT_ROOM_RENDER_SETTINGS.toneMapping} exposure={DEFAULT_ROOM_RENDER_SETTINGS.exposure} />
-            <Stage environment="studio" intensity={DEFAULT_ROOM_RENDER_SETTINGS.environmentIntensity} shadows={false} adjustCamera={false}>
-              <Model url={`rooms/${roomFile}`} onLoaded={handleRoomModelLoaded} />
+            <Stage environment={null} intensity={DEFAULT_ROOM_RENDER_SETTINGS.environmentIntensity} shadows={false} adjustCamera={false}>
+              <Model url={`rooms/${roomFile}`} prepareScene={prepareRoomScene} />
             </Stage>
-            <RoomMaterialOverrides sceneRoot={roomSceneRoot} settings={DEFAULT_ROOM_RENDER_SETTINGS} />
             <Controls />
             <CameraReset position={cameraDefault.position} target={cameraDefault.target} />
+            <FirstFrameSignal onReady={onReady} />
           </Suspense>
         </Canvas>
       </KeyboardControls>
@@ -1486,6 +1565,37 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onOpenNextRoom,
           style={{ width: isCompact ? '64px' : 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
         />
       </button>
+    </div>
+  )
+}
+
+function SceneTransitionCover({ snapshotUrl }) {
+  if (!snapshotUrl) return null
+
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1000,
+        pointerEvents: 'none',
+        overflow: 'hidden',
+        backgroundColor: '#fff',
+      }}
+    >
+      <img
+        src={snapshotUrl}
+        alt=""
+        draggable="false"
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'block',
+          objectFit: 'cover',
+          userSelect: 'none',
+        }}
+      />
     </div>
   )
 }
@@ -2070,16 +2180,16 @@ function AboutPage({
   }))
   const playerPosRef = useRef(playerPos)
   playerPosRef.current = playerPos
-  const leftColumnWidth = Math.max(212, Math.min(viewport.width * 0.17, 246))
+  const leftColumnWidth = Math.max(188, Math.min(viewport.width * 0.15, 218))
   const leftColumnX = Math.round((aboutWinPos.x + playerPos.x) / 2)
   const aboutWindowTop = aboutWinPos.y + 36
-  const aboutWindowHeight = 197
+  const aboutWindowHeight = 181
   const playerWindowTop = playerPos.y + 36
   const diaryGapStart = aboutWindowTop + aboutWindowHeight + 10
   const diaryGapHeight = Math.max(playerWindowTop - diaryGapStart - 10, 154)
   const diaryHeight = Math.max(154, Math.min(diaryGapHeight, 220))
   const diaryTop = diaryGapStart + Math.max((diaryGapHeight - diaryHeight) / 2, 0)
-  const diaryWidth = Math.max(Math.min(leftColumnWidth - 38, 148), 116)
+  const diaryWidth = Math.max(Math.min(leftColumnWidth - 34, 132), 106)
 
   const makeTitleBarDrag = useCallback((posRef, setPos) => (e) => {
     if (isTouch) return
@@ -2561,7 +2671,7 @@ function AboutPage({
           <img
             src="assets/welcome.webp"
             alt="welcome to my page"
-            style={{ width: '144px', maxWidth: `${leftColumnWidth}px`, height: 'auto', objectFit: 'contain' }}
+            style={{ width: '126px', maxWidth: `${leftColumnWidth}px`, height: 'auto', objectFit: 'contain' }}
           />
         </div>
       )}
@@ -2600,7 +2710,7 @@ function AboutPage({
             </div>
 
             {/* Body */}
-            <div style={{ background: '#f5f5f5', position: 'relative', height: '164px' }}>
+            <div style={{ background: '#f5f5f5', position: 'relative', height: '148px' }}>
               <div
                 ref={editorContentRef}
                 className="classic-textedit-scroll"
@@ -2620,9 +2730,9 @@ function AboutPage({
                   background: 'transparent',
                   color: '#1a1a1a',
                   fontFamily: MAC_LIGHT_FONT_STACK,
-                  fontSize: '11px',
+                  fontSize: '10px',
                   fontWeight: 300,
-                  lineHeight: 1.4,
+                  lineHeight: 1.38,
                   whiteSpace: 'pre-wrap',
                   overflowX: 'hidden',
                   overflowY: 'auto',
@@ -2674,7 +2784,7 @@ function AboutPage({
 
       {/* ── Safety pin (between left col and right stage) ── */}
       {!isFolderView && (
-        <div style={{ position: 'absolute', left: `${leftColumnX + leftColumnWidth + 28}px`, top: '42%', zIndex: 20, pointerEvents: 'none' }}>
+        <div style={{ position: 'absolute', left: `${leftColumnX + leftColumnWidth + 24}px`, top: '42%', zIndex: 20, pointerEvents: 'none' }}>
           <img
             src="assets/safety-pin.gif"
             alt=""
@@ -2698,7 +2808,7 @@ function AboutPage({
             justifyContent: 'center',
           }}
         >
-          <img src="assets/radio.gif" alt="" aria-hidden="true" style={{ width: '48px', height: 'auto', objectFit: 'contain' }} />
+          <img src="assets/radio.gif" alt="" aria-hidden="true" style={{ width: '42px', height: 'auto', objectFit: 'contain' }} />
         </div>
       )}
 
@@ -3747,6 +3857,91 @@ function CursorSparkles() {
   )
 }
 
+function LoadingGlitterOverlay({ active, reducedMotion = false }) {
+  const [sparkles, setSparkles] = useState([])
+  const nextSparkleId = useRef(0)
+  const nextGifIndex = useRef(0)
+  const sparkleTimeouts = useRef([])
+
+  useEffect(() => {
+    if (!active || typeof window === 'undefined') return undefined
+
+    const spawnSparkle = (bandIndex = 0, bandCount = 1) => {
+      const id = nextSparkleId.current++
+      const src = CURSOR_TRAIL_GIFS[nextGifIndex.current % CURSOR_TRAIL_GIFS.length]
+      nextGifIndex.current += 1
+      const edgePadding = 24
+      const availableWidth = Math.max(window.innerWidth - edgePadding * 2, 1)
+      const availableHeight = Math.max(window.innerHeight - edgePadding * 2, 1)
+      const bandWidth = availableWidth / Math.max(bandCount, 1)
+      const x = edgePadding + bandWidth * bandIndex + Math.random() * bandWidth
+      const y = edgePadding + Math.random() * availableHeight
+      const size = 22 + Math.random() * 42
+      const rotation = -24 + Math.random() * 48
+
+      setSparkles((current) => [...current.slice(-LOADING_SPARKLE_MAX_COUNT), { id, x, y, src, size, rotation }])
+      const timeoutId = window.setTimeout(() => {
+        setSparkles((current) => current.filter((sparkle) => sparkle.id !== id))
+      }, LOADING_SPARKLE_LIFETIME_MS)
+      sparkleTimeouts.current.push(timeoutId)
+    }
+
+    const spawnBurst = () => {
+      const count = reducedMotion ? 6 : LOADING_SPARKLE_BURST_COUNT
+      for (let index = 0; index < count; index += 1) {
+        spawnSparkle(index, count)
+      }
+    }
+
+    const initialWaveCount = reducedMotion ? 4 : LOADING_SPARKLE_INITIAL_WAVES
+    for (let waveIndex = 0; waveIndex < initialWaveCount; waveIndex += 1) {
+      const timeoutId = window.setTimeout(spawnBurst, waveIndex * 32 + Math.random() * 26)
+      sparkleTimeouts.current.push(timeoutId)
+    }
+    const intervalId = window.setInterval(spawnBurst, reducedMotion ? 150 : LOADING_SPARKLE_INTERVAL_MS)
+
+    return () => {
+      window.clearInterval(intervalId)
+      sparkleTimeouts.current.forEach((timeoutId) => window.clearTimeout(timeoutId))
+      sparkleTimeouts.current = []
+      setSparkles([])
+    }
+  }, [active, reducedMotion])
+
+  if (!active) return null
+
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 2147483646,
+        pointerEvents: 'none',
+        overflow: 'hidden',
+      }}
+    >
+      {sparkles.map((sparkle) => (
+        <img
+          key={sparkle.id}
+          src={sparkle.src}
+          alt=""
+          style={{
+            position: 'absolute',
+            left: `${sparkle.x}px`,
+            top: `${sparkle.y}px`,
+            width: `${sparkle.size}px`,
+            height: `${sparkle.size}px`,
+            transform: `translate(-50%, -50%) rotate(${sparkle.rotation}deg)`,
+            objectFit: 'contain',
+            userSelect: 'none',
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
 export default function App() {
   const responsive = useResponsiveShell()
   const {
@@ -3770,6 +3965,9 @@ export default function App() {
   const [activeEditorCorner, setActiveEditorCorner] = useState(0)
   const [snapshotLabel, setSnapshotLabel] = useState('')
   const [savedSnapshots, setSavedSnapshots] = useState([])
+  const pendingRoomNavigationRef = useRef(0)
+  const [transitionSnapshotUrl, setTransitionSnapshotUrl] = useState(null)
+  const [isSceneTransitioning, setIsSceneTransitioning] = useState(false)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -3858,6 +4056,17 @@ export default function App() {
 
   useEffect(() => {
     useGLTF.preload('assets/home.glb')
+    const sparkleAssets = [...CURSOR_TRAIL_GIFS, CURSOR_CLICK_GIF]
+    sparkleAssets.forEach((src) => {
+      const image = new Image()
+      image.src = src
+    })
+
+    const cancelIdlePreload = runWhenIdle(() => {
+      ROOM_FILES.forEach((_, roomIndex) => preloadRoomAsset(roomIndex))
+    })
+
+    return cancelIdlePreload
   }, [])
 
   useEffect(() => {
@@ -3880,22 +4089,41 @@ export default function App() {
     document.documentElement.style.setProperty('--app-hover-cursor', HOVER_KEY_CURSOR)
   }, [isTouch, route.type])
 
-  const openRoom = useCallback((roomNumber) => {
-    preloadRoomAsset(roomNumber - 1)
-    navigateWithHash(`#${ROOM_HASH_PREFIX}${roomNumber}`)
+  const clearTransitionCover = useCallback(() => {
+    setTransitionSnapshotUrl(null)
+    setIsSceneTransitioning(false)
   }, [])
 
-  const openNextRoom = useCallback((roomNumber) => {
-    const nextRoomNumber = roomNumber >= ROOM_FILES.length ? 1 : roomNumber + 1
-    preloadRoomAsset(nextRoomNumber - 1)
-    navigateWithHash(`#${ROOM_HASH_PREFIX}${nextRoomNumber}`)
+  const beginSceneTransition = useCallback(() => {
+    setIsSceneTransitioning(true)
+    setTransitionSnapshotUrl(captureCurrentCanvasFrame())
   }, [])
+
+  const openRoom = useCallback(async (roomNumber) => {
+    const navigationId = pendingRoomNavigationRef.current + 1
+    pendingRoomNavigationRef.current = navigationId
+    beginSceneTransition()
+    await waitForRoomAsset(roomNumber - 1)
+    if (pendingRoomNavigationRef.current !== navigationId) return
+    navigateWithHash(`#${ROOM_HASH_PREFIX}${roomNumber}`)
+  }, [beginSceneTransition])
+
+  const openNextRoom = useCallback(async (roomNumber) => {
+    const nextRoomNumber = roomNumber >= ROOM_FILES.length ? 1 : roomNumber + 1
+    const navigationId = pendingRoomNavigationRef.current + 1
+    pendingRoomNavigationRef.current = navigationId
+    beginSceneTransition()
+    await waitForRoomAsset(nextRoomNumber - 1)
+    if (pendingRoomNavigationRef.current !== navigationId) return
+    navigateWithHash(`#${ROOM_HASH_PREFIX}${nextRoomNumber}`)
+  }, [beginSceneTransition])
 
   const closeRoom = useCallback(() => {
     setIsPreviewOpen(false)
     setHasOpenedPreview(true)
+    beginSceneTransition()
     navigateWithHash(HOME_HASH)
-  }, [])
+  }, [beginSceneTransition])
 
   const openAbout = useCallback(() => {
     setAboutBrowserHistory((current) => {
@@ -4017,6 +4245,12 @@ export default function App() {
     null,
     2,
   )
+  const sceneTransitionLayer = (
+    <>
+      <SceneTransitionCover snapshotUrl={transitionSnapshotUrl} />
+      <LoadingGlitterOverlay active={isSceneTransitioning} reducedMotion={prefersReducedMotion} />
+    </>
+  )
 
   if (route.type === 'room') {
     const roomNumber = route.roomIndex + 1
@@ -4030,8 +4264,10 @@ export default function App() {
           cameraDefault={ROOM_CAMERA_DEFAULTS[route.roomIndex]}
           onBack={closeRoom}
           onOpenNextRoom={() => openNextRoom(roomNumber)}
+          onReady={clearTransitionCover}
           isCompact={isCompact}
         />
+        {sceneTransitionLayer}
       </>
     )
   }
@@ -4054,6 +4290,7 @@ export default function App() {
           isCompact={isCompact}
           isTouch={isTouch}
         />
+        {sceneTransitionLayer}
         {!isTouch && !prefersReducedMotion && <CursorSparkles />}
       </>
     )
@@ -4078,6 +4315,7 @@ export default function App() {
           isCompact={isCompact}
           isTouch={isTouch}
         />
+        {sceneTransitionLayer}
         {!isTouch && !prefersReducedMotion && <CursorSparkles />}
       </>
     )
@@ -4344,7 +4582,12 @@ export default function App() {
         }}
         aria-hidden={!(isCompact || (hasOpenedPreview && !isPreviewOpen))}
       >
-        <HomeScene onModelLoaded={undefined} onOpenRoom={openRoom} isCompact={isCompact} />
+        <HomeScene
+          onModelLoaded={undefined}
+          onOpenRoom={openRoom}
+          onReady={clearTransitionCover}
+          isCompact={isCompact}
+        />
       </div>
 
       <div
@@ -4404,6 +4647,7 @@ export default function App() {
         <PreviewLauncher onOpen={openPreview} isTouch={isTouch} isCompact={isCompact} />
       )}
       {isPreviewOpen && <ProjectPreviewWindow onClose={closePreview} isCompact={isCompact} isTouch={isTouch} />}
+      {sceneTransitionLayer}
     </div>
   )
 }
