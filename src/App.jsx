@@ -47,6 +47,7 @@ const HOME_EDITOR_ENABLED = false
 const ABOUT_HASH = '#about'
 const ROOM_HASH_PREFIX = 'room-'
 const FOLDER_HASH_PREFIX = 'folder-'
+const FOLDER_LIGHTBOX_HASH_SEGMENT = 'image'
 const MAC_LIGHT_FONT_STACK = "'Helvetica', Arial, sans-serif"
 const ARIAL_FONT_STACK = 'Arial, Helvetica, sans-serif'
 const HOME_PREVIEW_VIDEO = 'assets/shelestvetrovki-scan-web.mp4'
@@ -113,26 +114,55 @@ const DIARY_PHOTOS = Object.entries(DIARY_PHOTO_MODULES)
       label: stem.replace(/_/g, ' '),
     }
   })
-const EXHIBITION_IMAGE_MODULES = import.meta.glob('../target/exhibitions/**/*.{jpeg,jpg,png,webp,JPEG,JPG,PNG,WEBP}', { eager: true, import: 'default' })
+const EXHIBITION_IMAGE_MODULES = import.meta.glob('../target/exhibitions/**/*.{jpeg,jpg,jpg_,png,webp,JPEG,JPG,PNG,WEBP}', { eager: true, query: '?url', import: 'default' })
 const EXHIBITIONS = [
+  {
+    id: 'women-by-women',
+    title: 'Women by Women',
+    year: '2026',
+    venue: 'PhotoVogue',
+    location: 'Biblioteca Nazionale Braidense, Milan, Italy',
+    description: [
+      'Panel talk and group show at the 10th edition of PhotoVogue Festival.',
+    ],
+    links: [],
+    imageFolder: 'Women on Women',
+  },
   {
     id: 'bed-doesnt-ask-questions',
     title: "Bed doesn't ask questions",
     year: '2025',
     venue: 'Festival Panoramic',
     location: 'Barcelona, Spain',
-    medium: '6x3m digital print',
-    artists: 'Chantal Akerman · Anne Glassner · Naked Space · shelestvetrovki',
-    curators: 'Estela Ortiz & Juan Evaristo Valls Boix',
     description: [
-      'The exhibition reflects on rest, centering on the bed and the private room, taking Chantal Akerman’s La chambre as its point of departure.',
-      'Through a dialogue between artistic works and memetic expressions from recent years, this group show explores which bodies have access to rest and highlights the public dimension of practices that, at first glance, appear to be private.',
-      'In the contemporary world, the imperatives of work infiltrate our beds and encroach upon our intimacy, while idleness and pause too often remain privileges accessible to only a few. For this reason, a sleeping body today stands as a radical image of freedom, yet also the most elusive: the embrace of time without purpose.',
+      'Group show curated by Estela Ortiz and Juan Evaristo Valls Boix.',
     ],
     links: [
-      { url: 'https://festivalpanoramic.cat/en/project/panoramic-review-2025/', label: 'Festival Panoramic — Panoramic Review 2025' },
+      { url: 'https://festivalpanoramic.cat/en/project/panoramic-review-2025/', label: 'Festival Panoramic' },
     ],
     imageFolder: 'Bed Doesn_t Ask Questions - Panoramic Photo Festival Barcelona',
+  },
+  {
+    id: 'spilkaparis-local-group',
+    title: 'SpilkaParis x Local Group',
+    year: '2025',
+    venue: 'Kolektiv Radieuse',
+    location: "Le Corbusier's Cite Radieuse, Marseille, France",
+    description: [
+      'Group project with Local Group at Kolektiv Radieuse.',
+    ],
+    links: [],
+  },
+  {
+    id: 'localstickerbook-domicile',
+    title: 'Localstickerbook, Films fundraiser',
+    year: '2024',
+    venue: 'Domicile Gallery',
+    location: 'Tokyo, Japan',
+    description: [
+      'Films fundraiser and screening with Localstickerbook.',
+    ],
+    links: [],
   },
   {
     id: 'mom-post-internet-is-not-a-phase',
@@ -140,14 +170,55 @@ const EXHIBITIONS = [
     year: '2024',
     venue: 'Okay Initiative Space',
     location: 'Athens, Greece',
-    curators: 'Yan Tashtoush',
     description: [
-      '"Mom, post-internet is not a phase ;(" is a group exhibition exploring the shifting relationship between humans and our digital landscapes amidst visceral cry against the erasure of lives, bombed-out cities and abandoned homes in a global apathy that watches wars unfold, as entire populations are reduced to digital fragments, while the cries for justice are drowned by the endless cycle of "click, scroll, refresh."',
+      'Group exhibition curated by Yan Tashtoush.',
     ],
-    links: [
-      { url: 'https://www.kubaparis.com/submission/469655', label: 'Kuba Paris' },
-    ],
+    links: [],
     imageFolder: 'MOM, POST-INTERNET IS NOT A PHASE _(',
+  },
+  {
+    id: 'book-exhibition-untitled-space',
+    title: 'Book Exhibition',
+    year: '2024',
+    venue: 'UNTITLED SPACE',
+    location: 'Tokyo, Japan',
+    description: [
+      'Book exhibition in Tokyo.',
+    ],
+    links: [],
+  },
+  {
+    id: 'localstickerbook-datsuijo',
+    title: 'Localstickerbook, Films Fundraiser',
+    year: '2024',
+    venue: 'Datsuijo Gallery',
+    location: 'Tokyo, Japan',
+    description: [
+      'Films fundraiser with Localstickerbook.',
+    ],
+    links: [],
+  },
+  {
+    id: 'bezzvuchnodohlukhoty',
+    title: 'bezzvuchnodohlukhoty',
+    year: '2023',
+    venue: 'National Academy of Fine Arts',
+    location: 'Kyiv, Ukraine',
+    description: [
+      'Group exhibition at the National Academy of Fine Arts.',
+    ],
+    links: [],
+  },
+  {
+    id: 'tama-art-university-installation',
+    title: 'Multimedia interactive installation',
+    year: '2023',
+    venue: 'Tama Art University',
+    location: 'Tokyo, Japan',
+    description: [
+      'Multimedia interactive installation presented at Tama Art University.',
+    ],
+    links: [],
   },
 ]
 const EXHIBITION_IMAGES_BY_FOLDER = Object.entries(EXHIBITION_IMAGE_MODULES).reduce((collection, [path, src], index) => {
@@ -725,9 +796,16 @@ function parseRouteFromHash(hashValue) {
   }
 
   if (normalized.startsWith(FOLDER_HASH_PREFIX)) {
-    const folderId = normalized.slice(FOLDER_HASH_PREFIX.length)
+    const folderPath = normalized.slice(FOLDER_HASH_PREFIX.length)
+    const [folderId, folderDetailId, lightboxSegment, imageIndexValue] = folderPath.split('/')
     if (FOLDER_MAP.has(folderId)) {
-      return { type: 'folder', folderId }
+      const folderImageIndex = lightboxSegment === FOLDER_LIGHTBOX_HASH_SEGMENT ? Number(imageIndexValue) : null
+      return {
+        type: 'folder',
+        folderId,
+        folderDetailId: folderDetailId || null,
+        folderImageIndex: Number.isInteger(folderImageIndex) && folderImageIndex >= 0 ? folderImageIndex : null,
+      }
     }
   }
 
@@ -784,9 +862,31 @@ function navigateWithHash(nextHash) {
   window.location.hash = nextHash
 }
 
-function getAboutAddress(folderId, tabId = 'about') {
+function getFolderRouteKey(folderId, folderDetailId = null, folderImageIndex = null) {
+  if (!folderId) return ABOUT_HOME_TAB.id
+  const routeParts = [folderId]
+  if (folderDetailId) routeParts.push(folderDetailId)
+  if (folderDetailId && folderImageIndex != null) routeParts.push(FOLDER_LIGHTBOX_HASH_SEGMENT, String(folderImageIndex))
+  return routeParts.join('/')
+}
+
+function getFolderRouteParts(entryId) {
+  if (!entryId || entryId === ABOUT_HOME_TAB.id) return { folderId: null, folderDetailId: null, folderImageIndex: null }
+  const [folderId, folderDetailId, lightboxSegment, imageIndexValue] = String(entryId).split('/')
+  const folderImageIndex = lightboxSegment === FOLDER_LIGHTBOX_HASH_SEGMENT ? Number(imageIndexValue) : null
+  return {
+    folderId,
+    folderDetailId: folderDetailId || null,
+    folderImageIndex: Number.isInteger(folderImageIndex) && folderImageIndex >= 0 ? folderImageIndex : null,
+  }
+}
+
+function getAboutAddress(folderId, tabId = 'about', folderDetailId = null, folderImageIndex = null) {
   if (folderId && FOLDER_MAP.has(folderId)) {
-    return `${ABOUT_BASE_URL}${folderId}`
+    const pathParts = [folderId]
+    if (folderDetailId) pathParts.push(folderDetailId)
+    if (folderDetailId && folderImageIndex != null) pathParts.push(FOLDER_LIGHTBOX_HASH_SEGMENT, String(folderImageIndex))
+    return `${ABOUT_BASE_URL}${pathParts.join('/')}`
   }
 
   if (tabId === ABOUT_HOME_TAB.id) {
@@ -809,15 +909,18 @@ function getAboutTabId(folderId) {
 
 function getAboutHistoryEntry(route) {
   if (route?.type === 'folder' && route.folderId && FOLDER_MAP.has(route.folderId)) {
-    return route.folderId
+    return getFolderRouteKey(route.folderId, route.folderDetailId, route.folderImageIndex)
   }
 
   return ABOUT_HOME_TAB.id
 }
 
 function getHashForAboutHistoryEntry(entryId) {
-  if (entryId && entryId !== ABOUT_HOME_TAB.id && FOLDER_MAP.has(entryId)) {
-    return `#${FOLDER_HASH_PREFIX}${entryId}`
+  if (entryId && entryId !== ABOUT_HOME_TAB.id) {
+    const { folderId } = getFolderRouteParts(entryId)
+    if (folderId && FOLDER_MAP.has(folderId)) {
+      return `#${FOLDER_HASH_PREFIX}${entryId}`
+    }
   }
 
   return ABOUT_HASH
@@ -1994,6 +2097,8 @@ function AboutPage({
   canBrowserGoBack = false,
   canBrowserGoForward = false,
   activeFolderId = null,
+  activeFolderDetailId = null,
+  activeFolderImageIndex = null,
   openedFolderIds = [],
   onRememberFolderOpen,
   isTouch = false,
@@ -2007,7 +2112,7 @@ function AboutPage({
     height: typeof window !== 'undefined' ? window.innerHeight : 900,
   }))
   const [activeBrowserTab, setActiveBrowserTab] = useState(getAboutTabId(activeFolderId))
-  const [browserAddress, setBrowserAddress] = useState(() => getAboutAddress(activeFolderId, getAboutTabId(activeFolderId)))
+  const [browserAddress, setBrowserAddress] = useState(() => getAboutAddress(activeFolderId, getAboutTabId(activeFolderId), activeFolderDetailId, activeFolderImageIndex))
 
   const folderArcLayout = [
     { id: 'performance', left: '22%', top: '62%' },
@@ -2149,8 +2254,8 @@ function AboutPage({
   useEffect(() => {
     const nextTab = getAboutTabId(activeFolderId)
     setActiveBrowserTab(nextTab)
-    setBrowserAddress(getAboutAddress(activeFolderId, nextTab))
-  }, [activeFolderId])
+    setBrowserAddress(getAboutAddress(activeFolderId, nextTab, activeFolderDetailId, activeFolderImageIndex))
+  }, [activeFolderDetailId, activeFolderId, activeFolderImageIndex])
 
   useEffect(() => {
     if (!activeFolderId || !FOLDER_MAP.has(activeFolderId)) return
@@ -2193,6 +2298,13 @@ function AboutPage({
     setActiveBrowserTab(getAboutTabId(folderId))
     setBrowserAddress(getAboutAddress(folderId, getAboutTabId(folderId)))
     onOpenFolder(folderId)
+  }, [onOpenFolder, onRememberFolderOpen])
+
+  const handleFolderRouteOpen = useCallback((folderId, folderDetailId = null, folderImageIndex = null) => {
+    onRememberFolderOpen?.(folderId)
+    setActiveBrowserTab(getAboutTabId(folderId))
+    setBrowserAddress(getAboutAddress(folderId, getAboutTabId(folderId), folderDetailId, folderImageIndex))
+    onOpenFolder(folderId, folderDetailId, folderImageIndex)
   }, [onOpenFolder, onRememberFolderOpen])
 
   const handleFolderClick = useCallback((folderId, e) => {
@@ -2524,7 +2636,12 @@ function AboutPage({
               overflow: 'hidden',
             }}
           >
-            <AboutFolderContent folder={activeFolder} />
+            <AboutFolderContent
+              folder={activeFolder}
+              activeFolderDetailId={activeFolderDetailId}
+              activeFolderImageIndex={activeFolderImageIndex}
+              onOpenFolderRoute={handleFolderRouteOpen}
+            />
           </div>
         )}
 
@@ -2587,7 +2704,12 @@ function AboutPage({
   )
 }
 
-function AboutFolderContent({ folder }) {
+function AboutFolderContent({
+  folder,
+  activeFolderDetailId = null,
+  activeFolderImageIndex = null,
+  onOpenFolderRoute,
+}) {
   const plainPageStyle = {
     width: '100%',
     height: '100%',
@@ -2610,6 +2732,14 @@ function AboutFolderContent({ folder }) {
     fontWeight: 700,
     textTransform: 'uppercase',
   }
+  const selectedExhibition = activeFolderDetailId
+    ? EXHIBITIONS.find((exhibition) => exhibition.id === activeFolderDetailId) ?? null
+    : null
+  const getExhibitionDescription = (exhibition) => {
+    const descriptionText = exhibition.description?.[0] ?? ''
+    const placeText = [exhibition.venue, exhibition.location].filter(Boolean).join(', ')
+    return [descriptionText, placeText].filter(Boolean).join(' ')
+  }
 
   if (folder.id === 'submit-room') {
     return (
@@ -2623,66 +2753,235 @@ function AboutFolderContent({ folder }) {
   }
 
   if (folder.id === 'exhibitions') {
+    if (selectedExhibition) {
+      const images = EXHIBITION_IMAGES_BY_FOLDER.get(selectedExhibition.imageFolder) ?? []
+      const openLightbox = (imageIndex) => onOpenFolderRoute?.(folder.id, selectedExhibition.id, imageIndex)
+      const activeLightboxImage = activeFolderImageIndex != null && images.length > 0
+        ? images[activeFolderImageIndex % images.length]
+        : null
+      const showNextLightboxImage = () => {
+        if (images.length === 0) return
+        onOpenFolderRoute?.(folder.id, selectedExhibition.id, ((activeFolderImageIndex ?? 0) + 1) % images.length)
+      }
+
+      return (
+        <div style={{ ...plainPageStyle, position: 'relative', textAlign: 'center', lineHeight: 1.75 }}>
+          <p style={{ margin: '0 0 16px' }}>
+            <button
+              type="button"
+              onClick={() => onOpenFolderRoute?.(folder.id)}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                padding: 0,
+                font: 'inherit',
+                color: '#00e',
+                textDecoration: 'underline',
+              }}
+            >
+              back to exhibitions
+            </button>
+          </p>
+
+          <h1 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 700 }}>{selectedExhibition.title}</h1>
+          <p style={{ margin: '0 0 8px' }}>{selectedExhibition.year}</p>
+          <p style={{ margin: '0 auto 10px', maxWidth: '58ch' }}>
+            {getExhibitionDescription(selectedExhibition)}
+          </p>
+
+          {selectedExhibition.links?.length > 0 && (
+            <div style={{ margin: '0 0 18px' }}>
+              {selectedExhibition.links.map((link) => (
+                <React.Fragment key={link.url}>
+                  <a
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="about-folder-link"
+                    style={plainLinkStyle}
+                  >
+                    {link.label}
+                  </a>
+                  <br />
+                </React.Fragment>
+              ))}
+            </div>
+          )}
+
+          {images.map((image, imageIndex) => (
+            <figure key={image.src} style={{ margin: '14px 0' }}>
+              <button
+                type="button"
+                onClick={() => openLightbox(imageIndex)}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  padding: 0,
+                  display: 'block',
+                  margin: '0 auto',
+                  textAlign: 'center',
+                }}
+              >
+                <img
+                  src={image.src}
+                  alt={image.alt}
+                  loading="lazy"
+                  decoding="async"
+                  style={{
+                    display: 'block',
+                    width: 'min(100%, 620px)',
+                    height: 'auto',
+                    margin: '0 auto',
+                  }}
+                />
+              </button>
+              <figcaption style={{ marginTop: '4px' }}>{image.alt}</figcaption>
+            </figure>
+          ))}
+
+          {activeLightboxImage && (
+            <div
+              role="button"
+              tabIndex={0}
+              aria-label="Next exhibition image"
+              onClick={() => {
+                showNextLightboxImage()
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return
+                event.preventDefault()
+                showNextLightboxImage()
+              }}
+              style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 10000,
+                background: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '24px',
+                boxSizing: 'border-box',
+              }}
+            >
+              <button
+                type="button"
+                aria-label="Close fullscreen image"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onOpenFolderRoute?.(folder.id, selectedExhibition.id)
+                }}
+                style={{
+                  position: 'fixed',
+                  top: '88px',
+                  right: '16px',
+                  zIndex: 10001,
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#ff0000',
+                  font: '700 46px Arial, Helvetica, sans-serif',
+                  lineHeight: 1,
+                  padding: '6px 10px',
+                }}
+              >
+                X
+              </button>
+              <img
+                src={activeLightboxImage.src}
+                alt={activeLightboxImage.alt}
+                style={{
+                  display: 'block',
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  objectFit: 'contain',
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )
+    }
+
     return (
       <div
-        style={plainPageStyle}
+        style={{ ...plainPageStyle, textAlign: 'center', lineHeight: 1.75 }}
       >
-        <h1 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: 700 }}>Exhibitions</h1>
-        <p style={{ margin: '0 0 18px' }}>Selected group exhibitions, installation views, and exhibition texts.</p>
-
-        {EXHIBITIONS.map((exhibition) => {
+        {EXHIBITIONS.map((exhibition, exhibitionIndex) => {
           const images = EXHIBITION_IMAGES_BY_FOLDER.get(exhibition.imageFolder) ?? []
+          const previewImage = images[0] ?? null
 
           return (
-            <section key={exhibition.id} style={{ margin: '0 0 28px' }}>
-              <h2 style={plainHeadingStyle}>{exhibition.title}</h2>
-              <p style={{ margin: '0 0 8px' }}>
-                {[exhibition.year, exhibition.venue, exhibition.location].filter(Boolean).join(' / ')}
-                {exhibition.medium ? <><br />{exhibition.medium}</> : null}
-                {exhibition.artists ? <><br />{exhibition.artists}</> : null}
-                {exhibition.curators ? <><br />Curated by {exhibition.curators}</> : null}
-              </p>
-
-              {exhibition.description.map((paragraph) => (
-                <p key={paragraph} style={{ margin: '0 0 10px', maxWidth: '86ch' }}>
-                  {paragraph}
-                </p>
-              ))}
-
-              {exhibition.links?.length > 0 && (
-                <ul style={{ margin: '8px 0 14px', paddingLeft: '22px' }}>
-                  {exhibition.links.map((link) => (
-                    <li key={link.url}>
-                      <a
-                        href={link.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="about-folder-link"
-                        style={plainLinkStyle}
-                      >
-                        {link.label}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
+            <section key={exhibition.id} style={{ margin: '0 0 56px' }}>
+              {exhibitionIndex > 0 && (
+                <div aria-hidden="true" style={{ margin: '0 0 30px' }}>
+                  ⋆ ˚｡⋆୨୧˚ ✿ ˚୨୧⋆｡˚ ⋆
+                </div>
               )}
+              <h2 style={{ ...plainHeadingStyle, margin: '0 0 14px', fontSize: '22px', fontStyle: 'italic', lineHeight: 1.55, textTransform: 'none' }}>{exhibition.title}</h2>
+              <p style={{ margin: '0 0 8px' }}>{exhibition.year}</p>
+              <p style={{ margin: '0 auto 10px', maxWidth: '54ch' }}>{getExhibitionDescription(exhibition)}</p>
 
-              <div>
-                {images.map((image) => (
-                  <figure key={image.src} style={{ margin: '14px 0' }}>
+              {previewImage && (
+                <button
+                  type="button"
+                  onClick={() => onOpenFolderRoute?.(folder.id, exhibition.id)}
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    padding: 0,
+                    display: 'block',
+                    margin: '0 auto',
+                    textAlign: 'center',
+                  }}
+                >
+                  <figure style={{ margin: '0 0 8px' }}>
                     <img
-                      src={image.src}
-                      alt={image.alt}
+                      src={previewImage.src}
+                      alt={previewImage.alt}
                       loading="lazy"
                       decoding="async"
                       style={{
                         display: 'block',
-                        width: 'min(100%, 620px)',
+                        width: 'min(100%, 260px)',
+                        maxHeight: '220px',
                         height: 'auto',
+                        margin: '0 auto',
+                        objectFit: 'contain',
                       }}
                     />
-                    <figcaption style={{ marginTop: '4px' }}>{image.alt}</figcaption>
+                    <figcaption style={{ marginTop: '4px' }}>{previewImage.alt}</figcaption>
                   </figure>
+                </button>
+              )}
+
+              <div>
+                <button
+                  type="button"
+                  onClick={() => onOpenFolderRoute?.(folder.id, exhibition.id)}
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    padding: 0,
+                    font: 'inherit',
+                    color: '#00e',
+                    textDecoration: 'underline',
+                  }}
+                >
+                  more photos / more info
+                </button>
+                {exhibition.links?.slice(0, 2).map((link) => (
+                  <React.Fragment key={link.url}>
+                    <br />
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="about-folder-link"
+                      style={plainLinkStyle}
+                    >
+                      {link.label}
+                    </a>
+                  </React.Fragment>
                 ))}
               </div>
             </section>
@@ -3305,7 +3604,19 @@ export default function App() {
     }
 
     const syncFromHash = () => {
-      setRoute(parseRouteFromHash(window.location.hash))
+      const nextRoute = parseRouteFromHash(window.location.hash)
+      setRoute(nextRoute)
+      if (nextRoute.type === 'about' || nextRoute.type === 'folder') {
+        const nextEntry = getAboutHistoryEntry(nextRoute)
+        setAboutBrowserHistory((current) => {
+          if (current.entries[current.index] === nextEntry) return current
+          const existingIndex = current.entries.lastIndexOf(nextEntry)
+          if (existingIndex >= 0) return { ...current, index: existingIndex }
+          const nextEntries = current.entries.slice(0, current.index + 1)
+          nextEntries.push(nextEntry)
+          return { entries: nextEntries, index: nextEntries.length - 1 }
+        })
+      }
     }
 
     syncFromHash()
@@ -3400,14 +3711,15 @@ export default function App() {
     navigateWithHash(HOME_HASH)
   }, [])
 
-  const openFolder = useCallback((folderId) => {
+  const openFolder = useCallback((folderId, folderDetailId = null, folderImageIndex = null) => {
     setAboutBrowserHistory((current) => {
-      if (!folderId || !FOLDER_MAP.has(folderId) || current.entries[current.index] === folderId) return current
+      const nextEntry = getFolderRouteKey(folderId, folderDetailId, folderImageIndex)
+      if (!folderId || !FOLDER_MAP.has(folderId) || current.entries[current.index] === nextEntry) return current
       const nextEntries = current.entries.slice(0, current.index + 1)
-      nextEntries.push(folderId)
+      nextEntries.push(nextEntry)
       return { entries: nextEntries, index: nextEntries.length - 1 }
     })
-    navigateWithHash(`#${FOLDER_HASH_PREFIX}${folderId}`)
+    navigateWithHash(getHashForAboutHistoryEntry(getFolderRouteKey(folderId, folderDetailId, folderImageIndex)))
   }, [])
 
   const rememberAboutFolderOpen = useCallback((folderId) => {
@@ -3567,6 +3879,8 @@ export default function App() {
           canBrowserGoBack={aboutBrowserHistory.index > 0}
           canBrowserGoForward={aboutBrowserHistory.index < aboutBrowserHistory.entries.length - 1}
           activeFolderId={route.folderId}
+          activeFolderDetailId={route.folderDetailId}
+          activeFolderImageIndex={route.folderImageIndex}
           openedFolderIds={openedAboutFolderIds}
           onRememberFolderOpen={rememberAboutFolderOpen}
           isTouch={isTouch}
