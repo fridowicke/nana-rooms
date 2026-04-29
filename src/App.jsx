@@ -82,7 +82,6 @@ const LOADING_SPARKLE_INTERVAL_MS = 42
 const LOADING_SPARKLE_BURST_COUNT = 18
 const LOADING_SPARKLE_MAX_COUNT = 420
 const LOADING_SPARKLE_INITIAL_WAVES = 14
-const COMPACT_BREAKPOINT = 900
 const HOME_HEADER_TOP = 24
 const PREVIEW_WINDOW_TOP = 190
 const DOOR_OCCLUSION_CLEARANCE = 0.04
@@ -350,7 +349,6 @@ const HOVER_KEY_CURSOR = buildCursorValue(HOVER_KEY_CURSOR_URL, 'pointer', HOVER
 const DEFAULT_RESPONSIVE_STATE = {
   viewportWidth: 1440,
   viewportHeight: 900,
-  isCompact: false,
   isTouch: false,
   prefersReducedMotion: false,
 }
@@ -382,7 +380,6 @@ function readResponsiveState() {
   return {
     viewportWidth: window.innerWidth,
     viewportHeight: window.innerHeight,
-    isCompact: window.innerWidth < COMPACT_BREAKPOINT,
     isTouch: coarsePointerQuery.matches,
     prefersReducedMotion: reducedMotionQuery.matches,
   }
@@ -400,7 +397,6 @@ function useResponsiveShell() {
       setResponsiveState({
         viewportWidth: window.innerWidth,
         viewportHeight: window.innerHeight,
-        isCompact: window.innerWidth < COMPACT_BREAKPOINT,
         isTouch: coarsePointerQuery.matches,
         prefersReducedMotion: reducedMotionQuery.matches,
       })
@@ -837,7 +833,6 @@ function AboutBrowserChrome({
   onReload,
   canGoBack,
   canGoForward,
-  isCompact = false,
 }) {
   const navButtons = [
     { id: 'back', label: '<', onClick: onBack, disabled: !canGoBack },
@@ -849,7 +844,7 @@ function AboutBrowserChrome({
     <div
       style={{
         width: '100%',
-        padding: isCompact ? 'calc(8px + env(safe-area-inset-top)) 12px 10px' : '6px 10px 8px',
+        padding: '6px 10px 8px',
         background: 'linear-gradient(180deg, #efefef 0%, #cfcfcf 58%, #bcbcbc 100%)',
         borderBottom: '1px solid #8f8f8f',
         boxSizing: 'border-box',
@@ -861,9 +856,9 @@ function AboutBrowserChrome({
           display: 'flex',
           alignItems: 'flex-end',
           gap: '4px',
-          overflowX: isCompact ? 'auto' : 'hidden',
+          overflowX: 'hidden',
           overflowY: 'hidden',
-          paddingBottom: isCompact ? '2px' : 0,
+          paddingBottom: 0,
           scrollbarWidth: 'none',
         }}
       >
@@ -887,7 +882,7 @@ function AboutBrowserChrome({
                   ? 'inset 0 1px 0 rgba(255,255,255,0.95)'
                   : 'inset 0 1px 0 rgba(255,255,255,0.45)',
                 color: '#222',
-                padding: isCompact ? '5px 11px 6px' : '4px 10px 5px',
+                padding: '4px 10px 5px',
                 fontFamily: MAC_LIGHT_FONT_STACK,
                 fontSize: '11px',
                 fontWeight: 400,
@@ -907,11 +902,11 @@ function AboutBrowserChrome({
           marginTop: '-1px',
           border: '1px solid #8c8c8c',
           background: 'linear-gradient(180deg, #f8f8f8 0%, #d8d8d8 100%)',
-          padding: isCompact ? '8px 10px' : '5px 8px',
+          padding: '5px 8px',
           display: 'flex',
           alignItems: 'center',
-          gap: isCompact ? '10px' : '8px',
-          flexWrap: isCompact ? 'wrap' : 'nowrap',
+          gap: '8px',
+          flexWrap: 'nowrap',
           boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.95)',
         }}
       >
@@ -924,8 +919,8 @@ function AboutBrowserChrome({
               disabled={button.disabled}
               aria-label={button.id}
               style={{
-                width: isCompact ? '24px' : '18px',
-                height: isCompact ? '24px' : '18px',
+                width: '18px',
+                height: '18px',
                 borderRadius: '50%',
                 border: '1px solid #8e8e8e',
                 background: 'linear-gradient(180deg, #fbfbfb 0%, #cfcfcf 100%)',
@@ -933,7 +928,7 @@ function AboutBrowserChrome({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: isCompact ? '11px' : '10px',
+                fontSize: '10px',
                 lineHeight: 1,
                 opacity: button.disabled ? 0.55 : 1,
                 cursor: button.disabled ? 'default' : HOVER_KEY_CURSOR,
@@ -948,7 +943,7 @@ function AboutBrowserChrome({
         <div
           style={{
             flex: 1,
-            minWidth: isCompact ? '100%' : 0,
+            minWidth: 0,
             border: '1px solid #949494',
             borderRadius: '12px',
             background: '#fff',
@@ -963,7 +958,7 @@ function AboutBrowserChrome({
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
               fontFamily: ARIAL_FONT_STACK,
-              fontSize: isCompact ? '11px' : '12px',
+              fontSize: '12px',
               color: '#333',
             }}
           >
@@ -971,7 +966,7 @@ function AboutBrowserChrome({
           </span>
         </div>
 
-        <div style={{ display: isCompact ? 'none' : 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
           <span
             aria-hidden="true"
             style={{
@@ -998,7 +993,7 @@ function AboutBrowserChrome({
   )
 }
 
-function TallyEmbed({ isCompact = false }) {
+function TallyEmbed() {
   useEffect(() => {
     if (typeof document === 'undefined') return undefined
 
@@ -1043,7 +1038,7 @@ function TallyEmbed({ isCompact = false }) {
       style={{
         display: 'block',
         width: '100%',
-        minHeight: isCompact ? '3200px' : '3693px',
+        minHeight: '3693px',
         border: 'none',
         background: 'transparent',
       }}
@@ -1113,7 +1108,7 @@ function EditorControls() {
   )
 }
 
-function HomeScene({ onModelLoaded, onOpenRoom, onReady, isCompact = false }) {
+function HomeScene({ onModelLoaded, onOpenRoom, onReady }) {
   const [homeOccluderRoot, setHomeOccluderRoot] = useState(null)
   const prepareHomeScene = useCallback((scene) => {
     applyRoomMaterialOverrides(scene, DEFAULT_ROOM_RENDER_SETTINGS)
@@ -1127,7 +1122,7 @@ function HomeScene({ onModelLoaded, onOpenRoom, onReady, isCompact = false }) {
 
   return (
     <KeyboardControls map={keyboardMap}>
-      <Canvas gl={CANVAS_GL_OPTIONS} camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'inherit', touchAction: isCompact ? 'none' : 'auto' }}>
+      <Canvas gl={CANVAS_GL_OPTIONS} camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'inherit', touchAction: 'auto' }}>
         <color attach="background" args={['#fff']} />
         <Suspense fallback={<LoadingCanvasFallback />}>
           <RendererSettings toneMapping={DEFAULT_ROOM_RENDER_SETTINGS.toneMapping} exposure={DEFAULT_ROOM_RENDER_SETTINGS.exposure} />
@@ -1489,7 +1484,7 @@ function DoorLinks({ doors, onOpenRoom, occluderRoot }) {
   )
 }
 
-function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onOpenNextRoom, onReady, isCompact = false }) {
+function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onOpenNextRoom, onReady }) {
   const prepareRoomScene = useCallback((scene) => {
     applyRoomMaterialOverrides(scene, DEFAULT_ROOM_RENDER_SETTINGS)
   }, [])
@@ -1508,7 +1503,7 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onOpenNextRoom,
       }}
     >
       <KeyboardControls map={keyboardMap}>
-        <Canvas gl={CANVAS_GL_OPTIONS} camera={{ position: cameraDefault.position, fov: 47.5 }} style={{ cursor: 'inherit', touchAction: isCompact ? 'none' : 'auto' }}>
+        <Canvas gl={CANVAS_GL_OPTIONS} camera={{ position: cameraDefault.position, fov: 47.5 }} style={{ cursor: 'inherit', touchAction: 'auto' }}>
           <color attach="background" args={['#fff']} />
           <Suspense fallback={<LoadingCanvasFallback />}>
             <RendererSettings toneMapping={DEFAULT_ROOM_RENDER_SETTINGS.toneMapping} exposure={DEFAULT_ROOM_RENDER_SETTINGS.exposure} />
@@ -1527,8 +1522,8 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onOpenNextRoom,
         onClick={onBack}
         style={{
           position: 'absolute',
-          bottom: isCompact ? 'calc(24px + env(safe-area-inset-bottom))' : '48px',
-          left: isCompact ? '18px' : '24px',
+          bottom: '48px',
+          left: '24px',
           border: 'none',
           background: 'transparent',
           padding: 0,
@@ -1540,7 +1535,7 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onOpenNextRoom,
         <img
           src={GO_BACK_GIF}
           alt="Go back"
-          style={{ width: isCompact ? '64px' : 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
+          style={{ width: 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
         />
       </button>
 
@@ -1550,8 +1545,8 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onOpenNextRoom,
         aria-label={`Go to room ${roomNumber === ROOM_FILES.length ? 1 : roomNumber + 1}`}
         style={{
           position: 'absolute',
-          bottom: isCompact ? 'calc(24px + env(safe-area-inset-bottom))' : '48px',
-          right: isCompact ? '18px' : '24px',
+          bottom: '48px',
+          right: '24px',
           zIndex: 20,
           border: 'none',
           background: 'transparent',
@@ -1562,7 +1557,7 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onOpenNextRoom,
         <img
           src={NEXT_DOOR_GIF}
           alt="Go to the next door"
-          style={{ width: isCompact ? '64px' : 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
+          style={{ width: 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
         />
       </button>
     </div>
@@ -1989,147 +1984,6 @@ function DiaryDeck({ left, top, width, availableHeight, inline = false }) {
   )
 }
 
-function CompactPhoneIcon({
-  label,
-  imageSrc,
-  onClick,
-  accent = 'linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(240,240,240,0.92) 100%)',
-  imageStyle,
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        border: 'none',
-        background: 'transparent',
-        padding: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '8px',
-      }}
-    >
-      <div
-        style={{
-          width: '72px',
-          height: '72px',
-          borderRadius: '19px',
-          background: accent,
-          boxShadow: '0 12px 24px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.82)',
-          border: '1px solid rgba(255,255,255,0.52)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          overflow: 'hidden',
-          backdropFilter: 'blur(6px)',
-        }}
-      >
-        <img
-          src={imageSrc}
-          alt=""
-          aria-hidden="true"
-          style={{
-            width: '54px',
-            height: '54px',
-            objectFit: 'contain',
-            ...imageStyle,
-          }}
-        />
-      </div>
-
-      <span
-        style={{
-          width: '100%',
-          fontFamily: ARIAL_FONT_STACK,
-          fontSize: '11px',
-          fontWeight: 500,
-          color: '#fff',
-          lineHeight: 1.2,
-          textAlign: 'center',
-          textShadow: '0 1px 2px rgba(0,0,0,0.34)',
-          textTransform: 'lowercase',
-        }}
-      >
-        {label}
-      </span>
-    </button>
-  )
-}
-
-function CompactPhoneSheet({ title, onClose, children }) {
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        inset: 0,
-        zIndex: 25,
-        background: 'rgba(14,18,30,0.38)',
-        backdropFilter: 'blur(12px)',
-        display: 'flex',
-        alignItems: 'flex-end',
-      }}
-    >
-      <div
-        style={{
-          width: '100%',
-          maxHeight: 'calc(100% - 24px)',
-          background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(244,244,244,0.96) 100%)',
-          borderTopLeftRadius: '28px',
-          borderTopRightRadius: '28px',
-          boxShadow: '0 -22px 42px rgba(0,0,0,0.18)',
-          overflow: 'hidden',
-        }}
-      >
-        <div
-          style={{
-            padding: '14px 16px 12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
-            borderBottom: '1px solid rgba(0,0,0,0.08)',
-            background: 'linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(232,232,232,0.92) 100%)',
-          }}
-        >
-          <div style={{ minWidth: 0, fontFamily: MAC_LIGHT_FONT_STACK, fontSize: '18px', color: '#111' }}>
-            {title}
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              border: '1px solid rgba(0,0,0,0.12)',
-              background: '#fff',
-              color: '#111',
-              borderRadius: '999px',
-              padding: '9px 13px',
-              fontSize: '12px',
-              fontFamily: ARIAL_FONT_STACK,
-              textTransform: 'lowercase',
-              flexShrink: 0,
-            }}
-          >
-            close
-          </button>
-        </div>
-
-        <div
-          style={{
-            maxHeight: 'calc(100dvh - 132px)',
-            overflowY: 'auto',
-            padding: '18px 16px calc(24px + env(safe-area-inset-bottom))',
-            boxSizing: 'border-box',
-          }}
-        >
-          {children}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function AboutPage({
   onBackHome,
   onShowAbout,
@@ -2142,7 +1996,6 @@ function AboutPage({
   activeFolderId = null,
   openedFolderIds = [],
   onRememberFolderOpen,
-  isCompact = false,
   isTouch = false,
 }) {
   const editorContentRef = useRef(null)
@@ -2155,7 +2008,6 @@ function AboutPage({
   }))
   const [activeBrowserTab, setActiveBrowserTab] = useState(getAboutTabId(activeFolderId))
   const [browserAddress, setBrowserAddress] = useState(() => getAboutAddress(activeFolderId, getAboutTabId(activeFolderId)))
-  const [compactPanelId, setCompactPanelId] = useState(null)
 
   const folderArcLayout = [
     { id: 'performance', left: '22%', top: '62%' },
@@ -2298,10 +2150,6 @@ function AboutPage({
   }, [activeFolderId])
 
   useEffect(() => {
-    setCompactPanelId(null)
-  }, [activeFolderId])
-
-  useEffect(() => {
     if (!activeFolderId || !FOLDER_MAP.has(activeFolderId)) return
     onRememberFolderOpen?.(activeFolderId)
   }, [activeFolderId, onRememberFolderOpen])
@@ -2354,305 +2202,6 @@ function AboutPage({
 
     handleFolderOpen(folderId)
   }, [handleFolderOpen])
-
-  if (isCompact) {
-    const compactColumnWidth = Math.max(300, Math.min(viewport.width - 28, 430))
-    const compactPlayerWidth = Math.max(252, Math.min(compactColumnWidth - 20, 320))
-    const compactDiaryWidth = Math.max(220, Math.min(compactColumnWidth - 40, 280))
-    const compactAppTitle = compactPanelId === 'about'
-      ? 'about'
-      : compactPanelId === 'diary'
-        ? 'diary'
-        : compactPanelId === 'radio'
-          ? 'radio'
-          : ''
-    const homescreenIcons = [
-      { id: 'diary', label: 'diary', imageSrc: DIARY_PHOTOS[0]?.src ?? 'assets/welcome.webp', accent: 'linear-gradient(180deg, #fef2ff 0%, #f5bfd8 100%)', imageStyle: { width: '72px', height: '72px', objectFit: 'cover' }, action: () => setCompactPanelId('diary') },
-      { id: 'performance', label: 'performance', imageSrc: 'assets/folder-icon-macos.webp', accent: 'linear-gradient(180deg, #7ac0ff 0%, #3778ff 100%)', action: () => handleFolderOpen('performance') },
-      { id: 'writing', label: 'writing', imageSrc: 'assets/folder-icon-macos.webp', accent: 'linear-gradient(180deg, #7bd6ff 0%, #3b97d3 100%)', action: () => handleFolderOpen('writing') },
-      { id: 'exhibitions', label: 'exhibitions', imageSrc: 'assets/folder-icon-macos.webp', accent: 'linear-gradient(180deg, #ffe58a 0%, #ff9b3d 100%)', action: () => handleFolderOpen('exhibitions') },
-      { id: 'filmmaking', label: 'filmmaking', imageSrc: 'assets/folder-icon-macos.webp', accent: 'linear-gradient(180deg, #ffd1f2 0%, #ff7ec5 100%)', action: () => handleFolderOpen('filmmaking') },
-      { id: 'cv', label: 'cv', imageSrc: 'assets/folder-icon-macos.webp', accent: 'linear-gradient(180deg, #cbf0b9 0%, #7ab95a 100%)', action: () => handleFolderOpen('cv') },
-      { id: 'submit-room', label: 'submit room', imageSrc: 'assets/folder-icon-macos.webp', accent: 'linear-gradient(180deg, #f0e4ff 0%, #a579ff 100%)', action: () => handleFolderOpen('submit-room') },
-    ]
-    const dockIcons = [
-      { id: 'home', label: 'home', imageSrc: ABOUT_HOME_GIF, accent: 'linear-gradient(180deg, #ffffff 0%, #efefef 100%)', action: onBackHome, imageStyle: { width: '48px', height: '48px' } },
-      { id: 'about', label: 'about', imageSrc: 'assets/welcome.webp', accent: 'linear-gradient(180deg, #fff6d7 0%, #f8c26b 100%)', action: () => setCompactPanelId('about'), imageStyle: { width: '60px', height: '60px' } },
-      { id: 'radio', label: 'radio', imageSrc: 'assets/radio.gif', accent: 'linear-gradient(180deg, #f6fbff 0%, #cde1ff 100%)', action: () => setCompactPanelId('radio') },
-      { id: 'contact', label: 'contact', imageSrc: 'assets/envelope.gif', accent: 'linear-gradient(180deg, #fff0f4 0%, #f59fc0 100%)', action: () => { window.location.href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('knock knock')}` } },
-    ]
-
-    if (isFolderView && activeFolder) {
-      return (
-        <div
-          style={{
-            width: '100vw',
-            height: '100dvh',
-            backgroundColor: '#fff',
-            color: '#000',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-          }}
-        >
-          <div style={{ position: 'sticky', top: 0, zIndex: 30 }}>
-            <AboutBrowserChrome
-              tabs={browserTabs}
-              activeTabId={activeBrowserTab}
-              addressValue={browserAddress}
-              onSelectTab={handleBrowserTabSelect}
-              onBack={onBrowserBack}
-              onForward={onBrowserForward}
-              onReload={onBrowserReload}
-              canGoBack={canBrowserGoBack}
-              canGoForward={canBrowserGoForward}
-              isCompact
-            />
-          </div>
-
-          <div style={{ padding: '12px 16px 0', background: '#fff', borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
-            <div style={{ width: 'min(100%, 430px)', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', paddingBottom: '12px' }}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontFamily: ARIAL_FONT_STACK, fontSize: '11px', fontWeight: 600, color: 'rgba(0,0,0,0.45)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                  archive
-                </div>
-                <div style={{ marginTop: '4px', fontFamily: MAC_LIGHT_FONT_STACK, fontSize: '18px', color: '#111' }}>{activeFolder.title}</div>
-              </div>
-
-              <button
-                type="button"
-                onClick={onBackHome}
-                style={{
-                  border: '1px solid rgba(0,0,0,0.12)',
-                  background: '#fff',
-                  color: '#111',
-                  borderRadius: '999px',
-                  padding: '9px 13px',
-                  fontSize: '12px',
-                  fontFamily: ARIAL_FONT_STACK,
-                  textTransform: 'lowercase',
-                  flexShrink: 0,
-                }}
-              >
-                home
-              </button>
-            </div>
-          </div>
-
-          <div style={{ flex: 1, minHeight: 0 }}>
-            <AboutFolderContent folder={activeFolder} isCompact />
-          </div>
-        </div>
-      )
-    }
-
-    return (
-      <div
-        style={{
-          width: '100vw',
-          height: '100dvh',
-          backgroundColor: '#fff',
-          color: '#000',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-        }}
-      >
-        <div style={{ position: 'sticky', top: 0, zIndex: 30 }}>
-          <AboutBrowserChrome
-            tabs={browserTabs}
-            activeTabId={activeBrowserTab}
-            addressValue={browserAddress}
-            onSelectTab={handleBrowserTabSelect}
-            onBack={onBrowserBack}
-            onForward={onBrowserForward}
-            onReload={onBrowserReload}
-            canGoBack={canBrowserGoBack}
-            canGoForward={canBrowserGoForward}
-            isCompact
-          />
-        </div>
-
-        <div
-          style={{
-            flex: 1,
-            position: 'relative',
-            overflow: 'hidden',
-            background: 'linear-gradient(180deg, #89b9ff 0%, #d8efff 24%, #f8d4e6 62%, #f4ecda 100%)',
-          }}
-        >
-          <div
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              top: '8%',
-              right: '-12%',
-              width: '220px',
-              height: '220px',
-              borderRadius: '50%',
-              background: 'rgba(255,255,255,0.22)',
-              filter: 'blur(8px)',
-            }}
-          />
-          <div
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              left: '-14%',
-              bottom: '18%',
-              width: '240px',
-              height: '240px',
-              borderRadius: '50%',
-              background: 'rgba(255,255,255,0.18)',
-              filter: 'blur(10px)',
-            }}
-          />
-
-          <div
-            style={{
-              position: 'relative',
-              zIndex: 1,
-              width: `${compactColumnWidth}px`,
-              maxWidth: '100%',
-              height: '100%',
-              margin: '0 auto',
-              padding: '18px 10px calc(20px + env(safe-area-inset-bottom))',
-              boxSizing: 'border-box',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
-              <div>
-                <div style={{ fontFamily: ARIAL_FONT_STACK, fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.86)', letterSpacing: '0.14em', textTransform: 'uppercase', textShadow: '0 1px 2px rgba(0,0,0,0.15)' }}>
-                  nana os
-                </div>
-                <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <img src="assets/zodiac.gif" alt="" aria-hidden="true" style={{ width: '18px', height: 'auto', objectFit: 'contain' }} />
-                  <img src="assets/shelestvetrovki-glitter.gif" alt="shelestvetrovki" style={{ width: 'min(180px, 52vw)', height: 'auto', objectFit: 'contain' }} />
-                </div>
-              </div>
-
-              <img
-                src="assets/welcome.webp"
-                alt="welcome to my page"
-                style={{
-                  width: '72px',
-                  height: '72px',
-                  objectFit: 'contain',
-                  filter: 'drop-shadow(0 8px 14px rgba(0,0,0,0.14))',
-                  flexShrink: 0,
-                }}
-              />
-            </div>
-
-            <div style={{ marginTop: '18px', fontFamily: ARIAL_FONT_STACK, fontSize: '13px', lineHeight: 1.5, color: 'rgba(255,255,255,0.94)', textShadow: '0 1px 2px rgba(0,0,0,0.18)' }}>
-              Tap an icon to open an app.
-            </div>
-
-            <div
-              style={{
-                marginTop: '22px',
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                gap: '18px 8px',
-                alignContent: 'start',
-              }}
-            >
-              {homescreenIcons.map((icon) => (
-                <CompactPhoneIcon
-                  key={icon.id}
-                  label={icon.label}
-                  imageSrc={icon.imageSrc}
-                  onClick={icon.action}
-                  accent={icon.accent}
-                  imageStyle={icon.imageStyle}
-                />
-              ))}
-            </div>
-
-            <div style={{ flex: 1 }} />
-
-            <div
-              style={{
-                marginTop: '18px',
-                padding: '12px 10px',
-                borderRadius: '28px',
-                background: 'rgba(255,255,255,0.24)',
-                border: '1px solid rgba(255,255,255,0.3)',
-                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.26)',
-                backdropFilter: 'blur(16px)',
-              }}
-            >
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-                  gap: '8px',
-                }}
-              >
-                {dockIcons.map((icon) => (
-                  <CompactPhoneIcon
-                    key={icon.id}
-                    label={icon.label}
-                    imageSrc={icon.imageSrc}
-                    onClick={icon.action}
-                    accent={icon.accent}
-                    imageStyle={icon.imageStyle}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {compactPanelId && (
-            <CompactPhoneSheet title={compactAppTitle} onClose={() => setCompactPanelId(null)}>
-              {compactPanelId === 'about' && (
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                    <img src="assets/welcome.webp" alt="" aria-hidden="true" style={{ width: '76px', height: 'auto', objectFit: 'contain' }} />
-                    <div style={{ fontFamily: ARIAL_FONT_STACK, fontSize: '13px', lineHeight: 1.55, color: 'rgba(0,0,0,0.62)' }}>
-                      Anastasiia Pishchanska&apos;s archive, artist page, and room index.
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      fontFamily: MAC_LIGHT_FONT_STACK,
-                      fontSize: '13px',
-                      fontWeight: 300,
-                      lineHeight: 1.72,
-                      color: '#1a1a1a',
-                    }}
-                    onClick={(event) => {
-                      const anchor = event.target.closest?.('a')
-                      if (!anchor) return
-                      event.preventDefault()
-                      event.stopPropagation()
-                      window.open(anchor.href, '_blank', 'noopener,noreferrer')
-                    }}
-                    dangerouslySetInnerHTML={{ __html: DEFAULT_ABOUT_HTML }}
-                  />
-                </div>
-              )}
-
-              {compactPanelId === 'diary' && (
-                <div style={{ display: 'flex', justifyContent: 'center' }}>
-                  <DiaryDeck inline width={compactDiaryWidth} availableHeight={360} />
-                </div>
-              )}
-
-              {compactPanelId === 'radio' && (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <img src="assets/radio.gif" alt="" aria-hidden="true" style={{ width: '60px', height: 'auto', objectFit: 'contain', marginBottom: '12px' }} />
-                  <TinyPlayer width={compactPlayerWidth} />
-                </div>
-              )}
-            </CompactPhoneSheet>
-          )}
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div
@@ -3035,7 +2584,7 @@ function AboutPage({
   )
 }
 
-function AboutFolderContent({ folder, isCompact = false }) {
+function AboutFolderContent({ folder }) {
   if (folder.id === 'submit-room') {
     return (
       <div
@@ -3051,7 +2600,7 @@ function AboutFolderContent({ folder, isCompact = false }) {
           style={{
             width: 'min(100%, 980px)',
             margin: '0 auto',
-            padding: isCompact ? '18px 16px calc(28px + env(safe-area-inset-bottom))' : '24px 24px 40px',
+            padding: '24px 24px 40px',
             boxSizing: 'border-box',
             background: '#fff',
           }}
@@ -3074,7 +2623,7 @@ function AboutFolderContent({ folder, isCompact = false }) {
             <img
               src="assets/shelestvetrovki-glitter.gif"
               alt="shelestvetrovki"
-              style={{ width: isCompact ? 'min(172px, 46vw)' : 'min(172px, 14.4vw)', height: 'auto', objectFit: 'contain' }}
+              style={{ width: 'min(172px, 14.4vw)', height: 'auto', objectFit: 'contain' }}
             />
             <img
               src="assets/7ADo.gif"
@@ -3084,7 +2633,7 @@ function AboutFolderContent({ folder, isCompact = false }) {
             />
           </div>
 
-          <TallyEmbed isCompact={isCompact} />
+          <TallyEmbed />
         </div>
       </div>
     )
@@ -3105,13 +2654,13 @@ function AboutFolderContent({ folder, isCompact = false }) {
           style={{
             width: 'min(100%, 1120px)',
             margin: '0 auto',
-            padding: isCompact ? '18px 16px calc(28px + env(safe-area-inset-bottom))' : '28px 28px 44px',
+            padding: '28px 28px 44px',
             boxSizing: 'border-box',
           }}
         >
           <div style={{ marginBottom: '28px' }}>
-            <div style={{ fontSize: isCompact ? '24px' : '30px', fontWeight: 500, color: '#161616', letterSpacing: '0.01em' }}>Exhibitions</div>
-            <div style={{ marginTop: '8px', fontSize: '13px', fontWeight: 300, color: '#666', lineHeight: 1.6, maxWidth: isCompact ? '32rem' : 'none' }}>
+            <div style={{ fontSize: '30px', fontWeight: 500, color: '#161616', letterSpacing: '0.01em' }}>Exhibitions</div>
+            <div style={{ marginTop: '8px', fontSize: '13px', fontWeight: 300, color: '#666', lineHeight: 1.6, maxWidth: 'none' }}>
               Selected group exhibitions, installation views, and exhibition texts.
             </div>
           </div>
@@ -3133,12 +2682,12 @@ function AboutFolderContent({ folder, isCompact = false }) {
               >
                 <div
                   style={{
-                    padding: isCompact ? '18px 16px 16px' : '20px 22px 18px',
+                    padding: '20px 22px 18px',
                     borderBottom: '1px solid #e6e6e6',
                     background: 'linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(244,244,244,0.92) 100%)',
                   }}
                 >
-                  <div style={{ fontSize: isCompact ? '20px' : '24px', fontWeight: 500, color: '#181818', lineHeight: 1.15 }}>{exhibition.title}</div>
+                  <div style={{ fontSize: '24px', fontWeight: 500, color: '#181818', lineHeight: 1.15 }}>{exhibition.title}</div>
                   <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 300, color: '#666', lineHeight: 1.7 }}>
                     {[exhibition.year, exhibition.venue, exhibition.location].filter(Boolean).join(' · ')}
                   </div>
@@ -3157,12 +2706,12 @@ function AboutFolderContent({ folder, isCompact = false }) {
                   )}
                 </div>
 
-                <div style={{ padding: isCompact ? '18px 16px 20px' : '20px 22px 24px' }}>
+                <div style={{ padding: '20px 22px 24px' }}>
                   <div
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: isCompact ? 'minmax(0, 1fr)' : 'repeat(auto-fit, minmax(280px, 1fr))',
-                      gap: isCompact ? '18px' : '24px',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                      gap: '24px',
                     }}
                   >
                     <div>
@@ -3197,11 +2746,7 @@ function AboutFolderContent({ folder, isCompact = false }) {
                     <div
                       style={{
                         display: 'grid',
-                        gridTemplateColumns: images.length > 1
-                          ? isCompact
-                            ? 'minmax(0, 1fr)'
-                            : 'repeat(2, minmax(0, 1fr))'
-                          : 'minmax(0, 1fr)',
+                        gridTemplateColumns: images.length > 1 ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 1fr)',
                         gap: '12px',
                         alignContent: 'start',
                       }}
@@ -3226,7 +2771,7 @@ function AboutFolderContent({ folder, isCompact = false }) {
                               display: 'block',
                               width: '100%',
                               height: '100%',
-                              minHeight: images.length > 1 ? (isCompact ? '240px' : '180px') : (isCompact ? '320px' : '280px'),
+                              minHeight: images.length > 1 ? '180px' : '280px',
                               objectFit: 'cover',
                             }}
                           />
@@ -3256,13 +2801,13 @@ function AboutFolderContent({ folder, isCompact = false }) {
     >
       <div
         style={{
-          padding: isCompact ? '18px 16px 16px' : '22px 28px 18px',
+          padding: '22px 28px 18px',
           borderBottom: '1px solid #d8d8d8',
           background: 'linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(239,239,239,0.92) 100%)',
           boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.85)',
         }}
       >
-        <div style={{ fontSize: isCompact ? '22px' : '26px', fontWeight: 500, color: '#1a1a1a', letterSpacing: '0.01em' }}>{folder.title}</div>
+        <div style={{ fontSize: '26px', fontWeight: 500, color: '#1a1a1a', letterSpacing: '0.01em' }}>{folder.title}</div>
         {folder.bio && (
           <div style={{ marginTop: '10px' }}>
             <div style={{ fontSize: '12px', fontWeight: 600, color: '#1a1a1a', letterSpacing: '0.08em' }}>{folder.bio.name}</div>
@@ -3272,7 +2817,7 @@ function AboutFolderContent({ folder, isCompact = false }) {
         )}
       </div>
 
-      <div style={{ overflowY: 'auto', flex: 1, padding: isCompact ? '18px 16px calc(28px + env(safe-area-inset-bottom))' : '24px 28px 42px' }}>
+      <div style={{ overflowY: 'auto', flex: 1, padding: '24px 28px 42px' }}>
         {folder.sections.map((section) => (
           <div key={section.heading} style={{ marginBottom: '26px' }}>
             <div style={{ fontSize: '11px', fontWeight: 600, color: '#777', letterSpacing: '0.12em', marginBottom: '12px', borderBottom: '1px solid #ddd', paddingBottom: '8px' }}>
@@ -3280,7 +2825,7 @@ function AboutFolderContent({ folder, isCompact = false }) {
             </div>
             {section.entries && section.entries.map((entry, i) => (
               // eslint-disable-next-line react/no-array-index-key
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: isCompact ? '1fr' : '120px 1fr', gap: isCompact ? '2px' : '14px', marginBottom: '10px' }}>
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '14px', marginBottom: '10px' }}>
                 <div style={{ fontSize: '12px', fontWeight: 300, color: '#888', lineHeight: 1.5 }}>{entry.year}</div>
                 <div style={{ fontSize: '13px', fontWeight: 300, color: '#1a1a1a', lineHeight: 1.5 }}>{entry.item}</div>
               </div>
@@ -3305,7 +2850,7 @@ function AboutFolderContent({ folder, isCompact = false }) {
   )
 }
 
-function ProjectPreviewWindow({ onClose, isCompact = false, isTouch = false }) {
+function ProjectPreviewWindow({ onClose, isTouch = false }) {
   const videoRef = useRef(null)
   const [animateIn, setAnimateIn] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
@@ -3317,7 +2862,7 @@ function ProjectPreviewWindow({ onClose, isCompact = false, isTouch = false }) {
   windowPosRef.current = windowPos
 
   const startDrag = useCallback((event) => {
-    if (isTouch || isCompact) return
+    if (isTouch) return
     if (event.button !== 0) return
     event.preventDefault()
     const startMx = event.clientX
@@ -3336,7 +2881,7 @@ function ProjectPreviewWindow({ onClose, isCompact = false, isTouch = false }) {
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-  }, [isCompact, isTouch])
+  }, [isTouch])
 
   useEffect(() => {
     const frameId = window.requestAnimationFrame(() => setAnimateIn(true))
@@ -3361,97 +2906,6 @@ function ProjectPreviewWindow({ onClose, isCompact = false, isTouch = false }) {
     if (!nextMuted) video.volume = 0.5
     setIsMuted(nextMuted)
   }, [isMuted])
-
-  if (isCompact) {
-    return (
-      <div
-        style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 45,
-          display: 'flex',
-          flexDirection: 'column',
-          background: 'rgba(247,247,247,0.96)',
-          backdropFilter: 'blur(18px)',
-        }}
-      >
-        <div
-          style={{
-            padding: 'calc(10px + env(safe-area-inset-top)) 14px 12px',
-            borderBottom: '1px solid rgba(0,0,0,0.08)',
-            background: 'linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(236,236,236,0.92) 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
-          }}
-        >
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              border: '1px solid rgba(0,0,0,0.12)',
-              background: '#fff',
-              color: '#111',
-              borderRadius: '999px',
-              padding: '9px 13px',
-              fontSize: '12px',
-              fontFamily: ARIAL_FONT_STACK,
-              textTransform: 'lowercase',
-            }}
-          >
-            close
-          </button>
-
-          <div style={{ minWidth: 0, textAlign: 'center', fontFamily: MAC_LIGHT_FONT_STACK, fontSize: '12px', color: '#555' }}>
-            {PREVIEW_FILENAME}
-          </div>
-
-          <button
-            type="button"
-            onClick={handleToggleMute}
-            style={{
-              border: '1px solid rgba(0,0,0,0.12)',
-              background: '#111',
-              color: '#fff',
-              borderRadius: '999px',
-              padding: '9px 13px',
-              fontSize: '12px',
-              fontFamily: ARIAL_FONT_STACK,
-              textTransform: 'lowercase',
-            }}
-          >
-            {isMuted ? 'unmute' : 'mute'}
-          </button>
-        </div>
-
-        <div style={{ flex: 1, minHeight: 0, padding: '14px 14px calc(14px + env(safe-area-inset-bottom))' }}>
-          <div
-            style={{
-              position: 'relative',
-              width: '100%',
-              height: '100%',
-              borderRadius: '22px',
-              overflow: 'hidden',
-              background: '#050505',
-              boxShadow: '0 24px 56px rgba(0,0,0,0.18)',
-            }}
-          >
-            <video
-              ref={videoRef}
-              src={HOME_PREVIEW_VIDEO}
-              autoPlay
-              muted
-              playsInline
-              loop
-              preload="auto"
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-            />
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div
@@ -3553,16 +3007,16 @@ function ProjectPreviewWindow({ onClose, isCompact = false, isTouch = false }) {
   )
 }
 
-function PreviewLauncher({ onOpen, isTouch = false, isCompact = false }) {
+function PreviewLauncher({ onOpen, isTouch = false }) {
   const [iconPos, setIconPos] = useState(() => ({
-    x: typeof window !== 'undefined' ? (isCompact ? window.innerWidth / 2 - 60 : window.innerWidth / 2 - 220) : 180,
-    y: typeof window !== 'undefined' ? (isCompact ? window.innerHeight - 250 : window.innerHeight / 2 - 10) : 320,
+    x: typeof window !== 'undefined' ? window.innerWidth / 2 - 220 : 180,
+    y: typeof window !== 'undefined' ? window.innerHeight / 2 - 10 : 320,
   }))
   const iconPosRef = useRef(iconPos)
   iconPosRef.current = iconPos
 
   const startDrag = useCallback((event) => {
-    if (isTouch || isCompact) return
+    if (isTouch) return
     if (event.button !== 0) return
     event.preventDefault()
     const startMx = event.clientX
@@ -3581,93 +3035,7 @@ function PreviewLauncher({ onOpen, isTouch = false, isCompact = false }) {
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-  }, [isCompact, isTouch])
-
-  if (isCompact) {
-    return (
-      <button
-        type="button"
-        onClick={onOpen}
-        style={{
-          position: 'absolute',
-          left: '50%',
-          bottom: 'calc(28px + env(safe-area-inset-bottom))',
-          transform: 'translateX(-50%)',
-          border: 'none',
-          background: 'transparent',
-          padding: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '10px',
-          width: '132px',
-        }}
-      >
-        <div
-          style={{
-            position: 'relative',
-            width: '56px',
-            height: '52px',
-            imageRendering: 'pixelated',
-            background: 'linear-gradient(180deg,#d8ebff 0%,#9ecbff 100%)',
-            border: '1px solid #6e97c8',
-            boxShadow: '3px 3px 0 rgba(0,0,0,0.14)',
-          }}
-        >
-          <div
-            style={{
-              position: 'absolute',
-              top: '-1px',
-              left: '7px',
-              width: '20px',
-              height: '9px',
-              background: '#f4f8ff',
-              border: '1px solid #6e97c8',
-              borderBottom: 'none',
-            }}
-          />
-          <div
-            style={{
-              position: 'absolute',
-              inset: '8px 6px 6px',
-              background: '#eef6ff',
-              border: '1px solid rgba(110,151,200,0.9)',
-            }}
-          >
-            <div
-              style={{
-                position: 'absolute',
-                left: '50%',
-                top: '50%',
-                transform: 'translate(-42%, -50%)',
-                width: 0,
-                height: 0,
-                borderTop: '8px solid transparent',
-                borderBottom: '8px solid transparent',
-                borderLeft: '13px solid #285a93',
-              }}
-            />
-          </div>
-        </div>
-
-        <span
-          style={{
-            maxWidth: '132px',
-            color: '#000',
-            fontFamily: MAC_LIGHT_FONT_STACK,
-            fontSize: '13px',
-            fontWeight: 300,
-            lineHeight: 1.15,
-            textAlign: 'center',
-            textShadow: '1px 1px 0 rgba(255,255,255,0.92)',
-            wordBreak: 'break-word',
-          }}
-        >
-          {PREVIEW_FILENAME}
-        </span>
-      </button>
-    )
-  }
+  }, [isTouch])
 
   return (
     <button
@@ -3945,7 +3313,6 @@ function LoadingGlitterOverlay({ active, reducedMotion = false }) {
 export default function App() {
   const responsive = useResponsiveShell()
   const {
-    isCompact,
     isTouch,
     prefersReducedMotion,
   } = responsive
@@ -4265,7 +3632,6 @@ export default function App() {
           onBack={closeRoom}
           onOpenNextRoom={() => openNextRoom(roomNumber)}
           onReady={clearTransitionCover}
-          isCompact={isCompact}
         />
         {sceneTransitionLayer}
       </>
@@ -4287,7 +3653,6 @@ export default function App() {
           canBrowserGoForward={aboutBrowserHistory.index < aboutBrowserHistory.entries.length - 1}
           openedFolderIds={openedAboutFolderIds}
           onRememberFolderOpen={rememberAboutFolderOpen}
-          isCompact={isCompact}
           isTouch={isTouch}
         />
         {sceneTransitionLayer}
@@ -4312,7 +3677,6 @@ export default function App() {
           activeFolderId={route.folderId}
           openedFolderIds={openedAboutFolderIds}
           onRememberFolderOpen={rememberAboutFolderOpen}
-          isCompact={isCompact}
           isTouch={isTouch}
         />
         {sceneTransitionLayer}
@@ -4576,17 +3940,16 @@ export default function App() {
         style={{
           position: 'absolute',
           inset: 0,
-          opacity: isCompact || (hasOpenedPreview && !isPreviewOpen) ? 1 : 0,
-          pointerEvents: isCompact || (hasOpenedPreview && !isPreviewOpen) ? 'auto' : 'none',
+          opacity: hasOpenedPreview && !isPreviewOpen ? 1 : 0,
+          pointerEvents: hasOpenedPreview && !isPreviewOpen ? 'auto' : 'none',
           transition: 'opacity 180ms ease',
         }}
-        aria-hidden={!(isCompact || (hasOpenedPreview && !isPreviewOpen))}
+        aria-hidden={!(hasOpenedPreview && !isPreviewOpen)}
       >
         <HomeScene
           onModelLoaded={undefined}
           onOpenRoom={openRoom}
           onReady={clearTransitionCover}
-          isCompact={isCompact}
         />
       </div>
 
@@ -4594,24 +3957,24 @@ export default function App() {
         style={{
           position: 'absolute',
           left: '50%',
-          top: isCompact ? 'calc(18px + env(safe-area-inset-top))' : `${HOME_HEADER_TOP}px`,
+          top: `${HOME_HEADER_TOP}px`,
           transform: 'translateX(-50%)',
           zIndex: 40,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: isCompact ? '8px' : '6px',
+          gap: '6px',
         }}
       >
-        {(isCompact || (hasOpenedPreview && !isPreviewOpen)) && (
+        {hasOpenedPreview && !isPreviewOpen && (
           <img
             src={HOME_WELCOME_GIF}
             alt=""
             aria-hidden="true"
-            style={{ width: isCompact ? 'min(110px, 28vw)' : 'min(124px, 18vw)', height: 'auto', display: 'block' }}
+            style={{ width: 'min(124px, 18vw)', height: 'auto', display: 'block' }}
           />
         )}
-        {!isCompact && (!hasOpenedPreview || isPreviewOpen) && (
+        {(!hasOpenedPreview || isPreviewOpen) && (
           <img
             src={HOME_WELCOME_GIF}
             alt=""
@@ -4628,9 +3991,9 @@ export default function App() {
             background: 'transparent',
             color: '#000',
             padding: 0,
-            width: isCompact ? 'min(250px, 64vw)' : 'min(220px, 32vw)',
+            width: 'min(220px, 32vw)',
             fontFamily: ARIAL_FONT_STACK,
-            fontSize: isCompact ? '24px' : '25px',
+            fontSize: '25px',
             fontWeight: 400,
             letterSpacing: '0.01em',
             lineHeight: 1,
@@ -4643,10 +4006,10 @@ export default function App() {
         </button>
       </div>
 
-      {((isCompact && !isPreviewOpen) || (!isCompact && !hasOpenedPreview && !isPreviewOpen)) && (
-        <PreviewLauncher onOpen={openPreview} isTouch={isTouch} isCompact={isCompact} />
+      {!hasOpenedPreview && !isPreviewOpen && (
+        <PreviewLauncher onOpen={openPreview} isTouch={isTouch} />
       )}
-      {isPreviewOpen && <ProjectPreviewWindow onClose={closePreview} isCompact={isCompact} isTouch={isTouch} />}
+      {isPreviewOpen && <ProjectPreviewWindow onClose={closePreview} isTouch={isTouch} />}
       {sceneTransitionLayer}
     </div>
   )
