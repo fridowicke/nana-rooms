@@ -39,6 +39,7 @@ const ROOM_FILES = [
   'MOENE WEB.glb',
 ]
 const CONTACT_EMAIL = 'shelestvetrovki@gmail.com'
+const CV_URL = 'https://docs.google.com/document/d/1VH0PZsOzxVn9IuuzZgf_y74OQ4W5b1L8vAyQHMuTyfs/edit?tab=t.0'
 const HOME_TITLE = 'shelestvetrovki'
 const PREVIEW_FILENAME = 'shelestvetrovki.mp4'
 const HOME_HASH = '#home'
@@ -250,6 +251,7 @@ const FOLDER_DEFINITIONS = [
     id: 'cv',
     label: 'cv',
     title: 'CV',
+    externalUrl: CV_URL,
     bio: {
       name: 'SHELESTVETROVKI',
       born: 'Born Anastasiia Pishchanska, 2000, Odesa Ukraine',
@@ -291,20 +293,6 @@ const FOLDER_DEFINITIONS = [
           { year: '2025', item: 'Grantee, Media Arts, PanoramicFestival, Barcelona, Spain' },
           { year: '2023 – 2026', item: 'Grantee, Artist at Risk Program, Nippon Foundation, Tokyo, Japan' },
           { year: '2023', item: 'MEXT Scholarship, Media Arts, Research Program, Tama Art University, Tokyo, Japan' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'performance',
-    label: 'performance',
-    title: 'Performance',
-    sections: [
-      {
-        heading: 'SELECTED ARTIST TALKS + PANELS',
-        entries: [
-          { year: '2026', item: 'Girlhood: Fantasy and the Inner Life — A conversation between Laura Pelissier, Anastasiia Pischanska, and Lean Lui, moderated by Francesca Faccani, PhotoVogue, Milan, Italy' },
-          { year: '2023', item: 'Art In The Wartime: lecture for Japanese art students between Anastasiia Pishchanska and Alisa Chen, Tama Art University, Tokyo, Japan' },
         ],
       },
     ],
@@ -2115,7 +2103,6 @@ function AboutPage({
   const [browserAddress, setBrowserAddress] = useState(() => getAboutAddress(activeFolderId, getAboutTabId(activeFolderId), activeFolderDetailId, activeFolderImageIndex))
 
   const folderArcLayout = [
-    { id: 'performance', left: '22%', top: '62%' },
     { id: 'writing', left: '30%', top: '36%' },
     { id: 'exhibitions', left: '47%', top: '56%' },
     { id: 'filmmaking', left: '73%', top: '42%' },
@@ -2294,6 +2281,12 @@ function AboutPage({
   }, [onOpenFolder, onShowAbout])
 
   const handleFolderOpen = useCallback((folderId) => {
+    const folder = FOLDER_MAP.get(folderId)
+    if (folder?.externalUrl) {
+      window.open(folder.externalUrl, '_blank', 'noopener,noreferrer')
+      return
+    }
+
     onRememberFolderOpen?.(folderId)
     setActiveBrowserTab(getAboutTabId(folderId))
     setBrowserAddress(getAboutAddress(folderId, getAboutTabId(folderId)))
