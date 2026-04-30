@@ -62,3 +62,41 @@ a, button, [role="button"], .cursor-pointer {
 .about-folder-link:focus-visible {
   text-decoration: underline !important;
 }
+
+.room-ticker-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2147483647;
+  height: 30px;
+  overflow: hidden;
+  background: #18d9d3;
+  border-bottom: 1px solid #009f9b;
+  color: #001918;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 30px;
+  text-transform: lowercase;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.room-ticker-bar span {
+  display: inline-block;
+  min-width: max-content;
+  padding-left: 100%;
+  word-spacing: 42px;
+  animation: room-ticker-fly 18s linear infinite;
+}
+
+@keyframes room-ticker-fly {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-100%);
+  }
+}

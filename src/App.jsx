@@ -37,6 +37,13 @@ const ROOM_FILES = [
   'SUZUNE WEB.glb',
   'AIKO WEB.glb',
   'MOENE WEB.glb',
+  'PARDIS WEB.glb',
+  'KAORI WEB.glb',
+  'REI WEB.glb',
+  'YURIA WEB.glb',
+  'MOMOCO WEB.glb',
+  'KUMO&MUKI WEB.glb',
+  'MIMI WEB.glb',
 ]
 const CONTACT_EMAIL = 'shelestvetrovki@gmail.com'
 const CV_URL = 'https://docs.google.com/document/d/1VH0PZsOzxVn9IuuzZgf_y74OQ4W5b1L8vAyQHMuTyfs/edit?tab=t.0'
@@ -1608,6 +1615,14 @@ function DoorLinks({ doors, onOpenRoom, occluderRoot }) {
   )
 }
 
+function RoomTickerBar() {
+  return (
+    <div className="room-ticker-bar" aria-hidden="true">
+      <span>clean my room +++++ clean my room +++++ clean my room +++++</span>
+    </div>
+  )
+}
+
 function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenNextRoom, canGoBack, onReady }) {
   const prepareRoomScene = useCallback((scene) => {
     applyRoomMaterialOverrides(scene, DEFAULT_ROOM_RENDER_SETTINGS)
@@ -1626,6 +1641,7 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
         position: 'relative',
       }}
     >
+      <RoomTickerBar />
       <KeyboardControls map={keyboardMap}>
         <Canvas gl={CANVAS_GL_OPTIONS} camera={{ position: cameraDefault.position, fov: 47.5 }} style={{ cursor: 'inherit', touchAction: 'auto' }}>
           <color attach="background" args={['#fff']} />
@@ -1704,7 +1720,7 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
       >
         <img
           src={NEXT_DOOR_GIF}
-          alt="Go to the next door"
+          alt={`Go to room ${roomNumber === ROOM_FILES.length ? 1 : roomNumber + 1}`}
           style={{ width: 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
         />
       </button>
@@ -3904,7 +3920,7 @@ export default function App() {
           key={roomFile}
           roomNumber={roomNumber}
           roomFile={roomFile}
-          cameraDefault={ROOM_CAMERA_DEFAULTS[route.roomIndex]}
+          cameraDefault={ROOM_CAMERA_DEFAULTS[route.roomIndex] ?? ROOM_CAMERA_DEFAULTS[0]}
           onBack={openPreviousRoom}
           onHome={closeRoom}
           onOpenNextRoom={() => openNextRoom(roomNumber)}
