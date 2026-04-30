@@ -95,6 +95,7 @@ const HOME_HEADER_TOP = 24
 const PREVIEW_WINDOW_TOP = 190
 const DOOR_OCCLUSION_CLEARANCE = 0.04
 const ROOM_PRELOAD_POLL_INTERVAL_MS = 50
+const ROOM_PRELOAD_TIMEOUT_MS = 8000
 const MAIN_KEY_CURSOR_HOTSPOT = '28 24'
 const HOVER_KEY_CURSOR_HOTSPOT = '13 12'
 const HOME_EDITOR_STORAGE_KEY = 'nana-home-editor-state'
@@ -526,24 +527,40 @@ function preloadRoomAsset(roomIndex) {
 
 function isRoomAssetReady(roomIndex) {
   const roomUrl = getRoomAssetUrl(roomIndex)
-  return Boolean(roomUrl && peek([GLTFLoader, roomUrl]))
+  try {
+    return Boolean(roomUrl && peek([GLTFLoader, roomUrl]))
+  } catch {
+    return false
+  }
 }
 
-function waitForRoomAsset(roomIndex) {
+function waitForRoomAsset(roomIndex, timeoutMs = ROOM_PRELOAD_TIMEOUT_MS) {
   if (isRoomAssetReady(roomIndex)) return Promise.resolve()
 
   preloadRoomAsset(roomIndex)
 
   return new Promise((resolve) => {
+    let isDone = false
+    let timeoutId = null
+
+    const finish = () => {
+      if (isDone) return
+      isDone = true
+      if (timeoutId != null) window.clearTimeout(timeoutId)
+      resolve()
+    }
+
     const poll = () => {
+      if (isDone) return
       if (isRoomAssetReady(roomIndex)) {
-        resolve()
+        finish()
         return
       }
 
       window.setTimeout(poll, ROOM_PRELOAD_POLL_INTERVAL_MS)
     }
 
+    timeoutId = window.setTimeout(finish, timeoutMs)
     poll()
   })
 }
@@ -559,18 +576,6 @@ function captureCurrentCanvasFrame() {
   } catch {
     return null
   }
-}
-
-function runWhenIdle(callback) {
-  if (typeof window === 'undefined') return undefined
-
-  if ('requestIdleCallback' in window) {
-    const idleId = window.requestIdleCallback(callback, { timeout: 2500 })
-    return () => window.cancelIdleCallback(idleId)
-  }
-
-  const timeoutId = window.setTimeout(callback, 250)
-  return () => window.clearTimeout(timeoutId)
 }
 
 const DOOR_LINKS = [
@@ -3712,12 +3717,6 @@ export default function App() {
       const image = new Image()
       image.src = src
     })
-
-    const cancelIdlePreload = runWhenIdle(() => {
-      ROOM_FILES.forEach((_, roomIndex) => preloadRoomAsset(roomIndex))
-    })
-
-    return cancelIdlePreload
   }, [])
 
   useEffect(() => {
