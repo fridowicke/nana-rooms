@@ -448,6 +448,7 @@ const DEFAULT_RESPONSIVE_STATE = {
   isTouch: false,
   prefersReducedMotion: false,
 }
+const ROOM_PRELOAD_STAGGER_MS = 2500
 const preloadedRoomAssets = new Set()
 const preloadedVideoAssets = new Map()
 
@@ -517,15 +518,29 @@ function useResponsiveShell() {
 
 function preloadRoomAsset(roomIndex) {
   const roomUrl = getRoomAssetUrl(roomIndex)
-  if (!roomUrl || preloadedRoomAssets.has(roomUrl)) return
+  if (!roomUrl) return
+  if (preloadedRoomAssets.has(roomUrl)) return
   preloadedRoomAssets.add(roomUrl)
   useGLTF.preload(roomUrl)
 }
 
-function preloadRoomRange(startIndex, count) {
-  for (let offset = 0; offset < count; offset += 1) {
-    preloadRoomAsset((startIndex + offset) % ROOM_FILES.length)
+function preloadRoomRange(startIndex, count, staggerMs = 0) {
+  if (staggerMs <= 0) {
+    for (let offset = 0; offset < count; offset += 1) {
+      preloadRoomAsset((startIndex + offset) % ROOM_FILES.length)
+    }
+    return
   }
+
+  let offset = 0
+  const preloadNext = () => {
+    if (offset >= count) return
+    preloadRoomAsset((startIndex + offset) % ROOM_FILES.length)
+    offset += 1
+    if (offset < count) window.setTimeout(preloadNext, staggerMs)
+  }
+
+  preloadNext()
 }
 
 function preloadVideoAsset(src) {
@@ -1226,9 +1241,11 @@ function HomeScene({ onModelLoaded, onOpenRoom, onReady }) {
   }, [])
   const handleHomeModelLoaded = useCallback((scene) => {
     setHomeOccluderRoot(scene)
-    preloadRoomRange(0, 4)
     if (onModelLoaded) onModelLoaded(scene)
   }, [onModelLoaded])
+  const handleHomeReady = useCallback(() => {
+    onReady?.()
+  }, [onReady])
 
   return (
     <KeyboardControls map={keyboardMap}>
@@ -1243,7 +1260,7 @@ function HomeScene({ onModelLoaded, onOpenRoom, onReady }) {
           </Stage>
           <Controls />
           <CameraReset position={LANDING_CAMERA_POSITION} />
-          <FirstFrameSignal onReady={onReady} />
+          <FirstFrameSignal onReady={handleHomeReady} />
         </Suspense>
       </Canvas>
     </KeyboardControls>
@@ -3587,6 +3604,7 @@ export default function App() {
   const [visitedRoomHistory, setVisitedRoomHistory] = useState([])
   const [transitionSnapshotUrl, setTransitionSnapshotUrl] = useState(null)
   const [isSceneTransitioning, setIsSceneTransitioning] = useState(false)
+  const hasStartedHouseRoomPreloadsRef = useRef(false)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -3718,6 +3736,13 @@ export default function App() {
     setTransitionSnapshotUrl(null)
     setIsSceneTransitioning(false)
   }, [])
+
+  const handleHomeReady = useCallback(() => {
+    clearTransitionCover()
+    if (hasStartedHouseRoomPreloadsRef.current) return
+    hasStartedHouseRoomPreloadsRef.current = true
+    preloadRoomRange(0, 4, ROOM_PRELOAD_STAGGER_MS)
+  }, [clearTransitionCover])
 
   const beginSceneTransition = useCallback(() => {
     setIsSceneTransitioning(true)
@@ -4239,7 +4264,7 @@ export default function App() {
           <HomeScene
             onModelLoaded={undefined}
             onOpenRoom={openRoom}
-            onReady={clearTransitionCover}
+            onReady={handleHomeReady}
           />
         )}
       </div>
