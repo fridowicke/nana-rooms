@@ -1623,6 +1623,15 @@ function RoomTickerBar() {
   )
 }
 
+function MobileDesktopNotice() {
+  return (
+    <main className="mobile-desktop-notice" aria-label="Desktop notice">
+      <img src={HOME_WELCOME_GIF} alt="welcome to my page" />
+      <p>please open on desktop</p>
+    </main>
+  )
+}
+
 function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenNextRoom, canGoBack, onReady }) {
   const prepareRoomScene = useCallback((scene) => {
     applyRoomMaterialOverrides(scene, DEFAULT_ROOM_RENDER_SETTINGS)
@@ -3574,8 +3583,10 @@ export default function App() {
   const responsive = useResponsiveShell()
   const {
     isTouch,
+    viewportWidth,
     prefersReducedMotion,
   } = responsive
+  const shouldShowMobileNotice = isTouch || viewportWidth <= 700
   const [route, setRoute] = useState(() =>
     parseRouteFromHash(typeof window !== 'undefined' ? window.location.hash : ''),
   )
@@ -3910,6 +3921,10 @@ export default function App() {
       <LoadingGlitterOverlay active={isSceneTransitioning} reducedMotion={prefersReducedMotion} />
     </>
   )
+
+  if (shouldShowMobileNotice) {
+    return <MobileDesktopNotice />
+  }
 
   if (route.type === 'room') {
     const roomNumber = route.roomIndex + 1

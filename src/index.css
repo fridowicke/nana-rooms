@@ -42,6 +42,37 @@ a, button, [role="button"], .cursor-pointer {
   min-height: 100dvh;
 }
 
+.mobile-desktop-notice {
+  width: 100vw;
+  height: 100dvh;
+  min-height: 100dvh;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 18px;
+  padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  background: #fff;
+  color: #111;
+  font-family: 'Helvetica', Arial, sans-serif;
+  text-align: center;
+}
+
+.mobile-desktop-notice img {
+  display: block;
+  width: min(84vw, 320px);
+  max-height: 58dvh;
+  object-fit: contain;
+}
+
+.mobile-desktop-notice p {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.15;
+  text-transform: lowercase;
+}
+
 .classic-textedit-scroll {
   scrollbar-width: none;
   -ms-overflow-style: none;
