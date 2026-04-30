@@ -2,8 +2,6 @@ import React, { useState, Suspense, useEffect, useLayoutEffect, useRef, useCallb
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Stage, Html, useGLTF, KeyboardControls, useKeyboardControls } from '@react-three/drei'
 import * as THREE from 'three'
-import { GLTFLoader } from 'three-stdlib'
-import { peek } from 'suspend-react'
 
 const keyboardMap = [
   { name: 'forward', keys: ['ArrowUp', 'w', 'W'] },
@@ -94,8 +92,6 @@ const LOADING_SPARKLE_INITIAL_WAVES = 14
 const HOME_HEADER_TOP = 24
 const PREVIEW_WINDOW_TOP = 190
 const DOOR_OCCLUSION_CLEARANCE = 0.04
-const ROOM_PRELOAD_POLL_INTERVAL_MS = 50
-const ROOM_PRELOAD_TIMEOUT_MS = 8000
 const MAIN_KEY_CURSOR_HOTSPOT = '28 24'
 const HOVER_KEY_CURSOR_HOTSPOT = '13 12'
 const HOME_EDITOR_STORAGE_KEY = 'nana-home-editor-state'
@@ -453,6 +449,7 @@ const DEFAULT_RESPONSIVE_STATE = {
   prefersReducedMotion: false,
 }
 const preloadedRoomAssets = new Set()
+const preloadedVideoAssets = new Map()
 
 function getRoomAssetUrl(roomIndex) {
   const roomFile = ROOM_FILES[roomIndex]
@@ -525,44 +522,22 @@ function preloadRoomAsset(roomIndex) {
   useGLTF.preload(roomUrl)
 }
 
-function isRoomAssetReady(roomIndex) {
-  const roomUrl = getRoomAssetUrl(roomIndex)
-  try {
-    return Boolean(roomUrl && peek([GLTFLoader, roomUrl]))
-  } catch {
-    return false
+function preloadRoomRange(startIndex, count) {
+  for (let offset = 0; offset < count; offset += 1) {
+    preloadRoomAsset((startIndex + offset) % ROOM_FILES.length)
   }
 }
 
-function waitForRoomAsset(roomIndex, timeoutMs = ROOM_PRELOAD_TIMEOUT_MS) {
-  if (isRoomAssetReady(roomIndex)) return Promise.resolve()
+function preloadVideoAsset(src) {
+  if (typeof document === 'undefined' || preloadedVideoAssets.has(src)) return
 
-  preloadRoomAsset(roomIndex)
-
-  return new Promise((resolve) => {
-    let isDone = false
-    let timeoutId = null
-
-    const finish = () => {
-      if (isDone) return
-      isDone = true
-      if (timeoutId != null) window.clearTimeout(timeoutId)
-      resolve()
-    }
-
-    const poll = () => {
-      if (isDone) return
-      if (isRoomAssetReady(roomIndex)) {
-        finish()
-        return
-      }
-
-      window.setTimeout(poll, ROOM_PRELOAD_POLL_INTERVAL_MS)
-    }
-
-    timeoutId = window.setTimeout(finish, timeoutMs)
-    poll()
-  })
+  const video = document.createElement('video')
+  video.preload = 'auto'
+  video.muted = true
+  video.playsInline = true
+  video.src = src
+  video.load()
+  preloadedVideoAssets.set(src, video)
 }
 
 function captureCurrentCanvasFrame() {
@@ -1251,8 +1226,7 @@ function HomeScene({ onModelLoaded, onOpenRoom, onReady }) {
   }, [])
   const handleHomeModelLoaded = useCallback((scene) => {
     setHomeOccluderRoot(scene)
-    const roomIndexes = new Set(DOOR_LINKS.map((door) => door.roomIndex))
-    roomIndexes.forEach(preloadRoomAsset)
+    preloadRoomRange(0, 4)
     if (onModelLoaded) onModelLoaded(scene)
   }, [onModelLoaded])
 
@@ -3124,7 +3098,7 @@ function AboutFolderContent({
   )
 }
 
-function ProjectPreviewWindow({ onClose, isTouch = false }) {
+function ProjectPreviewWindow({ onClose, onPreviewStarted, isTouch = false }) {
   const videoRef = useRef(null)
   const [animateIn, setAnimateIn] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
@@ -3159,6 +3133,7 @@ function ProjectPreviewWindow({ onClose, isTouch = false }) {
 
   useEffect(() => {
     const frameId = window.requestAnimationFrame(() => setAnimateIn(true))
+    onPreviewStarted?.()
     const video = videoRef.current
     if (video) {
       video.muted = false
@@ -3170,7 +3145,7 @@ function ProjectPreviewWindow({ onClose, isTouch = false }) {
     }
 
     return () => window.cancelAnimationFrame(frameId)
-  }, [])
+  }, [onPreviewStarted])
 
   const handleToggleMute = useCallback(() => {
     const video = videoRef.current
@@ -3711,7 +3686,7 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    useGLTF.preload('assets/home.glb')
+    preloadVideoAsset(HOME_PREVIEW_VIDEO)
     const sparkleAssets = [...CURSOR_TRAIL_GIFS, CURSOR_CLICK_GIF]
     sparkleAssets.forEach((src) => {
       const image = new Image()
@@ -3749,17 +3724,21 @@ export default function App() {
     setTransitionSnapshotUrl(captureCurrentCanvasFrame())
   }, [])
 
-  const openRoom = useCallback(async (roomNumber) => {
+  const preloadHome = useCallback(() => {
+    useGLTF.preload('assets/home.glb')
+  }, [])
+
+  const openRoom = useCallback((roomNumber) => {
     const navigationId = pendingRoomNavigationRef.current + 1
     pendingRoomNavigationRef.current = navigationId
     beginSceneTransition()
     setVisitedRoomHistory(route.type === 'room' ? [route.roomIndex] : [])
-    await waitForRoomAsset(roomNumber - 1)
+    preloadRoomAsset(roomNumber - 1)
     if (pendingRoomNavigationRef.current !== navigationId) return
     navigateWithHash(`#${ROOM_HASH_PREFIX}${roomNumber}`)
   }, [beginSceneTransition, route])
 
-  const openNextRoom = useCallback(async (roomNumber) => {
+  const openNextRoom = useCallback((roomNumber) => {
     const nextRoomNumber = roomNumber >= ROOM_FILES.length ? 1 : roomNumber + 1
     const navigationId = pendingRoomNavigationRef.current + 1
     pendingRoomNavigationRef.current = navigationId
@@ -3767,12 +3746,12 @@ export default function App() {
     if (route.type === 'room') {
       setVisitedRoomHistory((current) => [...current, route.roomIndex])
     }
-    await waitForRoomAsset(nextRoomNumber - 1)
+    preloadRoomAsset(nextRoomNumber - 1)
     if (pendingRoomNavigationRef.current !== navigationId) return
     navigateWithHash(`#${ROOM_HASH_PREFIX}${nextRoomNumber}`)
   }, [beginSceneTransition, route])
 
-  const openPreviousRoom = useCallback(async () => {
+  const openPreviousRoom = useCallback(() => {
     const previousRoomIndex = visitedRoomHistory[visitedRoomHistory.length - 1]
     if (previousRoomIndex == null) return
 
@@ -3780,7 +3759,7 @@ export default function App() {
     pendingRoomNavigationRef.current = navigationId
     beginSceneTransition()
     setVisitedRoomHistory((current) => current.slice(0, -1))
-    await waitForRoomAsset(previousRoomIndex)
+    preloadRoomAsset(previousRoomIndex)
     if (pendingRoomNavigationRef.current !== navigationId) return
     navigateWithHash(`#${ROOM_HASH_PREFIX}${previousRoomIndex + 1}`)
   }, [beginSceneTransition, visitedRoomHistory])
@@ -4256,11 +4235,13 @@ export default function App() {
         }}
         aria-hidden={!(hasOpenedPreview && !isPreviewOpen)}
       >
-        <HomeScene
-          onModelLoaded={undefined}
-          onOpenRoom={openRoom}
-          onReady={clearTransitionCover}
-        />
+        {hasOpenedPreview && !isPreviewOpen && (
+          <HomeScene
+            onModelLoaded={undefined}
+            onOpenRoom={openRoom}
+            onReady={clearTransitionCover}
+          />
+        )}
       </div>
 
       <div
@@ -4319,7 +4300,7 @@ export default function App() {
       {!hasOpenedPreview && !isPreviewOpen && (
         <PreviewLauncher onOpen={openPreview} isTouch={isTouch} />
       )}
-      {isPreviewOpen && <ProjectPreviewWindow onClose={closePreview} isTouch={isTouch} />}
+      {isPreviewOpen && <ProjectPreviewWindow onClose={closePreview} onPreviewStarted={preloadHome} isTouch={isTouch} />}
       {sceneTransitionLayer}
     </div>
   )
