@@ -379,20 +379,20 @@ const FOLDER_DEFINITIONS = [
       {
         heading: 'SCREENINGS',
         entries: [
-          { year: '2025', item: '"Dream Wanders By The Window", BurningMagazine, Tokyo, Japan' },
-          { year: '', item: "SpilkaParis x Local Group, Kolektiv Radieuse, Le Corbusier's Cité Radieuse, Marseille, France" },
-          { year: '2024', item: 'Localstickerbook, Films Fundraiser, Datsuijo Gallery, Tokyo, Japan' },
-          { year: '2023', item: 'Short Poetic Film Festival, Lviv, Ukraine' },
+          { year: '2025', item: '"Dream Wanders By The Window", BurningMagazine, Tokyo, Japan', url: 'https://burningmagazinejp.com/' },
+          { year: '2025', item: "SpilkaParis x Local Group, Kolektiv Radieuse, Le Corbusier's Cité Radieuse, Marseille, France", url: 'https://www.instagram.com/p/DLiPmNXoxwA/' },
+          { year: '2024', item: 'Localstickerbook, Films Fundraiser, Datsuijo Gallery, Tokyo, Japan', url: 'https://datsuijo.com/' },
+          { year: '2023', item: 'Short Poetic Film Festival, Lviv, Ukraine', url: 'https://wiz-art.ua/en/' },
         ],
       },
       {
-        heading: 'CURATING EXHIBITIONS + SCREENINGS',
+        heading: 'CURATING',
         entries: [
-          { year: '2025', item: "SpilkaParis x Local Group, Kolektiv Radieuse, Le Corbusier's Cité Radieuse, Marseille, France" },
-          { year: '', item: 'Localstickerbook, Films fundraiser, Domicile Gallery, Tokyo, Japan' },
-          { year: '', item: 'OpenSecret x Localstickerbook, Internet Cinema, Untitled Space Gallery, Tokyo, Japan' },
-          { year: '2024', item: 'Localstickerbook, Films Fundraiser, Datsuijo Gallery, Tokyo, Japan' },
-          { year: '2022', item: 'Localstickerbook, Experimental Film Screening, Filaret 16, Bucharest, Romania' },
+          { year: '2025', item: "SpilkaParis x Local Group, Kolektiv Radieuse, Le Corbusier's Cité Radieuse, Marseille, France", url: 'https://www.instagram.com/p/DLiPmNXoxwA/' },
+          { year: '2025', item: 'Localstickerbook, Films fundraiser, Domicile Gallery, Tokyo, Japan', url: 'https://domicile.tokyo/' },
+          { year: '2025', item: 'OpenSecret x Localstickerbook, Internet Cinema, Untitled Space Gallery, Tokyo, Japan', url: 'https://www.ultra.art/p/the-fourth-secret-of-internet-cinema' },
+          { year: '2024', item: 'Localstickerbook, Films Fundraiser, Datsuijo Gallery, Tokyo, Japan', url: 'https://datsuijo.com/' },
+          { year: '2022', item: 'Localstickerbook, Experimental Film Screening, Filaret 16, Bucharest, Romania', url: 'https://www.facebook.com/Filaret16DiY/' },
         ],
       },
     ],
@@ -2285,7 +2285,7 @@ function AboutPage({
 
   const [playerPos, setPlayerPos] = useState(() => ({
     x: 24,
-    y: typeof window !== 'undefined' ? window.innerHeight - 150 : 450,
+    y: typeof window !== 'undefined' ? window.innerHeight - 250 : 450,
   }))
   const playerPosRef = useRef(playerPos)
   playerPosRef.current = playerPos
@@ -2489,7 +2489,7 @@ function AboutPage({
     >
       {/* ── Welcome gif (static) ── */}
       {!isFolderView && (
-        <div style={{ position: 'fixed', left: leftColumnX, top: aboutWindowTop - welcomeHeight + 2, zIndex: 21, pointerEvents: 'none' }}>
+        <div style={{ position: 'fixed', left: leftColumnX, top: aboutWindowTop - welcomeHeight - 12, zIndex: 21, pointerEvents: 'none' }}>
           <img
             src="assets/welcome.webp"
             alt="welcome to my page"
@@ -2890,11 +2890,27 @@ function AboutFolderContent({
     fontSize: '18px',
     lineHeight: 1.25,
   }
+  const filmmakingLinkStyle = {
+    ...pressLinkStyle,
+    display: 'inline',
+  }
+  const filmmakingHeadingStyle = {
+    margin: '0 0 18px',
+    fontSize: '18px',
+    fontWeight: 700,
+    lineHeight: 1.25,
+    textTransform: 'uppercase',
+  }
   const plainHeadingStyle = {
     margin: '18px 0 8px',
     fontSize: '13px',
     fontWeight: 700,
     textTransform: 'uppercase',
+  }
+  const pressHeadingStyle = {
+    ...plainHeadingStyle,
+    fontSize: '18px',
+    lineHeight: 1.25,
   }
   const writingDesktopRef = useRef(null)
   const draggedWritingRef = useRef(null)
@@ -3235,7 +3251,7 @@ function AboutFolderContent({
 
   return (
     <div style={plainPageStyle}>
-      {folder.id !== 'press' && folder.id !== 'writing' && (
+      {folder.id !== 'press' && folder.id !== 'writing' && folder.id !== 'filmmaking' && (
         <h1 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: 700 }}>{folder.title}</h1>
       )}
       {folder.bio && (
@@ -3289,39 +3305,52 @@ function AboutFolderContent({
         </div>
       )}
 
-      {folder.id !== 'writing' && folder.sections.map((section) => (
-        <section key={section.heading} style={{ margin: '0 0 20px' }}>
-          <h2 style={plainHeadingStyle}>{section.heading}</h2>
-          {section.entries && (
-            <ul style={{ margin: 0, paddingLeft: '22px' }}>
-              {section.entries.map((entry, i) => (
-                // eslint-disable-next-line react/no-array-index-key
-                <li key={i} style={{ marginBottom: '6px' }}>
-                  {entry.year ? `${entry.year} - ` : ''}
-                  {entry.item}
-                </li>
-              ))}
-            </ul>
-          )}
-          {section.links && (
-            <ul style={{ margin: 0, paddingLeft: '22px' }}>
-              {section.links.map((link) => (
-                <li key={link.url} style={{ marginBottom: '6px' }}>
-                  <a
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`about-folder-link${folder.id === 'press' ? ' press-folder-link' : ''}`}
-                    style={folder.id === 'press' ? pressLinkStyle : plainLinkStyle}
-                  >
-                    {link.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      ))}
+      {folder.id !== 'writing' && folder.sections.map((section) => {
+        const isFilmmaking = folder.id === 'filmmaking'
+        return (
+          <section key={section.heading} style={{ margin: isFilmmaking ? '0 0 86px' : '0 0 20px' }}>
+            <h2 style={isFilmmaking ? filmmakingHeadingStyle : folder.id === 'press' ? pressHeadingStyle : plainHeadingStyle}>{section.heading}</h2>
+            {section.entries && (
+              <ul style={{ margin: 0, paddingLeft: '22px' }}>
+                {section.entries.map((entry, i) => (
+                  // eslint-disable-next-line react/no-array-index-key
+                  <li key={i} style={{ marginBottom: isFilmmaking ? '12px' : '6px', fontSize: isFilmmaking ? '18px' : undefined, lineHeight: isFilmmaking ? 1.25 : undefined }}>
+                    {entry.year ? `${entry.year} - ` : ''}
+                    {entry.url ? (
+                      <a
+                        href={entry.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`about-folder-link${isFilmmaking ? ' press-folder-link' : ''}`}
+                        style={isFilmmaking ? filmmakingLinkStyle : plainLinkStyle}
+                      >
+                        {entry.item}
+                      </a>
+                    ) : entry.item}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {section.links && (
+              <ul style={{ margin: 0, paddingLeft: '22px' }}>
+                {section.links.map((link) => (
+                  <li key={link.url} style={{ marginBottom: '6px' }}>
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`about-folder-link${folder.id === 'press' ? ' press-folder-link' : ''}`}
+                      style={folder.id === 'press' ? pressLinkStyle : plainLinkStyle}
+                    >
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )
+      })}
     </div>
   )
 }
