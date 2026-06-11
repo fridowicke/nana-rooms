@@ -122,6 +122,7 @@ const DIARY_PHOTOS = Object.entries(DIARY_PHOTO_MODULES)
   })
 const EXHIBITION_IMAGE_MODULES = import.meta.glob('../target/exhibitions/**/*.{jpeg,jpg,jpg_,png,webp,JPEG,JPG,PNG,WEBP}', { eager: true, query: '?url', import: 'default' })
 const OPEN_ARCHIVE_IMAGE_MODULES = import.meta.glob('../target/open collective archive/**/*.{jpeg,jpg,png,webp,gif,JPEG,JPG,PNG,WEBP,GIF}', { eager: true, query: '?url', import: 'default' })
+const OPEN_ARCHIVE_THUMB_MODULES = import.meta.glob('../target/open collective archive thumbnails/**/*.jpg', { eager: true, query: '?url', import: 'default' })
 const EXHIBITIONS = [
   {
     id: 'women-by-women',
@@ -260,6 +261,19 @@ function getStableNumber(value) {
   return Array.from(value).reduce((sum, char, index) => sum + char.charCodeAt(0) * (index + 1), 0)
 }
 
+function getOpenArchiveAssetKey(path) {
+  const normalizedPath = path.replace(/\\/g, '/')
+  const segments = normalizedPath.split('/')
+  const filename = segments[segments.length - 1] ?? ''
+  const page = segments[segments.length - 2] ?? 'open archive'
+  const stem = filename.replace(/\.[^.]+$/, '')
+  return `${page}/${stem}`
+}
+
+const OPEN_ARCHIVE_THUMBS_BY_KEY = new Map(
+  Object.entries(OPEN_ARCHIVE_THUMB_MODULES).map(([path, src]) => [getOpenArchiveAssetKey(path), src])
+)
+
 const OPEN_ARCHIVE_IMAGES = Object.entries(OPEN_ARCHIVE_IMAGE_MODULES)
   .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
   .map(([path, src], index) => {
@@ -268,8 +282,10 @@ const OPEN_ARCHIVE_IMAGES = Object.entries(OPEN_ARCHIVE_IMAGE_MODULES)
     const filename = segments[segments.length - 1] ?? `archive-${index + 1}`
     const page = segments[segments.length - 2] ?? 'open archive'
     const stem = filename.replace(/\.[^.]+$/, '')
+    const assetKey = getOpenArchiveAssetKey(path)
     return {
       src,
+      thumbSrc: OPEN_ARCHIVE_THUMBS_BY_KEY.get(assetKey) ?? src,
       alt: stem.replace(/[_-]/g, ' '),
       filename,
       page,
@@ -3254,7 +3270,7 @@ function AboutFolderContent({
                 }}
               >
                 <img
-                  src={image.src}
+                  src={image.thumbSrc}
                   alt={image.alt}
                   loading="lazy"
                   decoding="async"
