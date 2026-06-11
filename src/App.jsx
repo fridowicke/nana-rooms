@@ -549,6 +549,23 @@ const ROOM_RENDER_VARIANTS = [
     },
   },
   {
+    id: 'snappy',
+    label: 'snappy',
+    settings: DEFAULT_ROOM_RENDER_SETTINGS,
+    stageEnvironment: null,
+    ambientLightIntensity: 0,
+    controls: {
+      moveSpeed: 0.085,
+      enablePan: true,
+      zoomSpeed: 2.8,
+      rotateSpeed: 0.62,
+      panSpeed: 0.55,
+      dampingFactor: 0.035,
+      minDistance: 0.06,
+      maxDistance: 5,
+    },
+  },
+  {
     id: 'orbit',
     label: 'orbit only',
     settings: DEFAULT_ROOM_RENDER_SETTINGS,
@@ -560,6 +577,23 @@ const ROOM_RENDER_VARIANTS = [
       zoomSpeed: 0.75,
       rotateSpeed: 0.45,
       dampingFactor: 0.1,
+      minDistance: 0.08,
+      maxDistance: 3.8,
+    },
+  },
+  {
+    id: 'fixed',
+    label: 'fixed target',
+    settings: DEFAULT_ROOM_RENDER_SETTINGS,
+    stageEnvironment: null,
+    ambientLightIntensity: 0,
+    controls: {
+      moveSpeed: 0.035,
+      keyboardTargetMode: 'fixed',
+      enablePan: false,
+      zoomSpeed: 0.9,
+      rotateSpeed: 0.42,
+      dampingFactor: 0.08,
       minDistance: 0.08,
       maxDistance: 3.8,
     },
@@ -579,6 +613,38 @@ const ROOM_RENDER_VARIANTS = [
       dampingFactor: 0.08,
       minDistance: 0.08,
       maxDistance: 3.8,
+    },
+  },
+  {
+    id: 'nozoom',
+    label: 'no zoom',
+    settings: DEFAULT_ROOM_RENDER_SETTINGS,
+    stageEnvironment: null,
+    ambientLightIntensity: 0,
+    controls: {
+      moveSpeed: 0.03,
+      enableZoom: false,
+      enablePan: false,
+      zoomSpeed: 0,
+      rotateSpeed: 0.38,
+      dampingFactor: 0.09,
+    },
+  },
+  {
+    id: 'fly',
+    label: 'fly',
+    settings: DEFAULT_ROOM_RENDER_SETTINGS,
+    stageEnvironment: null,
+    ambientLightIntensity: 0,
+    controls: {
+      moveSpeed: 0.032,
+      keyboardAxis: 'view',
+      enablePan: false,
+      zoomSpeed: 0.8,
+      rotateSpeed: 0.4,
+      dampingFactor: 0.075,
+      minDistance: 0.08,
+      maxDistance: 4.2,
     },
   },
 ]
@@ -1580,7 +1646,11 @@ function Controls({
   rotateSpeed = 0.4,
   panSpeed = 0.4,
   enablePan = true,
+  enableZoom = true,
+  enableRotate = true,
   dampingFactor = 0.05,
+  keyboardAxis = 'flat',
+  keyboardTargetMode = 'follow',
   minDistance,
   maxDistance,
   positionControlsApiRef = null,
@@ -1621,11 +1691,15 @@ function Controls({
     if (!(forward || backward || left || right)) return
 
     const forwardDir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion)
-    forwardDir.y = 0
+    if (keyboardAxis !== 'view') {
+      forwardDir.y = 0
+    }
     forwardDir.normalize()
 
     const rightDir = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion)
-    rightDir.y = 0
+    if (keyboardAxis !== 'view') {
+      rightDir.y = 0
+    }
     rightDir.normalize()
 
     const moveDir = new THREE.Vector3(0, 0, 0)
@@ -1639,8 +1713,10 @@ function Controls({
     moveDir.normalize().multiplyScalar(moveSpeed)
     camera.position.add(moveDir)
 
-    if (controlsRef.current) {
+    if (controlsRef.current && keyboardTargetMode !== 'fixed') {
       controlsRef.current.target.add(moveDir)
+      controlsRef.current.update()
+    } else if (controlsRef.current) {
       controlsRef.current.update()
     }
   })
@@ -1653,6 +1729,8 @@ function Controls({
       zoomSpeed={zoomSpeed}
       panSpeed={panSpeed}
       enablePan={enablePan}
+      enableZoom={enableZoom}
+      enableRotate={enableRotate}
       enableDamping
       dampingFactor={dampingFactor}
       minDistance={minDistance}
@@ -2140,7 +2218,11 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
               rotateSpeed={roomRenderVariant.controls.rotateSpeed ?? 0.4}
               panSpeed={roomRenderVariant.controls.panSpeed ?? 0.4}
               enablePan={roomRenderVariant.controls.enablePan ?? true}
+              enableZoom={roomRenderVariant.controls.enableZoom ?? true}
+              enableRotate={roomRenderVariant.controls.enableRotate ?? true}
               dampingFactor={roomRenderVariant.controls.dampingFactor ?? 0.05}
+              keyboardAxis={roomRenderVariant.controls.keyboardAxis ?? 'flat'}
+              keyboardTargetMode={roomRenderVariant.controls.keyboardTargetMode ?? 'follow'}
               minDistance={roomRenderVariant.controls.minDistance}
               maxDistance={roomRenderVariant.controls.maxDistance}
               positionControlsApiRef={showPositionControls ? positionControlsApiRef : null}
