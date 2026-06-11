@@ -1697,11 +1697,11 @@ function DoorLinks({ doors, onOpenRoom, occluderRoot }) {
   )
 }
 
-function RoomTickerBar() {
+function RoomTickerBar({ onOpenSubmit }) {
   return (
-    <div className="room-ticker-bar" aria-hidden="true">
+    <button type="button" className="room-ticker-bar" onClick={onOpenSubmit} aria-label="Submit room">
       <span>clean my room +++++ clean my room +++++ clean my room +++++</span>
-    </div>
+    </button>
   )
 }
 
@@ -1714,7 +1714,7 @@ function MobileDesktopNotice() {
   )
 }
 
-function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenNextRoom, canGoBack, onReady }) {
+function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenNextRoom, onOpenSubmit, canGoBack, onReady }) {
   const prepareRoomScene = useCallback((scene) => {
     applyRoomMaterialOverrides(scene, DEFAULT_ROOM_RENDER_SETTINGS)
   }, [])
@@ -1732,7 +1732,7 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
         position: 'relative',
       }}
     >
-      <RoomTickerBar />
+      <RoomTickerBar onOpenSubmit={onOpenSubmit} />
       <KeyboardControls map={keyboardMap}>
         <Canvas gl={CANVAS_GL_OPTIONS} camera={{ position: cameraDefault.position, fov: 47.5 }} style={{ cursor: 'inherit', touchAction: 'auto' }}>
           <color attach="background" args={['#fff']} />
@@ -4035,6 +4035,10 @@ export default function App() {
     navigateWithHash(getHashForAboutHistoryEntry(getFolderRouteKey(folderId, folderDetailId, folderImageIndex)))
   }, [])
 
+  const openSubmitRoom = useCallback(() => {
+    openFolder('submit-room')
+  }, [openFolder])
+
   const rememberAboutFolderOpen = useCallback((folderId) => {
     if (!folderId || !FOLDER_MAP.has(folderId)) return
     setOpenedAboutFolderIds((current) => (current.includes(folderId) ? current : [...current, folderId]))
@@ -4153,6 +4157,7 @@ export default function App() {
           onBack={openPreviousRoom}
           onHome={closeRoom}
           onOpenNextRoom={() => openNextRoom(roomNumber)}
+          onOpenSubmit={openSubmitRoom}
           canGoBack={visitedRoomHistory.length > 0}
           onReady={clearTransitionCover}
         />
