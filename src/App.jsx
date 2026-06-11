@@ -523,85 +523,72 @@ const ROOM_RENDER_VARIANTS = [
     settings: DEFAULT_ROOM_RENDER_SETTINGS,
     stageEnvironment: null,
     ambientLightIntensity: 0,
-    controls: {},
-  },
-  {
-    id: 'native',
-    label: 'native-ish',
-    settings: {
-      ...DEFAULT_ROOM_RENDER_SETTINGS,
-      shadingMode: 'original',
-      toneMapping: 'neutral',
-      environmentIntensity: 1.15,
-      roughness: 0.82,
-      emissiveIntensity: 1,
-      transparent: false,
-      envMapIntensity: 1.25,
-    },
-    stageEnvironment: 'city',
-    ambientLightIntensity: 1.2,
     controls: {
-      enablePan: false,
-      zoomSpeed: 1,
-      rotateSpeed: 0.55,
-      dampingFactor: 0.08,
-      minDistance: 0.08,
-      maxDistance: 4.5,
+      moveSpeed: 0.05,
+      zoomSpeed: 2.2,
+      rotateSpeed: 0.4,
+      panSpeed: 0.4,
+      enablePan: true,
+      dampingFactor: 0.05,
     },
   },
   {
-    id: 'soft',
-    label: 'soft studio',
-    settings: {
-      ...DEFAULT_ROOM_RENDER_SETTINGS,
-      shadingMode: 'original',
-      toneMapping: 'aces',
-      exposure: 0.95,
-      environmentIntensity: 0.85,
-      roughness: 0.9,
-      emissiveIntensity: 1,
-      transparent: false,
-      envMapIntensity: 0.9,
-    },
-    stageEnvironment: 'studio',
-    ambientLightIntensity: 1.7,
+    id: 'calm',
+    label: 'calm',
+    settings: DEFAULT_ROOM_RENDER_SETTINGS,
+    stageEnvironment: null,
+    ambientLightIntensity: 0,
     controls: {
+      moveSpeed: 0.025,
       enablePan: false,
       zoomSpeed: 0.85,
+      rotateSpeed: 0.35,
+      dampingFactor: 0.08,
+      minDistance: 0.08,
+      maxDistance: 3.8,
+    },
+  },
+  {
+    id: 'orbit',
+    label: 'orbit only',
+    settings: DEFAULT_ROOM_RENDER_SETTINGS,
+    stageEnvironment: null,
+    ambientLightIntensity: 0,
+    controls: {
+      moveSpeed: 0,
+      enablePan: false,
+      zoomSpeed: 0.75,
       rotateSpeed: 0.45,
       dampingFactor: 0.1,
       minDistance: 0.08,
-      maxDistance: 4.5,
+      maxDistance: 3.8,
     },
   },
   {
-    id: 'bright',
-    label: 'bright PBR',
-    settings: {
-      ...DEFAULT_ROOM_RENDER_SETTINGS,
-      shadingMode: 'original',
-      toneMapping: 'agx',
-      exposure: 1.12,
-      environmentIntensity: 1.55,
-      roughness: 0.72,
-      emissiveIntensity: 1,
-      transparent: false,
-      envMapIntensity: 1.45,
-    },
-    stageEnvironment: 'apartment',
-    ambientLightIntensity: 2.1,
+    id: 'slow',
+    label: 'slow walk',
+    settings: DEFAULT_ROOM_RENDER_SETTINGS,
+    stageEnvironment: null,
+    ambientLightIntensity: 0,
     controls: {
-      enablePan: false,
-      zoomSpeed: 1.1,
-      rotateSpeed: 0.5,
+      moveSpeed: 0.012,
+      enablePan: true,
+      zoomSpeed: 0.6,
+      rotateSpeed: 0.32,
+      panSpeed: 0.22,
       dampingFactor: 0.08,
       minDistance: 0.08,
-      maxDistance: 4.5,
+      maxDistance: 3.8,
     },
   },
 ]
 const DEFAULT_ROOM_RENDER_VARIANT = ROOM_RENDER_VARIANTS[0]
 const ROOM_RENDER_VARIANT_MAP = new Map(ROOM_RENDER_VARIANTS.map((variant) => [variant.id, variant]))
+const ROOM_RENDER_VARIANT_ALIASES = new Map([
+  ['native', 'calm'],
+  ['soft', 'orbit'],
+  ['bright', 'slow'],
+])
 const CANVAS_GL_OPTIONS = { preserveDrawingBuffer: true }
 
 function buildCursorValue(cursorUrl, fallback = 'auto', hotspot = MAIN_KEY_CURSOR_HOTSPOT) {
@@ -664,7 +651,8 @@ function readRoomRenderVariantFromUrl() {
   const params = new URLSearchParams(window.location.search)
   const requestedVariant = params.get('viewer') || params.get('roomViewer')
   const enabled = params.has('viewerVariants') || params.has('viewer') || params.has('roomViewer')
-  const variant = ROOM_RENDER_VARIANT_MAP.get(requestedVariant) ?? DEFAULT_ROOM_RENDER_VARIANT
+  const resolvedVariantId = ROOM_RENDER_VARIANT_ALIASES.get(requestedVariant) ?? requestedVariant
+  const variant = ROOM_RENDER_VARIANT_MAP.get(resolvedVariantId) ?? DEFAULT_ROOM_RENDER_VARIANT
 
   return { enabled, variant }
 }
@@ -2085,7 +2073,7 @@ function RoomRenderVariantControls({ selectedVariantId, onSelectVariant }) {
 
   return (
     <div className="room-render-variant-controls" aria-label="Room render variants">
-      <div className="room-render-variant-status">viewer test: {selectedVariant.label}</div>
+      <div className="room-render-variant-status">movement test: {selectedVariant.label}</div>
       {ROOM_RENDER_VARIANTS.map((variant) => (
         <button
           type="button"
@@ -2147,7 +2135,7 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
               <Model url={`rooms/${roomFile}`} prepareScene={prepareRoomScene} />
             </Stage>
             <Controls
-              moveSpeed={ROOM_CAMERA_MOVE_SPEED}
+              moveSpeed={roomRenderVariant.controls.moveSpeed ?? ROOM_CAMERA_MOVE_SPEED}
               zoomSpeed={roomRenderVariant.controls.zoomSpeed ?? ROOM_CAMERA_ZOOM_SPEED}
               rotateSpeed={roomRenderVariant.controls.rotateSpeed ?? 0.4}
               panSpeed={roomRenderVariant.controls.panSpeed ?? 0.4}
