@@ -147,13 +147,24 @@ a, button, [role="button"], .cursor-pointer {
   right: 18px;
   top: 46px;
   z-index: 30;
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, max-content);
   gap: 6px;
   align-items: center;
   padding: 6px;
   border: 1px solid #111;
   background: rgba(255, 255, 255, 0.86);
   font-family: 'Courier New', Courier, monospace;
+}
+
+.room-render-variant-status {
+  grid-column: 1 / -1;
+  padding: 2px 4px 4px;
+  color: #111;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: lowercase;
 }
 
 .room-render-variant-controls button {

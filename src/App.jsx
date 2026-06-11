@@ -2081,8 +2081,11 @@ function MobileDesktopNotice() {
 }
 
 function RoomRenderVariantControls({ selectedVariantId, onSelectVariant }) {
+  const selectedVariant = ROOM_RENDER_VARIANT_MAP.get(selectedVariantId) ?? DEFAULT_ROOM_RENDER_VARIANT
+
   return (
     <div className="room-render-variant-controls" aria-label="Room render variants">
+      <div className="room-render-variant-status">viewer test: {selectedVariant.label}</div>
       {ROOM_RENDER_VARIANTS.map((variant) => (
         <button
           type="button"
