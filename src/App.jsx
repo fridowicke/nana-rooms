@@ -30,6 +30,34 @@ const ROOM_CAMERA_DEFAULTS = [
     position: [-0.509, 1.244, -0.583],
     target: [-0.607, 0.029, -0.652],
   },
+  {
+    position: [-0.04, 1.55, 2.25],
+    target: [-0.04, 1.05, 0.25],
+  },
+  {
+    position: [0.27, 1.55, 2.15],
+    target: [0.27, 1.08, -0.06],
+  },
+  {
+    position: [-0.13, 0.45, 2.6],
+    target: [-0.13, -0.25, 0.16],
+  },
+  {
+    position: [-3.08, 0.5, -0.11],
+    target: [-0.08, -0.2, -0.11],
+  },
+  {
+    position: [-0.44, 0.5, -3.09],
+    target: [-0.44, -0.2, -0.09],
+  },
+  {
+    position: [-2.94, 0.5, 0.05],
+    target: [-0.14, -0.2, 0.05],
+  },
+  {
+    position: [0.06, 0.5, -3.14],
+    target: [0.06, -0.2, 0.06],
+  },
 ]
 const ROOM_FILES = [
   'YUNA WEB.glb',
@@ -1313,22 +1341,156 @@ const ROOM_CAMERA_MOVE_SPEED = 0.05
 const DEFAULT_CAMERA_ZOOM_SPEED = 1
 const ROOM_CAMERA_ZOOM_SPEED = 2.2
 
-function Controls({ moveSpeed = DEFAULT_CAMERA_MOVE_SPEED, zoomSpeed = DEFAULT_CAMERA_ZOOM_SPEED }) {
+function formatCameraVector(vector) {
+  return vector.map((value) => Number(value).toFixed(3)).join(', ')
+}
+
+function parseCameraVector(value) {
+  const parsed = value
+    .replace(/[\[\]]/g, '')
+    .split(',')
+    .map((part) => Number(part.trim()))
+
+  return parsed.length === 3 && parsed.every(Number.isFinite) ? parsed : null
+}
+
+function CameraPositionControlsOverlay({ controlsApiRef }) {
+  const [positionInput, setPositionInput] = useState('')
+  const [targetInput, setTargetInput] = useState('')
+  const [message, setMessage] = useState('')
+  const isEditingRef = useRef(false)
+
+  const readCamera = useCallback(() => {
+    const cameraState = controlsApiRef.current?.read()
+    if (!cameraState) return null
+
+    const nextPosition = formatCameraVector(cameraState.position)
+    const nextTarget = formatCameraVector(cameraState.target)
+    setPositionInput(nextPosition)
+    setTargetInput(nextTarget)
+    return { position: nextPosition, target: nextTarget }
+  }, [controlsApiRef])
+
+  useEffect(() => {
+    const syncTimer = window.setInterval(() => {
+      if (!isEditingRef.current) readCamera()
+    }, 350)
+
+    return () => window.clearInterval(syncTimer)
+  }, [readCamera])
+
+  const applyCamera = () => {
+    const nextPosition = parseCameraVector(positionInput)
+    const nextTarget = parseCameraVector(targetInput)
+    if (!nextPosition || !nextTarget) {
+      setMessage('Use three comma-separated numbers.')
+      return
+    }
+
+    if (!controlsApiRef.current?.apply) {
+      setMessage('Camera is not ready yet.')
+      return
+    }
+    controlsApiRef.current.apply(nextPosition, nextTarget)
+    setMessage('Applied.')
+  }
+
+  const copyCamera = async () => {
+    const cameraState = readCamera()
+    if (!cameraState) {
+      setMessage('Camera is not ready yet.')
+      return
+    }
+    const { position, target } = cameraState
+    const text = `position: [${position}], target: [${target}]`
+    try {
+      await navigator.clipboard.writeText(text)
+      setMessage('Copied.')
+    } catch {
+      setMessage(text)
+    }
+  }
+
+  const fieldStyle = {
+    width: '100%',
+    boxSizing: 'border-box',
+    border: '1px solid #000',
+    background: '#fff',
+    color: '#000',
+    font: '12px Arial, Helvetica, sans-serif',
+    padding: '4px',
+  }
+  const buttonStyle = {
+    border: '1px solid #000',
+    background: '#fff',
+    color: '#000',
+    font: '12px Arial, Helvetica, sans-serif',
+    padding: '4px 7px',
+  }
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        left: 12,
+        top: 42,
+        zIndex: 100,
+        width: 286,
+        padding: 10,
+        background: 'rgba(255,255,255,0.9)',
+        border: '1px solid #000',
+        color: '#000',
+        font: '12px Arial, Helvetica, sans-serif',
+        lineHeight: 1.35,
+      }}
+    >
+      <div style={{ marginBottom: 6, fontWeight: 700 }}>camera</div>
+      <label style={{ display: 'block', marginBottom: 6 }}>
+        position
+        <input
+          value={positionInput}
+          onChange={(event) => setPositionInput(event.target.value)}
+          onFocus={() => { isEditingRef.current = true }}
+          onBlur={() => { isEditingRef.current = false }}
+          style={fieldStyle}
+        />
+      </label>
+      <label style={{ display: 'block', marginBottom: 8 }}>
+        target
+        <input
+          value={targetInput}
+          onChange={(event) => setTargetInput(event.target.value)}
+          onFocus={() => { isEditingRef.current = true }}
+          onBlur={() => { isEditingRef.current = false }}
+          style={fieldStyle}
+        />
+      </label>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 7 }}>
+        <button type="button" onClick={readCamera} style={buttonStyle}>read</button>
+        <button type="button" onClick={applyCamera} style={buttonStyle}>apply</button>
+        <button type="button" onClick={copyCamera} style={buttonStyle}>copy</button>
+      </div>
+      <div style={{ minHeight: 16, wordBreak: 'break-word' }}>{message}</div>
+    </div>
+  )
+}
+
+function Controls({ moveSpeed = DEFAULT_CAMERA_MOVE_SPEED, zoomSpeed = DEFAULT_CAMERA_ZOOM_SPEED, positionControlsApiRef = null }) {
   const [, get] = useKeyboardControls()
   const { camera } = useThree()
   const controlsRef = useRef()
 
   useEffect(() => {
-    if (typeof window === 'undefined') return undefined
+    if (!positionControlsApiRef) return undefined
 
-    window.__roomViewer = {
-      getCamera() {
+    positionControlsApiRef.current = {
+      read() {
         return {
           position: camera.position.toArray(),
-          target: controlsRef.current?.target?.toArray?.() ?? null,
+          target: controlsRef.current?.target?.toArray?.() ?? DEFAULT_CAMERA_TARGET,
         }
       },
-      setCamera(position, target = controlsRef.current?.target?.toArray?.() ?? DEFAULT_CAMERA_TARGET) {
+      apply(position, target) {
         camera.position.set(...position)
         if (controlsRef.current?.target) {
           controlsRef.current.target.set(...target)
@@ -1338,26 +1500,11 @@ function Controls({ moveSpeed = DEFAULT_CAMERA_MOVE_SPEED, zoomSpeed = DEFAULT_C
         }
       },
     }
-    const handleRoomViewerSetCamera = (event) => {
-      const { position, target } = event.detail ?? {}
-      window.__roomViewer.setCamera(position, target)
-      document.body.dataset.roomViewerCamera = JSON.stringify(window.__roomViewer.getCamera())
-    }
-    const handleRoomViewerGetCamera = () => {
-      document.body.dataset.roomViewerCamera = JSON.stringify(window.__roomViewer.getCamera())
-    }
-    document.addEventListener('room-viewer:set-camera', handleRoomViewerSetCamera)
-    document.addEventListener('room-viewer:get-camera', handleRoomViewerGetCamera)
-    document.body.dataset.roomViewerHook = 'ready'
 
     return () => {
-      document.removeEventListener('room-viewer:set-camera', handleRoomViewerSetCamera)
-      document.removeEventListener('room-viewer:get-camera', handleRoomViewerGetCamera)
-      if (window.__roomViewer?.getCamera) delete window.__roomViewer
-      delete document.body.dataset.roomViewerHook
-      delete document.body.dataset.roomViewerCamera
+      positionControlsApiRef.current = null
     }
-  }, [camera])
+  }, [camera, positionControlsApiRef])
 
   useFrame(() => {
     const { forward, backward, left, right } = get()
@@ -1547,18 +1694,12 @@ function CameraReset({ position, target = DEFAULT_CAMERA_TARGET }) {
   const controls = useThree((state) => state.controls)
 
   useLayoutEffect(() => {
-    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
-    const cameraOverride = urlParams?.get('camera')?.split(',').map(Number)
-    const targetOverride = urlParams?.get('target')?.split(',').map(Number)
-    const nextPosition = cameraOverride?.length === 3 && cameraOverride.every(Number.isFinite) ? cameraOverride : position
-    const nextTarget = targetOverride?.length === 3 && targetOverride.every(Number.isFinite) ? targetOverride : target
-
-    camera.position.set(...nextPosition)
+    camera.position.set(...position)
     if (controls?.target) {
-      controls.target.set(...nextTarget)
+      controls.target.set(...target)
       controls.update()
     } else {
-      camera.lookAt(...nextTarget)
+      camera.lookAt(...target)
     }
   }, [camera, controls, position, target])
 
@@ -1816,8 +1957,18 @@ function MobileDesktopNotice() {
 }
 
 function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenNextRoom, onOpenSubmit, canGoBack, onReady }) {
+  const positionControlsApiRef = useRef(null)
   const prepareRoomScene = useCallback((scene) => {
     applyRoomMaterialOverrides(scene, DEFAULT_ROOM_RENDER_SETTINGS)
+  }, [])
+  const showPositionControls = useMemo(() => {
+    if (typeof window === 'undefined') return false
+    const params = new URLSearchParams(window.location.search)
+    return (
+      params.get('positionControls') === '1' ||
+      params.get('cameraControls') === '1' ||
+      params.get('controls') === 'position'
+    )
   }, [])
 
   return (
@@ -1842,12 +1993,13 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
             <Stage environment={null} intensity={DEFAULT_ROOM_RENDER_SETTINGS.environmentIntensity} shadows={false} adjustCamera={false}>
               <Model url={`rooms/${roomFile}`} prepareScene={prepareRoomScene} />
             </Stage>
-            <Controls moveSpeed={ROOM_CAMERA_MOVE_SPEED} zoomSpeed={ROOM_CAMERA_ZOOM_SPEED} />
+            <Controls moveSpeed={ROOM_CAMERA_MOVE_SPEED} zoomSpeed={ROOM_CAMERA_ZOOM_SPEED} positionControlsApiRef={showPositionControls ? positionControlsApiRef : null} />
             <CameraReset position={cameraDefault.position} target={cameraDefault.target} />
             <FirstFrameSignal onReady={onReady} />
           </Suspense>
         </Canvas>
       </KeyboardControls>
+      {showPositionControls && <CameraPositionControlsOverlay controlsApiRef={positionControlsApiRef} />}
 
       <button
         type="button"
