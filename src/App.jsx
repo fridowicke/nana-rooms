@@ -516,6 +516,92 @@ const DEFAULT_ROOM_RENDER_SETTINGS = {
   flatShading: false,
   wireframe: false,
 }
+const ROOM_RENDER_VARIANTS = [
+  {
+    id: 'current',
+    label: 'current',
+    settings: DEFAULT_ROOM_RENDER_SETTINGS,
+    stageEnvironment: null,
+    ambientLightIntensity: 0,
+    controls: {},
+  },
+  {
+    id: 'native',
+    label: 'native-ish',
+    settings: {
+      ...DEFAULT_ROOM_RENDER_SETTINGS,
+      shadingMode: 'original',
+      toneMapping: 'neutral',
+      environmentIntensity: 1.15,
+      roughness: 0.82,
+      emissiveIntensity: 1,
+      transparent: false,
+      envMapIntensity: 1.25,
+    },
+    stageEnvironment: 'city',
+    ambientLightIntensity: 1.2,
+    controls: {
+      enablePan: false,
+      zoomSpeed: 1,
+      rotateSpeed: 0.55,
+      dampingFactor: 0.08,
+      minDistance: 0.08,
+      maxDistance: 4.5,
+    },
+  },
+  {
+    id: 'soft',
+    label: 'soft studio',
+    settings: {
+      ...DEFAULT_ROOM_RENDER_SETTINGS,
+      shadingMode: 'original',
+      toneMapping: 'aces',
+      exposure: 0.95,
+      environmentIntensity: 0.85,
+      roughness: 0.9,
+      emissiveIntensity: 1,
+      transparent: false,
+      envMapIntensity: 0.9,
+    },
+    stageEnvironment: 'studio',
+    ambientLightIntensity: 1.7,
+    controls: {
+      enablePan: false,
+      zoomSpeed: 0.85,
+      rotateSpeed: 0.45,
+      dampingFactor: 0.1,
+      minDistance: 0.08,
+      maxDistance: 4.5,
+    },
+  },
+  {
+    id: 'bright',
+    label: 'bright PBR',
+    settings: {
+      ...DEFAULT_ROOM_RENDER_SETTINGS,
+      shadingMode: 'original',
+      toneMapping: 'agx',
+      exposure: 1.12,
+      environmentIntensity: 1.55,
+      roughness: 0.72,
+      emissiveIntensity: 1,
+      transparent: false,
+      envMapIntensity: 1.45,
+    },
+    stageEnvironment: 'apartment',
+    ambientLightIntensity: 2.1,
+    controls: {
+      enablePan: false,
+      zoomSpeed: 1.1,
+      rotateSpeed: 0.5,
+      dampingFactor: 0.08,
+      minDistance: 0.08,
+      maxDistance: 4.5,
+    },
+  },
+]
+const DEFAULT_ROOM_RENDER_VARIANT = ROOM_RENDER_VARIANTS[0]
+const ROOM_RENDER_VARIANT_MAP = new Map(ROOM_RENDER_VARIANTS.map((variant) => [variant.id, variant]))
 const CANVAS_GL_OPTIONS = { preserveDrawingBuffer: true }
 
 function buildCursorValue(cursorUrl, fallback = 'auto', hotspot = MAIN_KEY_CURSOR_HOTSPOT) {
@@ -565,6 +651,31 @@ function readResponsiveState() {
     isTouch: coarsePointerQuery.matches,
     prefersReducedMotion: reducedMotionQuery.matches,
   }
+}
+
+function readRoomRenderVariantFromUrl() {
+  if (typeof window === 'undefined') {
+    return {
+      enabled: false,
+      variant: DEFAULT_ROOM_RENDER_VARIANT,
+    }
+  }
+
+  const params = new URLSearchParams(window.location.search)
+  const requestedVariant = params.get('viewer') || params.get('roomViewer')
+  const enabled = params.has('viewerVariants') || params.has('viewer') || params.has('roomViewer')
+  const variant = ROOM_RENDER_VARIANT_MAP.get(requestedVariant) ?? DEFAULT_ROOM_RENDER_VARIANT
+
+  return { enabled, variant }
+}
+
+function writeRoomRenderVariantToUrl(variantId) {
+  if (typeof window === 'undefined') return
+
+  const url = new URL(window.location.href)
+  url.searchParams.set('viewer', variantId)
+  url.searchParams.set('viewerVariants', '1')
+  window.history.replaceState(window.history.state, '', url)
 }
 
 function useResponsiveShell() {
@@ -1475,7 +1586,17 @@ function CameraPositionControlsOverlay({ controlsApiRef }) {
   )
 }
 
-function Controls({ moveSpeed = DEFAULT_CAMERA_MOVE_SPEED, zoomSpeed = DEFAULT_CAMERA_ZOOM_SPEED, positionControlsApiRef = null }) {
+function Controls({
+  moveSpeed = DEFAULT_CAMERA_MOVE_SPEED,
+  zoomSpeed = DEFAULT_CAMERA_ZOOM_SPEED,
+  rotateSpeed = 0.4,
+  panSpeed = 0.4,
+  enablePan = true,
+  dampingFactor = 0.05,
+  minDistance,
+  maxDistance,
+  positionControlsApiRef = null,
+}) {
   const [, get] = useKeyboardControls()
   const { camera } = useThree()
   const controlsRef = useRef()
@@ -1540,11 +1661,14 @@ function Controls({ moveSpeed = DEFAULT_CAMERA_MOVE_SPEED, zoomSpeed = DEFAULT_C
     <OrbitControls
       ref={controlsRef}
       makeDefault
-      rotateSpeed={0.4}
+      rotateSpeed={rotateSpeed}
       zoomSpeed={zoomSpeed}
-      panSpeed={0.4}
+      panSpeed={panSpeed}
+      enablePan={enablePan}
       enableDamping
-      dampingFactor={0.05}
+      dampingFactor={dampingFactor}
+      minDistance={minDistance}
+      maxDistance={maxDistance}
     />
   )
 }
@@ -1956,10 +2080,35 @@ function MobileDesktopNotice() {
   )
 }
 
+function RoomRenderVariantControls({ selectedVariantId, onSelectVariant }) {
+  return (
+    <div className="room-render-variant-controls" aria-label="Room render variants">
+      {ROOM_RENDER_VARIANTS.map((variant) => (
+        <button
+          type="button"
+          key={variant.id}
+          className={variant.id === selectedVariantId ? 'is-active' : ''}
+          onClick={() => onSelectVariant(variant.id)}
+        >
+          {variant.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenNextRoom, onOpenSubmit, canGoBack, onReady }) {
   const positionControlsApiRef = useRef(null)
+  const roomRenderVariantState = useMemo(readRoomRenderVariantFromUrl, [])
+  const [roomRenderVariantId, setRoomRenderVariantId] = useState(roomRenderVariantState.variant.id)
+  const roomRenderVariant = ROOM_RENDER_VARIANT_MAP.get(roomRenderVariantId) ?? DEFAULT_ROOM_RENDER_VARIANT
+  const roomRenderSettings = roomRenderVariant.settings
   const prepareRoomScene = useCallback((scene) => {
-    applyRoomMaterialOverrides(scene, DEFAULT_ROOM_RENDER_SETTINGS)
+    applyRoomMaterialOverrides(scene, roomRenderSettings)
+  }, [roomRenderSettings])
+  const handleSelectRoomRenderVariant = useCallback((variantId) => {
+    setRoomRenderVariantId(variantId)
+    writeRoomRenderVariantToUrl(variantId)
   }, [])
   const showPositionControls = useMemo(() => {
     if (typeof window === 'undefined') return false
@@ -1989,17 +2138,34 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
         <Canvas gl={CANVAS_GL_OPTIONS} camera={{ position: cameraDefault.position, fov: 47.5 }} style={{ cursor: 'inherit', touchAction: 'auto' }}>
           <color attach="background" args={['#fff']} />
           <Suspense fallback={<LoadingCanvasFallback />}>
-            <RendererSettings toneMapping={DEFAULT_ROOM_RENDER_SETTINGS.toneMapping} exposure={DEFAULT_ROOM_RENDER_SETTINGS.exposure} />
-            <Stage environment={null} intensity={DEFAULT_ROOM_RENDER_SETTINGS.environmentIntensity} shadows={false} adjustCamera={false}>
+            <RendererSettings toneMapping={roomRenderSettings.toneMapping} exposure={roomRenderSettings.exposure} />
+            {roomRenderVariant.ambientLightIntensity > 0 && <ambientLight intensity={roomRenderVariant.ambientLightIntensity} />}
+            <Stage environment={roomRenderVariant.stageEnvironment} intensity={roomRenderSettings.environmentIntensity} shadows={false} adjustCamera={false}>
               <Model url={`rooms/${roomFile}`} prepareScene={prepareRoomScene} />
             </Stage>
-            <Controls moveSpeed={ROOM_CAMERA_MOVE_SPEED} zoomSpeed={ROOM_CAMERA_ZOOM_SPEED} positionControlsApiRef={showPositionControls ? positionControlsApiRef : null} />
+            <Controls
+              moveSpeed={ROOM_CAMERA_MOVE_SPEED}
+              zoomSpeed={roomRenderVariant.controls.zoomSpeed ?? ROOM_CAMERA_ZOOM_SPEED}
+              rotateSpeed={roomRenderVariant.controls.rotateSpeed ?? 0.4}
+              panSpeed={roomRenderVariant.controls.panSpeed ?? 0.4}
+              enablePan={roomRenderVariant.controls.enablePan ?? true}
+              dampingFactor={roomRenderVariant.controls.dampingFactor ?? 0.05}
+              minDistance={roomRenderVariant.controls.minDistance}
+              maxDistance={roomRenderVariant.controls.maxDistance}
+              positionControlsApiRef={showPositionControls ? positionControlsApiRef : null}
+            />
             <CameraReset position={cameraDefault.position} target={cameraDefault.target} />
             <FirstFrameSignal onReady={onReady} />
           </Suspense>
         </Canvas>
       </KeyboardControls>
       {showPositionControls && <CameraPositionControlsOverlay controlsApiRef={positionControlsApiRef} />}
+      {roomRenderVariantState.enabled && (
+        <RoomRenderVariantControls
+          selectedVariantId={roomRenderVariant.id}
+          onSelectVariant={handleSelectRoomRenderVariant}
+        />
+      )}
 
       <button
         type="button"

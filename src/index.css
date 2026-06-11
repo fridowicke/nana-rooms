@@ -142,6 +142,43 @@ a, button, [role="button"], .cursor-pointer {
   color: #fff;
 }
 
+.room-render-variant-controls {
+  position: fixed;
+  right: 18px;
+  top: 46px;
+  z-index: 30;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 6px;
+  border: 1px solid #111;
+  background: rgba(255, 255, 255, 0.86);
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.room-render-variant-controls button {
+  min-width: 68px;
+  height: 28px;
+  border: 1px solid #111;
+  border-radius: 0;
+  background: #fff;
+  color: #111;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: lowercase;
+  white-space: nowrap;
+  appearance: none;
+}
+
+.room-render-variant-controls button:hover,
+.room-render-variant-controls button:focus-visible,
+.room-render-variant-controls button.is-active {
+  background: #111;
+  color: #fff;
+}
+
 @keyframes room-ticker-fly {
   from {
     transform: translateX(0);
