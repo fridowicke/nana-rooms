@@ -1,4 +1,5 @@
 import React, { useState, Suspense, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Stage, Html, useGLTF, KeyboardControls, useKeyboardControls } from '@react-three/drei'
 import * as THREE from 'three'
@@ -125,12 +126,16 @@ const EXHIBITIONS = [
     id: 'women-by-women',
     title: 'Women by Women',
     year: '2026',
+    dates: '1 March - 8 March 2026',
     venue: 'PhotoVogue',
     location: 'Biblioteca Nazionale Braidense, Milan, Italy',
     description: [
-      'Panel talk and group show at the 10th edition of PhotoVogue Festival.',
+      'This panel explores girlhood as an inner, emotional landscape where identity is imagined, tested, and continuously reshaped. Moving between fiction, collaboration, performance, and projection, the artists treat girlhood not simply as an age or phase, but as a space of thought, desire, and imagination.',
+      'Rather than following linear narratives, these projects give form to inner worlds shaped by fantasy, discipline, and self-invention. Through images that move between reality and construction, intimacy and performance, the works reflect on how young women negotiate visibility, authorship, and self-definition from the inside out.',
     ],
-    links: [],
+    links: [
+      { url: 'https://www.vogue.com/article/pvf-2026-conversations-girlhood-fantasy-and-the-inner-life', label: 'Vogue: Conversations on Girlhood, Fantasy, and the Inner Life' },
+    ],
     imageFolder: 'Women on Women',
   },
   {
@@ -309,6 +314,7 @@ const FOLDER_DEFINITIONS = [
       {
         heading: '2026',
         links: [
+          { url: 'https://www.vogue.com/article/a-project-about-gen-z-youth-in-ukraine?fbclid=PAdGRleAQpBMlleHRuA2FlbQIxMQBzcnRjBmFwcF9pZA8xMjQwMjQ1NzQyODc0MTQAAadkgc9wIQkccTcXOcbHOOxd4wWiCWSpJvO0sIrSnEJ86m0lLWdtYe7iTQ3YNQ_aem_W62CPaBczjId_yDnCjozuQ', label: 'Photo Vogue: Ukrainian Gen Z Adolescence' },
           { url: 'https://www.vogue.com/article/women-by-women-the-shortlist', label: 'Vogue: Women By Women: The Shortlist' },
           { url: 'https://queerwararchive.com/2026/02/18/shelest-vetrovki-anastasiia-pischanska-gen-z/', label: 'Queer War Archive: Shelest Vetrovki' },
         ],
@@ -1169,6 +1175,86 @@ function TallyEmbed() {
         background: 'transparent',
       }}
     />
+  )
+}
+
+function ExhibitionLightbox({ image, onNext, onClose }) {
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') onClose()
+      if (event.key === 'ArrowRight' || event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault()
+        onNext()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [onClose, onNext])
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label="Next exhibition image"
+      onClick={onNext}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 2147483647,
+        width: '100vw',
+        height: '100vh',
+        background: '#fff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 0,
+        boxSizing: 'border-box',
+      }}
+    >
+      <button
+        type="button"
+        aria-label="Close fullscreen image"
+        onClick={(event) => {
+          event.stopPropagation()
+          onClose()
+        }}
+        style={{
+          position: 'fixed',
+          top: '14px',
+          right: '16px',
+          zIndex: 2147483647,
+          border: 'none',
+          background: 'transparent',
+          color: '#ff0000',
+          font: '700 54px Arial, Helvetica, sans-serif',
+          lineHeight: 1,
+          padding: '4px 10px',
+        }}
+      >
+        ×
+      </button>
+      <img
+        src={image.src}
+        alt={image.alt}
+        style={{
+          display: 'block',
+          width: 'auto',
+          height: 'auto',
+          maxWidth: '100vw',
+          maxHeight: '100vh',
+          objectFit: 'contain',
+        }}
+      />
+    </div>
   )
 }
 
@@ -2798,6 +2884,12 @@ function AboutFolderContent({
     color: '#00e',
     textDecoration: 'underline',
   }
+  const pressLinkStyle = {
+    ...plainLinkStyle,
+    color: '#000',
+    fontSize: '18px',
+    lineHeight: 1.25,
+  }
   const plainHeadingStyle = {
     margin: '18px 0 8px',
     fontSize: '13px',
@@ -2830,6 +2922,17 @@ function AboutFolderContent({
     background: 'transparent',
     objectFit: 'contain',
     boxSizing: 'border-box',
+  }
+  const writingIconPlaceholderStyle = {
+    ...writingIconMediaStyle,
+    display: 'grid',
+    placeItems: 'center',
+    padding: '10px',
+    fontSize: '12px',
+    fontWeight: 700,
+    lineHeight: 1.12,
+    textAlign: 'center',
+    textTransform: 'uppercase',
   }
   const writingIconFilenameStyle = {
     display: 'block',
@@ -2928,8 +3031,8 @@ function AboutFolderContent({
       }
 
       return (
-        <div style={{ ...plainPageStyle, position: 'relative', textAlign: 'center', lineHeight: 1.75 }}>
-          <p style={{ margin: '0 0 16px' }}>
+        <div style={{ ...plainPageStyle, position: 'relative', lineHeight: 1.7 }}>
+          <p style={{ margin: '0 0 22px', textAlign: 'center' }}>
             <button
               type="button"
               onClick={() => onOpenFolderRoute?.(folder.id)}
@@ -2946,22 +3049,49 @@ function AboutFolderContent({
             </button>
           </p>
 
-          <h1 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 700 }}>{selectedExhibition.title}</h1>
-          <p style={{ margin: '0 0 8px' }}>{selectedExhibition.year}</p>
-          <p style={{ margin: '0 auto 10px', maxWidth: '58ch' }}>
-            {getExhibitionDescription(selectedExhibition)}
-          </p>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+              gap: '18px',
+              alignItems: 'start',
+              margin: '0 auto 24px',
+              maxWidth: '760px',
+            }}
+          >
+            <div>
+              <h1 style={{ margin: 0, fontSize: '16px', fontWeight: 700, lineHeight: 1.55 }}>
+                {selectedExhibition.title}
+              </h1>
+            </div>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700, lineHeight: 1.55 }}>
+                {selectedExhibition.venue}
+                <br />
+                {selectedExhibition.dates ?? selectedExhibition.year}
+              </h2>
+              <p style={{ margin: '8px 0 0' }}>{selectedExhibition.location}</p>
+            </div>
+          </div>
+
+          <div style={{ margin: '0 auto 22px', maxWidth: '70ch' }}>
+            {selectedExhibition.description?.map((paragraph) => (
+              <p key={paragraph} style={{ margin: '0 0 14px' }}>
+                {paragraph}
+              </p>
+            ))}
+          </div>
 
           {selectedExhibition.links?.length > 0 && (
-            <div style={{ margin: '0 0 18px' }}>
+            <div style={{ margin: '0 auto 24px', maxWidth: '70ch' }}>
               {selectedExhibition.links.map((link) => (
                 <React.Fragment key={link.url}>
                   <a
                     href={link.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="about-folder-link"
-                    style={plainLinkStyle}
+                    className={`about-folder-link${folder.id === 'press' ? ' press-folder-link' : ''}`}
+                    style={folder.id === 'press' ? pressLinkStyle : plainLinkStyle}
                   >
                     {link.label}
                   </a>
@@ -2972,7 +3102,7 @@ function AboutFolderContent({
           )}
 
           {images.map((image, imageIndex) => (
-            <figure key={image.src} style={{ margin: '14px 0' }}>
+            <figure key={image.src} style={{ margin: '0 auto 24px', maxWidth: '760px', textAlign: 'center' }}>
               <button
                 type="button"
                 onClick={() => openLightbox(imageIndex)}
@@ -2992,7 +3122,7 @@ function AboutFolderContent({
                   decoding="async"
                   style={{
                     display: 'block',
-                    width: 'min(100%, 620px)',
+                    width: 'min(100%, 680px)',
                     height: 'auto',
                     margin: '0 auto',
                   }}
@@ -3002,64 +3132,13 @@ function AboutFolderContent({
             </figure>
           ))}
 
-          {activeLightboxImage && (
-            <div
-              role="button"
-              tabIndex={0}
-              aria-label="Next exhibition image"
-              onClick={() => {
-                showNextLightboxImage()
-              }}
-              onKeyDown={(event) => {
-                if (event.key !== 'Enter' && event.key !== ' ') return
-                event.preventDefault()
-                showNextLightboxImage()
-              }}
-              style={{
-                position: 'fixed',
-                inset: 0,
-                zIndex: 10000,
-                background: '#fff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '24px',
-                boxSizing: 'border-box',
-              }}
-            >
-              <button
-                type="button"
-                aria-label="Close fullscreen image"
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onOpenFolderRoute?.(folder.id, selectedExhibition.id)
-                }}
-                style={{
-                  position: 'fixed',
-                  top: '88px',
-                  right: '16px',
-                  zIndex: 10001,
-                  border: 'none',
-                  background: 'transparent',
-                  color: '#ff0000',
-                  font: '700 46px Arial, Helvetica, sans-serif',
-                  lineHeight: 1,
-                  padding: '6px 10px',
-                }}
-              >
-                X
-              </button>
-              <img
-                src={activeLightboxImage.src}
-                alt={activeLightboxImage.alt}
-                style={{
-                  display: 'block',
-                  maxWidth: '100%',
-                  maxHeight: '100%',
-                  objectFit: 'contain',
-                }}
-              />
-            </div>
+          {activeLightboxImage && createPortal(
+            <ExhibitionLightbox
+              image={activeLightboxImage}
+              onNext={showNextLightboxImage}
+              onClose={() => onOpenFolderRoute?.(folder.id, selectedExhibition.id)}
+            />,
+            document.body,
           )}
         </div>
       )
@@ -3232,8 +3311,8 @@ function AboutFolderContent({
                     href={link.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="about-folder-link"
-                    style={plainLinkStyle}
+                    className={`about-folder-link${folder.id === 'press' ? ' press-folder-link' : ''}`}
+                    style={folder.id === 'press' ? pressLinkStyle : plainLinkStyle}
                   >
                     {link.label}
                   </a>

@@ -68,6 +68,7 @@ const FOLDERS = [
     title: 'Press',
     caption: 'articles and mentions',
     links: [
+      ['Photo Vogue: Ukrainian Gen Z Adolescence', 'https://www.vogue.com/article/a-project-about-gen-z-youth-in-ukraine?fbclid=PAdGRleAQpBMlleHRuA2FlbQIxMQBzcnRjBmFwcF9pZA8xMjQwMjQ1NzQyODc0MTQAAadkgc9wIQkccTcXOcbHOOxd4wWiCWSpJvO0sIrSnEJ86m0lLWdtYe7iTQ3YNQ_aem_W62CPaBczjId_yDnCjozuQ'],
       ['Vogue: Women By Women Shortlist', 'https://www.vogue.com/article/women-by-women-the-shortlist'],
       ['Festival Panoramic: Panoramic Review', 'https://festivalpanoramic.cat/en/project/panoramic-review-2025/'],
       ["Yokogao Mag: She's So Hot I Wanna Clean Her Room", 'https://www.yokogaomag.com/editorial/shes-so-hot-i-wanna-clean-her-room-shelestvetrovki'],
@@ -596,7 +597,7 @@ function FolderContent({ folder }) {
           ))}
         </div>
       ) : (
-        folder.links?.map(([label, url]) => <button type="button" className="text-link" onClick={() => window.open(url, '_blank', 'noopener,noreferrer')} key={url}>{label}</button>)
+        folder.links?.map(([label, url]) => <button type="button" className={`text-link${folder.id === 'press' ? ' press-text-link' : ''}`} onClick={() => window.open(url, '_blank', 'noopener,noreferrer')} key={url}>{label}</button>)
       )}
       {folder.sections?.map(([heading, entries]) => (
         <section key={heading}>

@@ -94,6 +94,11 @@ a, button, [role="button"], .cursor-pointer {
   text-decoration: underline !important;
 }
 
+.press-folder-link,
+.press-folder-link:visited {
+  color: #000 !important;
+}
+
 .room-ticker-bar {
   position: fixed;
   top: 0;

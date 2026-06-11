@@ -962,6 +962,12 @@ button {
   text-align: left;
 }
 
+.press-text-link {
+  color: #000;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
 .music-app,
 .contact-app {
   display: grid;
