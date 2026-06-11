@@ -79,9 +79,9 @@ const FOLDERS = [
     title: 'Writing',
     caption: 'essays, notes, publications',
     links: [
-      ['Substack: and another fig was a girl wearing nipple patches', 'https://substack.com/@shelestvetrovki/note/p-194245632?utm_source=notes-share-action&r=33oaqu'],
-      ['Readellion Publishing: Spiritual Ecocides', 'https://readellion.com/product/lexiconofnature/'],
-      ['Becoming Press: Dialogues on CoreCore', 'https://becoming.press/dialogues-on-corecore'],
+      ['Substack: and another fig was a girl wearing nipple patches', 'https://substack.com/@shelestvetrovki/note/p-194245632?utm_source=notes-share-action&r=33oaqu', 'assets/local_sticker_book5_cover-1600x1600.webp', 'and another fig was a girl wearing nipple patches'],
+      ['Readellion Publishing: Spiritual Ecocides, Lexicon Of Nature, LocalGroup', 'https://readellion.com/product/lexiconofnature/', 'assets/lexicon-new-1600x1600.webp', 'Readellion Publishing: Spiritual Ecocides, Lexicon Of Nature, LocalGroup'],
+      ['Becoming Press: Dialogues on CoreCore', 'https://becoming.press/dialogues-on-corecore', 'assets/05A_-CoreCore-front_.png', 'Dialogues on CoreCore & the Contemporary Online Avant-Garde (2024)'],
     ],
   },
   {
@@ -586,7 +586,18 @@ function FolderContent({ folder }) {
       <h2>{folder.title}</h2>
       <p>{folder.caption}</p>
       {folder.id === 'cv' && <button type="button" className="pill-link" onClick={() => window.open(CV_URL, '_blank', 'noopener,noreferrer')}>open full cv</button>}
-      {folder.links?.map(([label, url]) => <button type="button" className="text-link" onClick={() => window.open(url, '_blank', 'noopener,noreferrer')} key={url}>{label}</button>)}
+      {folder.id === 'writing' && folder.links ? (
+        <div className="writing-icon-grid">
+          {folder.links.map(([label, url, image, filename]) => (
+            <button type="button" className="writing-icon-link" onClick={() => window.open(url, '_blank', 'noopener,noreferrer')} key={url} title={label}>
+              <img src={image} alt="" />
+              <small>{filename}</small>
+            </button>
+          ))}
+        </div>
+      ) : (
+        folder.links?.map(([label, url]) => <button type="button" className="text-link" onClick={() => window.open(url, '_blank', 'noopener,noreferrer')} key={url}>{label}</button>)
+      )}
       {folder.sections?.map(([heading, entries]) => (
         <section key={heading}>
           <h3>{heading}</h3>

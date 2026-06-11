@@ -347,20 +347,20 @@ const FOLDER_DEFINITIONS = [
       {
         heading: '2026',
         links: [
-          { url: 'https://substack.com/@shelestvetrovki/note/p-194245632?utm_source=notes-share-action&r=33oaqu', label: 'Substack: and another fig was a girl wearing nipple patches' },
+          { url: 'https://substack.com/@shelestvetrovki/note/p-194245632?utm_source=notes-share-action&r=33oaqu', label: 'Substack: and another fig was a girl wearing nipple patches', image: 'assets/local_sticker_book5_cover-1600x1600.webp', iconLabel: 'and another fig was a girl wearing nipple patches' },
         ],
       },
       {
         heading: '2025',
         links: [
-          { url: 'https://readellion.com/product/lexiconofnature/', label: 'Readellion Publishing: Spiritual Ecocides, Lexicon Of Nature, LocalGroup' },
+          { url: 'https://readellion.com/product/lexiconofnature/', label: 'Readellion Publishing: Spiritual Ecocides, Lexicon Of Nature, LocalGroup', image: 'assets/lexicon-new-1600x1600.webp', iconLabel: 'Readellion Publishing: Spiritual Ecocides, Lexicon Of Nature, LocalGroup' },
         ],
       },
       {
         heading: '2024',
         links: [
-          { url: 'https://becoming.press/dialogues-on-corecore', label: 'Becoming Press Publishing: Dialogues on CoreCore & the Contemporary Online Avant-Garde' },
-          { url: 'https://substack.com/@shelestvetrovki/p-151684169', label: 'Substack: notes on being unemployed (in a spiritual way)' },
+          { url: 'https://becoming.press/dialogues-on-corecore', label: 'Becoming Press Publishing: Dialogues on CoreCore & the Contemporary Online Avant-Garde', image: 'assets/05A_-CoreCore-front_.png', iconLabel: 'Dialogues on CoreCore & the Contemporary Online Avant-Garde (2024)' },
+          { url: 'https://substack.com/@shelestvetrovki/p-151684169', label: 'Substack: notes on being unemployed (in a spiritual way)', image: 'assets/local_sticker_book5_cover-1600x1600.webp', iconLabel: 'notes on being unemployed (in a spiritual way)' },
         ],
       },
     ],
@@ -2804,6 +2804,97 @@ function AboutFolderContent({
     fontWeight: 700,
     textTransform: 'uppercase',
   }
+  const writingDesktopRef = useRef(null)
+  const draggedWritingRef = useRef(null)
+  const writingScatterLayout = useMemo(() => [
+    { left: '7%', top: '22%' },
+    { left: '23%', top: '15%' },
+    { left: '39%', top: '29%' },
+    { left: '55%', top: '20%' },
+  ], [])
+  const writingIconLinkStyle = {
+    display: 'grid',
+    gap: '6px',
+    color: '#000',
+    textDecoration: 'none',
+    position: 'absolute',
+    width: '126px',
+    justifyItems: 'center',
+    padding: '4px',
+    userSelect: 'none',
+  }
+  const writingIconMediaStyle = {
+    width: '94px',
+    height: '112px',
+    border: 'none',
+    background: 'transparent',
+    objectFit: 'contain',
+    boxSizing: 'border-box',
+  }
+  const writingIconFilenameStyle = {
+    display: 'block',
+    fontFamily: ARIAL_FONT_STACK,
+    fontSize: '11px',
+    lineHeight: 1.12,
+    color: '#000',
+    textAlign: 'center',
+    overflowWrap: 'anywhere',
+    textDecoration: 'none',
+  }
+  const writingLinks = useMemo(
+    () => (folder.id === 'writing' ? folder.sections.flatMap((section) => section.links ?? []) : []),
+    [folder.id, folder.sections]
+  )
+  const [writingIconPositions, setWritingIconPositions] = useState(
+    () => new Map(writingLinks.map((link, index) => [link.url, writingScatterLayout[index] ?? { left: `${8 + index * 14}%`, top: `${18 + (index % 2) * 14}%` }]))
+  )
+  useEffect(() => {
+    if (folder.id !== 'writing') return
+    setWritingIconPositions((prev) => {
+      let changed = false
+      const next = new Map(prev)
+      writingLinks.forEach((link, index) => {
+        if (next.has(link.url)) return
+        changed = true
+        next.set(link.url, writingScatterLayout[index] ?? { left: `${8 + index * 14}%`, top: `${18 + (index % 2) * 14}%` })
+      })
+      return changed ? next : prev
+    })
+  }, [folder.id, writingLinks, writingScatterLayout])
+  const startWritingIconDrag = useCallback((linkUrl, e) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    const container = writingDesktopRef.current
+    if (!container) return
+    const containerRect = container.getBoundingClientRect()
+    const el = e.currentTarget
+    const elRect = el.getBoundingClientRect()
+    const startPx = elRect.left + elRect.width / 2 - containerRect.left
+    const startPy = elRect.top + elRect.height / 2 - containerRect.top
+    const startMx = e.clientX
+    const startMy = e.clientY
+    let moved = false
+    draggedWritingRef.current = null
+
+    const onMove = (me) => {
+      const dx = me.clientX - startMx
+      const dy = me.clientY - startMy
+      if (!moved && Math.abs(dx) < FOLDER_DRAG_THRESHOLD_PX && Math.abs(dy) < FOLDER_DRAG_THRESHOLD_PX) return
+      moved = true
+      draggedWritingRef.current = linkUrl
+      setWritingIconPositions((prev) => {
+        const next = new Map(prev)
+        next.set(linkUrl, { left: startPx + dx, top: startPy + dy, isPx: true })
+        return next
+      })
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [])
   const selectedExhibition = activeFolderDetailId
     ? EXHIBITIONS.find((exhibition) => exhibition.id === activeFolderDetailId) ?? null
     : null
@@ -3078,7 +3169,48 @@ function AboutFolderContent({
         </p>
       )}
 
-      {folder.sections.map((section) => (
+      {folder.id === 'writing' && (
+        <div
+          ref={writingDesktopRef}
+          style={{
+            position: 'relative',
+            minHeight: '440px',
+            width: '100%',
+          }}
+        >
+          {writingLinks.map((link, index) => {
+            const pos = writingIconPositions.get(link.url) ?? writingScatterLayout[index] ?? { left: '10%', top: '20%' }
+            return (
+              <a
+                key={link.url}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="about-folder-link cursor-grab"
+                onMouseDown={(e) => startWritingIconDrag(link.url, e)}
+                onClick={(e) => {
+                  if (draggedWritingRef.current === link.url) {
+                    e.preventDefault()
+                    draggedWritingRef.current = null
+                  }
+                }}
+                style={{
+                  ...writingIconLinkStyle,
+                  left: pos.isPx ? `${pos.left}px` : pos.left,
+                  top: pos.isPx ? `${pos.top}px` : pos.top,
+                  transform: 'translate(-50%, -50%)',
+                }}
+                title={link.label}
+              >
+                <img src={link.image} alt={link.label} draggable={false} style={writingIconMediaStyle} />
+                <span style={writingIconFilenameStyle}>{link.iconLabel}</span>
+              </a>
+            )
+          })}
+        </div>
+      )}
+
+      {folder.id !== 'writing' && folder.sections.map((section) => (
         <section key={section.heading} style={{ margin: '0 0 20px' }}>
           <h2 style={plainHeadingStyle}>{section.heading}</h2>
           {section.entries && (
