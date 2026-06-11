@@ -121,6 +121,7 @@ const DIARY_PHOTOS = Object.entries(DIARY_PHOTO_MODULES)
     }
   })
 const EXHIBITION_IMAGE_MODULES = import.meta.glob('../target/exhibitions/**/*.{jpeg,jpg,jpg_,png,webp,JPEG,JPG,PNG,WEBP}', { eager: true, query: '?url', import: 'default' })
+const OPEN_ARCHIVE_IMAGE_MODULES = import.meta.glob('../target/open collective archive/**/*.{jpeg,jpg,png,webp,gif,JPEG,JPG,PNG,WEBP,GIF}', { eager: true, query: '?url', import: 'default' })
 const EXHIBITIONS = [
   {
     id: 'women-by-women',
@@ -128,7 +129,7 @@ const EXHIBITIONS = [
     year: '2026',
     dates: '1 March - 8 March 2026',
     venue: 'PhotoVogue',
-    location: 'Biblioteca Nazionale Braidense, Milan, Italy',
+    location: 'Biblioteca Nazionale Braidense',
     description: [
       'This panel explores girlhood as an inner, emotional landscape where identity is imagined, tested, and continuously reshaped. Moving between fiction, collaboration, performance, and projection, the artists treat girlhood not simply as an age or phase, but as a space of thought, desire, and imagination.',
       'Rather than following linear narratives, these projects give form to inner worlds shaped by fantasy, discipline, and self-invention. Through images that move between reality and construction, intimacy and performance, the works reflect on how young women negotiate visibility, authorship, and self-definition from the inside out.',
@@ -254,6 +255,27 @@ const EXHIBITION_IMAGES_BY_FOLDER = Object.entries(EXHIBITION_IMAGE_MODULES).red
 EXHIBITION_IMAGES_BY_FOLDER.forEach((images) => {
   images.sort((a, b) => a.sortKey.localeCompare(b.sortKey, undefined, { numeric: true }))
 })
+
+function getStableNumber(value) {
+  return Array.from(value).reduce((sum, char, index) => sum + char.charCodeAt(0) * (index + 1), 0)
+}
+
+const OPEN_ARCHIVE_IMAGES = Object.entries(OPEN_ARCHIVE_IMAGE_MODULES)
+  .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+  .map(([path, src], index) => {
+    const normalizedPath = path.replace(/\\/g, '/')
+    const segments = normalizedPath.split('/')
+    const filename = segments[segments.length - 1] ?? `archive-${index + 1}`
+    const page = segments[segments.length - 2] ?? 'open archive'
+    const stem = filename.replace(/\.[^.]+$/, '')
+    return {
+      src,
+      alt: stem.replace(/[_-]/g, ' '),
+      filename,
+      page,
+      seed: getStableNumber(`${page}/${filename}`),
+    }
+  })
 
 const FOLDER_DEFINITIONS = [
   {
@@ -407,6 +429,18 @@ const FOLDER_DEFINITIONS = [
     id: 'submit-room',
     label: 'submit room',
     title: 'Submit Room',
+    sections: [],
+  },
+  {
+    id: 'diary',
+    label: 'diary',
+    title: 'Diary',
+    sections: [],
+  },
+  {
+    id: 'open-collective-archive',
+    label: 'open collective archive',
+    title: 'Open Collective Archive',
     sections: [],
   },
 ]
@@ -1258,11 +1292,56 @@ function ExhibitionLightbox({ image, onNext, onClose }) {
   )
 }
 
-function Controls() {
+const DEFAULT_CAMERA_MOVE_SPEED = 0.2
+const ROOM_CAMERA_MOVE_SPEED = 0.05
+const DEFAULT_CAMERA_ZOOM_SPEED = 1
+const ROOM_CAMERA_ZOOM_SPEED = 2.2
+
+function Controls({ moveSpeed = DEFAULT_CAMERA_MOVE_SPEED, zoomSpeed = DEFAULT_CAMERA_ZOOM_SPEED }) {
   const [, get] = useKeyboardControls()
   const { camera } = useThree()
   const controlsRef = useRef()
-  const moveSpeed = 0.2
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+
+    window.__roomViewer = {
+      getCamera() {
+        return {
+          position: camera.position.toArray(),
+          target: controlsRef.current?.target?.toArray?.() ?? null,
+        }
+      },
+      setCamera(position, target = controlsRef.current?.target?.toArray?.() ?? DEFAULT_CAMERA_TARGET) {
+        camera.position.set(...position)
+        if (controlsRef.current?.target) {
+          controlsRef.current.target.set(...target)
+          controlsRef.current.update()
+        } else {
+          camera.lookAt(...target)
+        }
+      },
+    }
+    const handleRoomViewerSetCamera = (event) => {
+      const { position, target } = event.detail ?? {}
+      window.__roomViewer.setCamera(position, target)
+      document.body.dataset.roomViewerCamera = JSON.stringify(window.__roomViewer.getCamera())
+    }
+    const handleRoomViewerGetCamera = () => {
+      document.body.dataset.roomViewerCamera = JSON.stringify(window.__roomViewer.getCamera())
+    }
+    document.addEventListener('room-viewer:set-camera', handleRoomViewerSetCamera)
+    document.addEventListener('room-viewer:get-camera', handleRoomViewerGetCamera)
+    document.body.dataset.roomViewerHook = 'ready'
+
+    return () => {
+      document.removeEventListener('room-viewer:set-camera', handleRoomViewerSetCamera)
+      document.removeEventListener('room-viewer:get-camera', handleRoomViewerGetCamera)
+      if (window.__roomViewer?.getCamera) delete window.__roomViewer
+      delete document.body.dataset.roomViewerHook
+      delete document.body.dataset.roomViewerCamera
+    }
+  }, [camera])
 
   useFrame(() => {
     const { forward, backward, left, right } = get()
@@ -1299,7 +1378,7 @@ function Controls() {
       ref={controlsRef}
       makeDefault
       rotateSpeed={0.4}
-      zoomSpeed={1}
+      zoomSpeed={zoomSpeed}
       panSpeed={0.4}
       enableDamping
       dampingFactor={0.05}
@@ -1452,12 +1531,18 @@ function CameraReset({ position, target = DEFAULT_CAMERA_TARGET }) {
   const controls = useThree((state) => state.controls)
 
   useLayoutEffect(() => {
-    camera.position.set(...position)
+    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+    const cameraOverride = urlParams?.get('camera')?.split(',').map(Number)
+    const targetOverride = urlParams?.get('target')?.split(',').map(Number)
+    const nextPosition = cameraOverride?.length === 3 && cameraOverride.every(Number.isFinite) ? cameraOverride : position
+    const nextTarget = targetOverride?.length === 3 && targetOverride.every(Number.isFinite) ? targetOverride : target
+
+    camera.position.set(...nextPosition)
     if (controls?.target) {
-      controls.target.set(...target)
+      controls.target.set(...nextTarget)
       controls.update()
     } else {
-      camera.lookAt(...target)
+      camera.lookAt(...nextTarget)
     }
   }, [camera, controls, position, target])
 
@@ -1741,7 +1826,7 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
             <Stage environment={null} intensity={DEFAULT_ROOM_RENDER_SETTINGS.environmentIntensity} shadows={false} adjustCamera={false}>
               <Model url={`rooms/${roomFile}`} prepareScene={prepareRoomScene} />
             </Stage>
-            <Controls />
+            <Controls moveSpeed={ROOM_CAMERA_MOVE_SPEED} zoomSpeed={ROOM_CAMERA_ZOOM_SPEED} />
             <CameraReset position={cameraDefault.position} target={cameraDefault.target} />
             <FirstFrameSignal onReady={onReady} />
           </Suspense>
@@ -1997,7 +2082,7 @@ function TinyPlayer({ onTitleBarMouseDown, width = 290 }) {
   )
 }
 
-function DiaryDeck({ left, top, width, availableHeight, inline = false }) {
+function DiaryDeck({ left, top, width, availableHeight, inline = false, onOpenDiary }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const photoCount = DIARY_PHOTOS.length
   const autoplayTimerRef = useRef(null)
@@ -2101,8 +2186,8 @@ function DiaryDeck({ left, top, width, availableHeight, inline = false }) {
             <button
               key={`${photo.src}-${offset}`}
               type="button"
-              onClick={offset < 0 ? showPrev : offset > 0 ? showNext : undefined}
-              aria-label={offset < 0 ? 'Show previous diary photo' : offset > 0 ? 'Show next diary photo' : activePhoto.label}
+              onClick={offset < 0 ? showPrev : offset > 0 ? showNext : onOpenDiary}
+              aria-label={offset < 0 ? 'Show previous diary photo' : offset > 0 ? 'Show next diary photo' : 'Open diary'}
               style={{
                 position: 'absolute',
                 top: 0,
@@ -2117,7 +2202,8 @@ function DiaryDeck({ left, top, width, availableHeight, inline = false }) {
                 transformOrigin: 'center bottom',
                 opacity,
                 zIndex: 10 - Math.abs(offset),
-                pointerEvents: isActive ? 'none' : 'auto',
+                pointerEvents: 'auto',
+                cursor: isActive && onOpenDiary ? HOVER_KEY_CURSOR : 'pointer',
               }}
             >
               <img
@@ -2219,6 +2305,16 @@ function DiaryDeck({ left, top, width, availableHeight, inline = false }) {
       </div>
 
       <div
+        role={onOpenDiary ? 'button' : undefined}
+        tabIndex={onOpenDiary ? 0 : undefined}
+        onClick={onOpenDiary}
+        onKeyDown={(event) => {
+          if (!onOpenDiary) return
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            onOpenDiary()
+          }
+        }}
         style={{
           width: '100%',
           paddingRight: inline ? 0 : `${10 * scale}px`,
@@ -2231,6 +2327,7 @@ function DiaryDeck({ left, top, width, availableHeight, inline = false }) {
           letterSpacing: '0.02em',
           color: 'rgba(87, 87, 87, 0.52)',
           textTransform: 'lowercase',
+          cursor: onOpenDiary ? HOVER_KEY_CURSOR : 'default',
         }}
       >
         {activePhoto.label}
@@ -2273,6 +2370,7 @@ function AboutPage({
     { id: 'filmmaking', left: '73%', top: '42%' },
     { id: 'cv', left: '84%', top: '65%' },
     { id: 'submit-room', left: '94%', top: '43%' },
+    { id: 'open-collective-archive', left: '93%', top: '57%' },
   ]
   const [folderPositions, setFolderPositions] = useState(
     () => new Map(folderArcLayout.map((p) => [p.id, { left: p.left, top: p.top }]))
@@ -2476,6 +2574,10 @@ function AboutPage({
     handleFolderOpen(folderId)
   }, [handleFolderOpen])
 
+  const handleDiaryOpen = useCallback(() => {
+    handleFolderOpen('diary')
+  }, [handleFolderOpen])
+
   return (
     <div
       style={{
@@ -2601,6 +2703,7 @@ function AboutPage({
           top={diaryTop}
           width={diaryWidth}
           availableHeight={diaryGapHeight}
+          onOpenDiary={handleDiaryOpen}
         />
       )}
 
@@ -3014,13 +3117,60 @@ function AboutFolderContent({
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
   }, [])
-  const selectedExhibition = activeFolderDetailId
-    ? EXHIBITIONS.find((exhibition) => exhibition.id === activeFolderDetailId) ?? null
+  const isExhibitionOverview = activeFolderDetailId === 'overview'
+  const selectedExhibition = !isExhibitionOverview
+    ? EXHIBITIONS.find((exhibition) => exhibition.id === activeFolderDetailId) ?? EXHIBITIONS[0] ?? null
     : null
   const getExhibitionDescription = (exhibition) => {
     const descriptionText = exhibition.description?.[0] ?? ''
     const placeText = [exhibition.venue, exhibition.location].filter(Boolean).join(', ')
     return [descriptionText, placeText].filter(Boolean).join(' ')
+  }
+
+  if (folder.id === 'diary') {
+    return (
+      <div
+        style={{
+          ...plainPageStyle,
+          padding: '26px 18px 80px',
+          fontSize: '15px',
+          lineHeight: 1.55,
+        }}
+      >
+        <div style={{ maxWidth: '760px', margin: '0 auto' }}>
+          <h1
+            style={{
+              margin: '0 0 26px',
+              fontSize: '18px',
+              fontWeight: 400,
+              lineHeight: 1.2,
+            }}
+          >
+            diary
+          </h1>
+
+          {DIARY_PHOTOS.map((photo, index) => (
+            <section key={photo.src} style={{ margin: '0 0 34px' }}>
+              <p style={{ margin: '0 0 10px' }}>{photo.label}</p>
+              <img
+                src={photo.src}
+                alt={photo.alt}
+                loading="lazy"
+                decoding="async"
+                style={{
+                  display: 'block',
+                  width: 'auto',
+                  maxWidth: index % 5 === 0 ? 'min(100%, 620px)' : 'min(100%, 470px)',
+                  maxHeight: index % 4 === 0 ? '560px' : '430px',
+                  height: 'auto',
+                  objectFit: 'contain',
+                }}
+              />
+            </section>
+          ))}
+        </div>
+      </div>
+    )
   }
 
   if (folder.id === 'submit-room') {
@@ -3034,7 +3184,177 @@ function AboutFolderContent({
     )
   }
 
+  if (folder.id === 'open-collective-archive') {
+    const columns = 9
+    const rowHeight = 132
+    const archivePageHeight = Math.max(680, Math.ceil(OPEN_ARCHIVE_IMAGES.length / columns) * rowHeight + 190)
+    const archiveLayout = OPEN_ARCHIVE_IMAGES.map((image, index) => {
+      const row = Math.floor(index / columns)
+      const column = index % columns
+      const columnOffset = ((column + 0.5) / columns) * 100
+      const xJitter = (image.seed % 47) - 23
+      const yJitter = ((Math.floor(image.seed / 7) % 55) - 20)
+      const width = 46 + (image.seed % 54)
+      const rotation = (Math.floor(image.seed / 11) % 17) - 8
+
+      return {
+        left: `calc(${columnOffset}% + ${xJitter}px)`,
+        top: `${58 + row * rowHeight + yJitter}px`,
+        width,
+        rotation,
+        zIndex: 10 + (image.seed % 40),
+      }
+    })
+    const activeArchiveImage = activeFolderImageIndex != null && OPEN_ARCHIVE_IMAGES.length > 0
+      ? OPEN_ARCHIVE_IMAGES[activeFolderImageIndex % OPEN_ARCHIVE_IMAGES.length]
+      : null
+    const showNextArchiveImage = () => {
+      if (OPEN_ARCHIVE_IMAGES.length === 0) return
+      onOpenFolderRoute?.(folder.id, 'view', ((activeFolderImageIndex ?? 0) + 1) % OPEN_ARCHIVE_IMAGES.length)
+    }
+
+    return (
+      <div
+        style={{
+          ...plainPageStyle,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          padding: 0,
+          background: '#fff',
+        }}
+      >
+        <div
+          style={{
+            position: 'relative',
+            minHeight: `${archivePageHeight}px`,
+            width: '100%',
+          }}
+        >
+          {OPEN_ARCHIVE_IMAGES.map((image, imageIndex) => {
+            const layout = archiveLayout[imageIndex]
+
+            return (
+              <button
+                key={`${image.page}/${image.filename}`}
+                type="button"
+                onClick={() => onOpenFolderRoute?.(folder.id, 'view', imageIndex)}
+                title={image.filename}
+                style={{
+                  position: 'absolute',
+                  left: layout.left,
+                  top: layout.top,
+                  zIndex: layout.zIndex,
+                  width: `${layout.width}px`,
+                  transform: `translate(-50%, -50%) rotate(${layout.rotation}deg)`,
+                  border: 'none',
+                  background: 'transparent',
+                  padding: 0,
+                  display: 'block',
+                  lineHeight: 0,
+                }}
+              >
+                <img
+                  src={image.src}
+                  alt={image.alt}
+                  loading="lazy"
+                  decoding="async"
+                  draggable={false}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    height: 'auto',
+                    maxHeight: '96px',
+                    objectFit: 'contain',
+                    boxShadow: '0 2px 7px rgba(0,0,0,0.16)',
+                  }}
+                />
+              </button>
+            )
+          })}
+        </div>
+
+        {activeArchiveImage && createPortal(
+          <ExhibitionLightbox
+            image={activeArchiveImage}
+            onNext={showNextArchiveImage}
+            onClose={() => onOpenFolderRoute?.(folder.id)}
+          />,
+          document.body,
+        )}
+      </div>
+    )
+  }
+
   if (folder.id === 'exhibitions') {
+    const navButtonBaseStyle = {
+      display: 'block',
+      width: '100%',
+      border: 'none',
+      background: 'transparent',
+      padding: '0 0 8px',
+      font: 'inherit',
+      fontSize: '13px',
+      lineHeight: 1.25,
+      color: '#00e',
+      textAlign: 'left',
+      textDecoration: 'underline',
+    }
+    const exhibitionShellStyle = {
+      ...plainPageStyle,
+      display: 'grid',
+      gridTemplateColumns: '170px minmax(0, 1fr)',
+      gap: '30px',
+      alignItems: 'start',
+      padding: '40px 32px 64px',
+      fontSize: '16px',
+      lineHeight: 1.45,
+    }
+    const renderExhibitionNav = () => (
+      <nav
+        aria-label="Exhibitions"
+        style={{
+          position: 'sticky',
+          top: 0,
+          alignSelf: 'start',
+          maxHeight: 'calc(100vh - 44px)',
+          overflowY: 'auto',
+          padding: '0 0 18px',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => onOpenFolderRoute?.(folder.id, 'overview')}
+          style={{
+            ...navButtonBaseStyle,
+            margin: '0 0 14px',
+            color: isExhibitionOverview ? '#000' : '#00e',
+            fontWeight: isExhibitionOverview ? 700 : 400,
+            textDecoration: isExhibitionOverview ? 'none' : 'underline',
+          }}
+        >
+          overview
+        </button>
+        {EXHIBITIONS.map((exhibition) => {
+          const isActive = selectedExhibition?.id === exhibition.id
+          return (
+            <button
+              key={exhibition.id}
+              type="button"
+              onClick={() => onOpenFolderRoute?.(folder.id, exhibition.id)}
+              style={{
+                ...navButtonBaseStyle,
+                color: isActive ? '#000' : '#00e',
+                fontWeight: isActive ? 700 : 400,
+                textDecoration: isActive ? 'none' : 'underline',
+              }}
+            >
+              {exhibition.title}
+            </button>
+          )
+        })}
+      </nav>
+    )
+
     if (selectedExhibition) {
       const images = EXHIBITION_IMAGES_BY_FOLDER.get(selectedExhibition.imageFolder) ?? []
       const openLightbox = (imageIndex) => onOpenFolderRoute?.(folder.id, selectedExhibition.id, imageIndex)
@@ -3045,108 +3365,97 @@ function AboutFolderContent({
         if (images.length === 0) return
         onOpenFolderRoute?.(folder.id, selectedExhibition.id, ((activeFolderImageIndex ?? 0) + 1) % images.length)
       }
+      const institutionText = [selectedExhibition.venue, selectedExhibition.location].filter(Boolean).join('\n')
 
       return (
-        <div style={{ ...plainPageStyle, position: 'relative', lineHeight: 1.7 }}>
-          <p style={{ margin: '0 0 22px', textAlign: 'center' }}>
-            <button
-              type="button"
-              onClick={() => onOpenFolderRoute?.(folder.id)}
+        <div style={exhibitionShellStyle}>
+          {renderExhibitionNav()}
+
+          <main style={{ minWidth: 0, maxWidth: '1180px', margin: '0 auto' }}>
+            <div
               style={{
-                border: 'none',
-                background: 'transparent',
-                padding: 0,
-                font: 'inherit',
-                color: '#00e',
-                textDecoration: 'underline',
+                display: 'grid',
+                gridTemplateColumns: 'minmax(220px, 1fr) minmax(260px, 1fr)',
+                columnGap: 'clamp(44px, 14vw, 220px)',
+                rowGap: '24px',
+                alignItems: 'start',
+                margin: '0 0 52px',
               }}
             >
-              back to exhibitions
-            </button>
-          </p>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-              gap: '18px',
-              alignItems: 'start',
-              margin: '0 auto 24px',
-              maxWidth: '760px',
-            }}
-          >
-            <div>
-              <h1 style={{ margin: 0, fontSize: '16px', fontWeight: 700, lineHeight: 1.55 }}>
-                {selectedExhibition.title}
-              </h1>
-            </div>
-            <div>
-              <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700, lineHeight: 1.55 }}>
-                {selectedExhibition.venue}
-                <br />
-                {selectedExhibition.dates ?? selectedExhibition.year}
-              </h2>
-              <p style={{ margin: '8px 0 0' }}>{selectedExhibition.location}</p>
-            </div>
-          </div>
-
-          <div style={{ margin: '0 auto 22px', maxWidth: '70ch' }}>
-            {selectedExhibition.description?.map((paragraph) => (
-              <p key={paragraph} style={{ margin: '0 0 14px' }}>
-                {paragraph}
-              </p>
-            ))}
-          </div>
-
-          {selectedExhibition.links?.length > 0 && (
-            <div style={{ margin: '0 auto 24px', maxWidth: '70ch' }}>
-              {selectedExhibition.links.map((link) => (
-                <React.Fragment key={link.url}>
-                  <a
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`about-folder-link${folder.id === 'press' ? ' press-folder-link' : ''}`}
-                    style={folder.id === 'press' ? pressLinkStyle : plainLinkStyle}
-                  >
-                    {link.label}
-                  </a>
+              <div>
+                <p style={{ margin: 0, fontSize: '20px', fontWeight: 700, lineHeight: 1.28, whiteSpace: 'pre-line' }}>
+                  {institutionText}
+                </p>
+              </div>
+              <div>
+                <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 700, lineHeight: 1.28 }}>
+                  {selectedExhibition.title}
                   <br />
-                </React.Fragment>
+                  {selectedExhibition.dates ?? selectedExhibition.year}
+                </h1>
+              </div>
+            </div>
+
+            <div style={{ margin: '0 auto 34px', maxWidth: '700px', fontSize: '18px', lineHeight: 1.42 }}>
+              {selectedExhibition.description?.map((paragraph) => (
+                <p key={paragraph} style={{ margin: '0 0 18px' }}>
+                  {paragraph}
+                </p>
               ))}
             </div>
-          )}
 
-          {images.map((image, imageIndex) => (
-            <figure key={image.src} style={{ margin: '0 auto 24px', maxWidth: '760px', textAlign: 'center' }}>
-              <button
-                type="button"
-                onClick={() => openLightbox(imageIndex)}
-                style={{
-                  border: 'none',
-                  background: 'transparent',
-                  padding: 0,
-                  display: 'block',
-                  margin: '0 auto',
-                  textAlign: 'center',
-                }}
-              >
-                <img
-                  src={image.src}
-                  alt={image.alt}
-                  loading="lazy"
-                  decoding="async"
+            {selectedExhibition.links?.length > 0 && (
+              <div style={{ margin: '0 auto 42px', maxWidth: '700px', fontSize: '18px', lineHeight: 1.42 }}>
+                {selectedExhibition.links.map((link) => (
+                  <React.Fragment key={link.url}>
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`about-folder-link${folder.id === 'press' ? ' press-folder-link' : ''}`}
+                      style={folder.id === 'press' ? pressLinkStyle : plainLinkStyle}
+                    >
+                      {link.label}
+                    </a>
+                    <br />
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
+
+            {images.map((image, imageIndex) => (
+              <figure key={image.src} style={{ margin: '0 auto 28px', maxWidth: '490px', textAlign: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => openLightbox(imageIndex)}
                   style={{
+                    border: 'none',
+                    background: 'transparent',
+                    padding: 0,
                     display: 'block',
-                    width: 'min(100%, 680px)',
-                    height: 'auto',
                     margin: '0 auto',
+                    textAlign: 'center',
                   }}
-                />
-              </button>
-              <figcaption style={{ marginTop: '4px' }}>{image.alt}</figcaption>
-            </figure>
-          ))}
+                >
+                  <img
+                    src={image.src}
+                    alt={image.alt}
+                    loading="lazy"
+                    decoding="async"
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      maxHeight: '36vh',
+                      height: 'auto',
+                      margin: '0 auto',
+                      objectFit: 'contain',
+                    }}
+                  />
+                </button>
+                <figcaption style={{ marginTop: '7px', fontSize: '13px' }}>{image.alt}</figcaption>
+              </figure>
+            ))}
+          </main>
 
           {activeLightboxImage && createPortal(
             <ExhibitionLightbox
@@ -3162,89 +3471,91 @@ function AboutFolderContent({
 
     return (
       <div
-        style={{ ...plainPageStyle, textAlign: 'center', lineHeight: 1.75 }}
+        style={exhibitionShellStyle}
       >
-        {EXHIBITIONS.map((exhibition, exhibitionIndex) => {
-          const images = EXHIBITION_IMAGES_BY_FOLDER.get(exhibition.imageFolder) ?? []
-          const previewImage = images[0] ?? null
+        {renderExhibitionNav()}
+        <main style={{ minWidth: 0, textAlign: 'center' }}>
+          {EXHIBITIONS.map((exhibition, exhibitionIndex) => {
+            const images = EXHIBITION_IMAGES_BY_FOLDER.get(exhibition.imageFolder) ?? []
+            const previewImage = images[0] ?? null
 
-          return (
-            <section key={exhibition.id} style={{ margin: '0 0 56px' }}>
-              {exhibitionIndex > 0 && (
-                <div aria-hidden="true" style={{ margin: '0 0 30px' }}>
-                  ⋆ ˚｡⋆୨୧˚ ✿ ˚୨୧⋆｡˚ ⋆
+            return (
+              <section key={exhibition.id} style={{ margin: '0 0 56px' }}>
+                {exhibitionIndex > 0 && (
+                  <div aria-hidden="true" style={{ margin: '0 0 30px' }}>
+                    ⋆ ˚｡⋆୨୧˚ ✿ ˚୨୧⋆｡˚ ⋆
+                  </div>
+                )}
+                <h2 style={{ ...plainHeadingStyle, margin: '0 0 14px', fontSize: '22px', fontStyle: 'italic', lineHeight: 1.55, textTransform: 'none' }}>{exhibition.title}</h2>
+                <p style={{ margin: '0 0 8px' }}>{exhibition.year}</p>
+
+                {previewImage && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenFolderRoute?.(folder.id, exhibition.id)}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      padding: 0,
+                      display: 'block',
+                      margin: '0 auto',
+                      textAlign: 'center',
+                    }}
+                  >
+                    <figure style={{ margin: '0 0 8px' }}>
+                      <img
+                        src={previewImage.src}
+                        alt={previewImage.alt}
+                        loading="lazy"
+                        decoding="async"
+                        style={{
+                          display: 'block',
+                          width: 'min(100%, 260px)',
+                          maxHeight: '220px',
+                          height: 'auto',
+                          margin: '0 auto',
+                          objectFit: 'contain',
+                        }}
+                      />
+                      <figcaption style={{ marginTop: '4px' }}>{previewImage.alt}</figcaption>
+                    </figure>
+                  </button>
+                )}
+
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => onOpenFolderRoute?.(folder.id, exhibition.id)}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      padding: 0,
+                      font: 'inherit',
+                      color: '#00e',
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    more photos / more info
+                  </button>
+                  {exhibition.links?.slice(0, 2).map((link) => (
+                    <React.Fragment key={link.url}>
+                      <br />
+                      <a
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="about-folder-link"
+                        style={plainLinkStyle}
+                      >
+                        {link.label}
+                      </a>
+                    </React.Fragment>
+                  ))}
                 </div>
-              )}
-              <h2 style={{ ...plainHeadingStyle, margin: '0 0 14px', fontSize: '22px', fontStyle: 'italic', lineHeight: 1.55, textTransform: 'none' }}>{exhibition.title}</h2>
-              <p style={{ margin: '0 0 8px' }}>{exhibition.year}</p>
-              <p style={{ margin: '0 auto 10px', maxWidth: '54ch' }}>{getExhibitionDescription(exhibition)}</p>
-
-              {previewImage && (
-                <button
-                  type="button"
-                  onClick={() => onOpenFolderRoute?.(folder.id, exhibition.id)}
-                  style={{
-                    border: 'none',
-                    background: 'transparent',
-                    padding: 0,
-                    display: 'block',
-                    margin: '0 auto',
-                    textAlign: 'center',
-                  }}
-                >
-                  <figure style={{ margin: '0 0 8px' }}>
-                    <img
-                      src={previewImage.src}
-                      alt={previewImage.alt}
-                      loading="lazy"
-                      decoding="async"
-                      style={{
-                        display: 'block',
-                        width: 'min(100%, 260px)',
-                        maxHeight: '220px',
-                        height: 'auto',
-                        margin: '0 auto',
-                        objectFit: 'contain',
-                      }}
-                    />
-                    <figcaption style={{ marginTop: '4px' }}>{previewImage.alt}</figcaption>
-                  </figure>
-                </button>
-              )}
-
-              <div>
-                <button
-                  type="button"
-                  onClick={() => onOpenFolderRoute?.(folder.id, exhibition.id)}
-                  style={{
-                    border: 'none',
-                    background: 'transparent',
-                    padding: 0,
-                    font: 'inherit',
-                    color: '#00e',
-                    textDecoration: 'underline',
-                  }}
-                >
-                  more photos / more info
-                </button>
-                {exhibition.links?.slice(0, 2).map((link) => (
-                  <React.Fragment key={link.url}>
-                    <br />
-                    <a
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="about-folder-link"
-                      style={plainLinkStyle}
-                    >
-                      {link.label}
-                    </a>
-                  </React.Fragment>
-                ))}
-              </div>
-            </section>
-          )
-        })}
+              </section>
+            )
+          })}
+        </main>
       </div>
     )
   }
