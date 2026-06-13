@@ -3674,7 +3674,7 @@ function AboutFolderContent({
       font: 'inherit',
       fontSize: '13px',
       lineHeight: 1.25,
-      color: '#00e',
+      color: '#000',
       textAlign: 'left',
       textDecoration: 'underline',
     }
@@ -3706,7 +3706,7 @@ function AboutFolderContent({
           style={{
             ...navButtonBaseStyle,
             margin: '0 0 14px',
-            color: isExhibitionOverview ? '#000' : '#00e',
+            color: '#000',
             fontWeight: isExhibitionOverview ? 700 : 400,
             textDecoration: isExhibitionOverview ? 'none' : 'underline',
           }}
@@ -3722,7 +3722,7 @@ function AboutFolderContent({
               onClick={() => onOpenFolderRoute?.(folder.id, exhibition.id)}
               style={{
                 ...navButtonBaseStyle,
-                color: isActive ? '#000' : '#00e',
+                color: '#000',
                 fontWeight: isActive ? 700 : 400,
                 textDecoration: isActive ? 'none' : 'underline',
               }}
@@ -3831,7 +3831,7 @@ function AboutFolderContent({
                     }}
                   />
                 </button>
-                <figcaption style={{ marginTop: '7px', fontSize: '13px' }}>{image.alt}</figcaption>
+
               </figure>
             ))}
           </main>
@@ -3896,7 +3896,7 @@ function AboutFolderContent({
                           objectFit: 'contain',
                         }}
                       />
-                      <figcaption style={{ marginTop: '4px' }}>{previewImage.alt}</figcaption>
+
                     </figure>
                   </button>
                 )}
@@ -3910,7 +3910,7 @@ function AboutFolderContent({
                       background: 'transparent',
                       padding: 0,
                       font: 'inherit',
-                      color: '#00e',
+                      color: '#000',
                       textDecoration: 'underline',
                     }}
                   >
