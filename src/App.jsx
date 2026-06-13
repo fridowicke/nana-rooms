@@ -274,7 +274,7 @@ const EXHIBITION_IMAGES_BY_FOLDER = Object.entries(EXHIBITION_IMAGE_MODULES).red
 
   collection.get(folderName).push({
     src,
-    alt: stem.replace(/_/g, ' '),
+    alt: '',
     sortKey: filename,
   })
 
@@ -3802,9 +3802,10 @@ function AboutFolderContent({
               </div>
             )}
 
-            {images.map((image, imageIndex) => (
-              <figure key={image.src} style={{ margin: '0 auto 28px', maxWidth: '490px', textAlign: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '18px' }}>
+              {images.map((image, imageIndex) => (
                 <button
+                  key={image.src}
                   type="button"
                   onClick={() => openLightbox(imageIndex)}
                   style={{
@@ -3812,28 +3813,25 @@ function AboutFolderContent({
                     background: 'transparent',
                     padding: 0,
                     display: 'block',
-                    margin: '0 auto',
-                    textAlign: 'center',
+                    lineHeight: 0,
                   }}
                 >
                   <img
                     src={image.src}
-                    alt={image.alt}
+                    alt=""
                     loading="lazy"
                     decoding="async"
                     style={{
                       display: 'block',
-                      width: '100%',
-                      maxHeight: '36vh',
-                      height: 'auto',
-                      margin: '0 auto',
+                      height: '38vh',
+                      width: 'auto',
+                      maxWidth: '100%',
                       objectFit: 'contain',
                     }}
                   />
                 </button>
-
-              </figure>
-            ))}
+              ))}
+            </div>
           </main>
 
           {activeLightboxImage && createPortal(
