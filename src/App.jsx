@@ -1826,23 +1826,7 @@ function DiaryDeck({ left, top, width, availableHeight, inline = false }) {
         </div>
       </div>
 
-      <div
-        style={{
-          width: '100%',
-          paddingRight: inline ? 0 : `${10 * scale}px`,
-          marginTop: `${3 * scale}px`,
-          boxSizing: 'border-box',
-          textAlign: inline ? 'center' : 'right',
-          fontFamily: MAC_LIGHT_FONT_STACK,
-          fontSize: `${captionSize}px`,
-          fontWeight: 300,
-          letterSpacing: '0.02em',
-          color: 'rgba(87, 87, 87, 0.52)',
-          textTransform: 'lowercase',
-        }}
-      >
-        {activePhoto.label}
-      </div>
+
     </div>
   )
 }
