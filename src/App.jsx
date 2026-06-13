@@ -125,9 +125,7 @@ const MAIN_KEY_CURSOR_HOTSPOT = '28 24'
 const HOVER_KEY_CURSOR_HOTSPOT = '13 12'
 const HOME_EDITOR_STORAGE_KEY = 'nana-home-editor-state'
 const FOLDER_DRAG_THRESHOLD_PX = 4
-const DEFAULT_ABOUT_HTML = `Anastasiia Pishchanska is a Ukrainian-born, Tokyo-based artist, filmmaker, and art director. She is the co-founder of the established Ukrainian art print publication localstickerbook (<a href="https://localgr0up.com/" target="_blank" rel="noreferrer">local.group</a>), which curates exhibitions, events, and fundraisers worldwide, presenting contemporary artists through the lens of post-internet culture. In 2023, following the full-scale invasion of Ukraine, she was awarded a research scholarship at...
-
-<br><br>Her practice moves between moving image, installation, and art direction, focusing on digital memory, migration, and cultural identity.`
+const DEFAULT_ABOUT_HTML = `shelestvetrovki is a Ukrainian-born, Tokyo-based media artist and filmmaker. She is the co-founder of <a href="https://localgr0up.com/" target="_blank" rel="noreferrer">local.group</a>, a Ukrainian art collective and print publication curating exhibitions and fundraisers worldwide through a post-internet lens. In 2023, following the full-scale invasion of Ukraine, she received a research scholarship in Media Arts at Tama Art University. Her art practice intersects hyperfeminist politics, media theory, and meme culture through 3D lidar scanning. Her project "she is so hot i wanna clean her room" has been featured by PHMuseum, i-D, SABUKARU, MOX London, Festival Panoramic, and PhotoVogue. She is currently developing a feature-length desktop documentary exploring Ukrainian Gen Z, war-shaped identity, and digital spirituality.`
 const ABOUT_BASE_URL = 'http://shelestvetrovki.com/'
 const ABOUT_HOME_TAB = { id: 'about', label: 'About', address: `${ABOUT_BASE_URL}about`, kind: 'about' }
 
