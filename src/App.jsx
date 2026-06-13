@@ -382,7 +382,7 @@ const FOLDER_DEFINITIONS = [
         links: [
           { url: 'https://www.vogue.com/article/a-project-about-gen-z-youth-in-ukraine?fbclid=PAdGRleAQpBMlleHRuA2FlbQIxMQBzcnRjBmFwcF9pZA8xMjQwMjQ1NzQyODc0MTQAAadkgc9wIQkccTcXOcbHOOxd4wWiCWSpJvO0sIrSnEJ86m0lLWdtYe7iTQ3YNQ_aem_W62CPaBczjId_yDnCjozuQ', label: 'Photo Vogue: Ukrainian Gen Z Adolescence' },
           { url: 'https://www.vogue.com/article/women-by-women-the-shortlist', label: 'Vogue: Women By Women: The Shortlist' },
-          { url: 'https://queerwararchive.com/2026/02/18/shelest-vetrovki-anastasiia-pischanska-gen-z/', label: 'Queer War Archive: Shelest Vetrovki' },
+          { url: 'https://queerwararchive.com/2026/02/18/shelest-vetrovki-anastasiia-pischanska-gen-z/', label: 'Queer War Archive: Ukrainian Gen Z Youth' },
         ],
       },
       {
@@ -395,10 +395,10 @@ const FOLDER_DEFINITIONS = [
         heading: '2024',
         links: [
           { url: 'https://www.yokogaomag.com/editorial/shes-so-hot-i-wanna-clean-her-room-shelestvetrovki', label: "Yokogao Mag: She's So Hot I Wanna Clean Her Room" },
-          { url: 'https://goodpress.co.uk/products/dialogues-on-corecore-the-contemporary-online-avant-garde-edited-by-0nty-onmycomputer', label: 'Good Press: Dialogues on CoreCore' },
+
           { url: 'https://www.kubaparis.com/submission/469655', label: 'Kuba Paris: MOM, POST-INTERNET IS NOT A PHASE ;(' },
           { url: 'https://becoming.press/dialogues-on-corecore', label: 'Becoming Press: Dialogues on CoreCore' },
-          { url: 'https://www.instagram.com/p/DDmLc2Th1PV/', label: 'Instagram: Localstickerbook' },
+          { url: 'https://www.instagram.com/p/DDmLc2Th1PV/', label: 'SABUKARU JAPAN: 3D scanned messes' },
         ],
       },
       {
@@ -406,7 +406,7 @@ const FOLDER_DEFINITIONS = [
         links: [
           { url: 'https://www.tamabi.ac.jp/news/55772/', label: 'Tama Art University: Artist at Risk Program' },
           { url: 'https://i-d.co/article/daria-svertilova-photography-ukraine/', label: 'i-D: Daria Svertilova Photography Ukraine' },
-          { url: 'https://www.vogue.com/article/a-project-about-gen-z-youth-in-ukraine', label: 'Vogue: A Project About Gen-Z Youth in Ukraine' },
+
         ],
       },
     ],
