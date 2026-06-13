@@ -2775,10 +2775,9 @@ function AboutPage({
   const aboutWindowTop = aboutWinPos.y + 36
   const aboutWindowHeight = 181
   const playerWindowTop = playerPos.y + 36
-  const diaryGapStart = aboutWindowTop + aboutWindowHeight + 10
-  const diaryGapHeight = Math.max(playerWindowTop - diaryGapStart - 10, 154)
-  const diaryHeight = Math.max(154, Math.min(diaryGapHeight, 220))
-  const diaryTop = diaryGapStart + Math.max((diaryGapHeight - diaryHeight) / 2, 0)
+  const diaryHeight = Math.max(154, Math.min(playerWindowTop - aboutWindowTop - aboutWindowHeight - 40, 220))
+  const equalGap = Math.max(8, Math.floor((playerWindowTop - aboutWindowTop - aboutWindowHeight - diaryHeight) / 2))
+  const diaryTop = aboutWindowTop + aboutWindowHeight + equalGap
   const diaryWidth = Math.max(Math.min(leftColumnWidth - 34, 132), 106)
 
   const makeTitleBarDrag = useCallback((posRef, setPos) => (e) => {
@@ -2971,7 +2970,7 @@ function AboutPage({
     >
       {/* ── Welcome gif (static) ── */}
       {!isFolderView && (
-        <div style={{ position: 'fixed', left: leftColumnX, top: aboutWindowTop - welcomeHeight - 12, zIndex: 21, pointerEvents: 'none' }}>
+        <div style={{ position: 'fixed', left: leftColumnX, top: aboutWindowTop - welcomeHeight - equalGap, zIndex: 21, pointerEvents: 'none' }}>
           <img
             src="assets/welcome.webp"
             alt="welcome to my page"
@@ -3082,7 +3081,7 @@ function AboutPage({
           left={leftColumnX + (leftColumnWidth - diaryWidth) / 2}
           top={diaryTop}
           width={diaryWidth}
-          availableHeight={diaryGapHeight}
+          availableHeight={diaryHeight}
           onOpenDiary={handleDiaryOpen}
         />
       )}
