@@ -1,6 +1,7 @@
 import React, { useState, Suspense, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls, Stage, useGLTF, KeyboardControls, useKeyboardControls } from '@react-three/drei'
+import { OrbitControls, Stage, Html, useGLTF, KeyboardControls, useKeyboardControls } from '@react-three/drei'
 import * as THREE from 'three'
 
 const keyboardMap = [
@@ -11,6 +12,7 @@ const keyboardMap = [
 ]
 
 const LANDING_CAMERA_POSITION = [-0.55, 0.24, 0.48]
+const DEFAULT_CAMERA_TARGET = [0, 0, 0]
 const ROOM_CAMERA_DEFAULTS = [
   {
     position: [0.581, 0.731, -0.849],
@@ -28,14 +30,50 @@ const ROOM_CAMERA_DEFAULTS = [
     position: [-0.509, 1.244, -0.583],
     target: [-0.607, 0.029, -0.652],
   },
+  {
+    position: [-0.04, 1.55, 2.25],
+    target: [-0.04, 1.05, 0.25],
+  },
+  {
+    position: [0.27, 1.55, 2.15],
+    target: [0.27, 1.08, -0.06],
+  },
+  {
+    position: [-0.13, 0.45, 2.6],
+    target: [-0.13, -0.25, 0.16],
+  },
+  {
+    position: [-3.08, 0.5, -0.11],
+    target: [-0.08, -0.2, -0.11],
+  },
+  {
+    position: [-0.44, 0.5, -3.09],
+    target: [-0.44, -0.2, -0.09],
+  },
+  {
+    position: [-2.94, 0.5, 0.05],
+    target: [-0.14, -0.2, 0.05],
+  },
+  {
+    position: [0.06, 0.5, -3.14],
+    target: [0.06, -0.2, 0.06],
+  },
 ]
 const ROOM_FILES = [
   'YUNA WEB.glb',
   'SUZUNE WEB.glb',
   'AIKO WEB.glb',
   'MOENE WEB.glb',
+  'PARDIS WEB.glb',
+  'KAORI WEB.glb',
+  'REI WEB.glb',
+  'YURIA WEB.glb',
+  'MOMOCO WEB.glb',
+  'KUMO&MUKI WEB.glb',
+  'MIMI WEB.glb',
 ]
 const CONTACT_EMAIL = 'shelestvetrovki@gmail.com'
+const CV_URL = 'https://docs.google.com/document/d/1VH0PZsOzxVn9IuuzZgf_y74OQ4W5b1L8vAyQHMuTyfs/edit?tab=t.0'
 const HOME_TITLE = 'shelestvetrovki'
 const PREVIEW_FILENAME = 'shelestvetrovki.mp4'
 const HOME_HASH = '#home'
@@ -44,6 +82,7 @@ const HOME_EDITOR_ENABLED = false
 const ABOUT_HASH = '#about'
 const ROOM_HASH_PREFIX = 'room-'
 const FOLDER_HASH_PREFIX = 'folder-'
+const FOLDER_LIGHTBOX_HASH_SEGMENT = 'image'
 const MAC_LIGHT_FONT_STACK = "'Helvetica', Arial, sans-serif"
 const ARIAL_FONT_STACK = 'Arial, Helvetica, sans-serif'
 const HOME_PREVIEW_VIDEO = 'assets/shelestvetrovki-scan-web.mp4'
@@ -74,7 +113,11 @@ const CURSOR_TRAIL_LIFETIME_MS = 850
 const CURSOR_CLICK_LIFETIME_MS = 700
 const CURSOR_TRAIL_MIN_DISTANCE = 14
 const CURSOR_TRAIL_MIN_INTERVAL_MS = 24
-const COMPACT_BREAKPOINT = 900
+const LOADING_SPARKLE_LIFETIME_MS = 1750
+const LOADING_SPARKLE_INTERVAL_MS = 42
+const LOADING_SPARKLE_BURST_COUNT = 18
+const LOADING_SPARKLE_MAX_COUNT = 420
+const LOADING_SPARKLE_INITIAL_WAVES = 14
 const HOME_HEADER_TOP = 24
 const PREVIEW_WINDOW_TOP = 190
 const DOOR_OCCLUSION_CLEARANCE = 0.04
@@ -105,26 +148,61 @@ const DIARY_PHOTOS = Object.entries(DIARY_PHOTO_MODULES)
       label: stem.replace(/_/g, ' '),
     }
   })
-const EXHIBITION_IMAGE_MODULES = import.meta.glob('../target/exhibitions/**/*.{jpeg,jpg,png,webp,JPEG,JPG,PNG,WEBP}', { eager: true, import: 'default' })
+const EXHIBITION_IMAGE_MODULES = import.meta.glob('../target/exhibitions/**/*.{jpeg,jpg,jpg_,png,webp,JPEG,JPG,PNG,WEBP}', { eager: true, query: '?url', import: 'default' })
+const OPEN_ARCHIVE_IMAGE_MODULES = import.meta.glob('../target/open collective archive/**/*.{jpeg,jpg,png,webp,gif,JPEG,JPG,PNG,WEBP,GIF}', { eager: true, query: '?url', import: 'default' })
+const OPEN_ARCHIVE_THUMB_MODULES = import.meta.glob('../target/open collective archive thumbnails/**/*.jpg', { eager: true, query: '?url', import: 'default' })
 const EXHIBITIONS = [
+  {
+    id: 'women-by-women',
+    title: 'Women by Women',
+    year: '2026',
+    dates: '1 March - 8 March 2026',
+    venue: 'PhotoVogue',
+    location: 'Biblioteca Nazionale Braidense',
+    description: [
+      'This panel explores girlhood as an inner, emotional landscape where identity is imagined, tested, and continuously reshaped. Moving between fiction, collaboration, performance, and projection, the artists treat girlhood not simply as an age or phase, but as a space of thought, desire, and imagination.',
+      'Rather than following linear narratives, these projects give form to inner worlds shaped by fantasy, discipline, and self-invention. Through images that move between reality and construction, intimacy and performance, the works reflect on how young women negotiate visibility, authorship, and self-definition from the inside out.',
+    ],
+    links: [
+      { url: 'https://www.vogue.com/article/pvf-2026-conversations-girlhood-fantasy-and-the-inner-life', label: 'Vogue: Conversations on Girlhood, Fantasy, and the Inner Life' },
+    ],
+    imageFolder: 'Women on Women',
+  },
   {
     id: 'bed-doesnt-ask-questions',
     title: "Bed doesn't ask questions",
     year: '2025',
     venue: 'Festival Panoramic',
     location: 'Barcelona, Spain',
-    medium: '6x3m digital print',
-    artists: 'Chantal Akerman · Anne Glassner · Naked Space · shelestvetrovki',
-    curators: 'Estela Ortiz & Juan Evaristo Valls Boix',
     description: [
-      'The exhibition reflects on rest, centering on the bed and the private room, taking Chantal Akerman’s La chambre as its point of departure.',
-      'Through a dialogue between artistic works and memetic expressions from recent years, this group show explores which bodies have access to rest and highlights the public dimension of practices that, at first glance, appear to be private.',
-      'In the contemporary world, the imperatives of work infiltrate our beds and encroach upon our intimacy, while idleness and pause too often remain privileges accessible to only a few. For this reason, a sleeping body today stands as a radical image of freedom, yet also the most elusive: the embrace of time without purpose.',
+      'Group show curated by Estela Ortiz and Juan Evaristo Valls Boix.',
     ],
     links: [
-      { url: 'https://festivalpanoramic.cat/en/project/panoramic-review-2025/', label: 'Festival Panoramic — Panoramic Review 2025' },
+      { url: 'https://festivalpanoramic.cat/en/project/panoramic-review-2025/', label: 'Festival Panoramic' },
     ],
     imageFolder: 'Bed Doesn_t Ask Questions - Panoramic Photo Festival Barcelona',
+  },
+  {
+    id: 'spilkaparis-local-group',
+    title: 'SpilkaParis x Local Group',
+    year: '2025',
+    venue: 'Kolektiv Radieuse',
+    location: "Le Corbusier's Cite Radieuse, Marseille, France",
+    description: [
+      'Group project with Local Group at Kolektiv Radieuse.',
+    ],
+    links: [],
+  },
+  {
+    id: 'localstickerbook-domicile',
+    title: 'Localstickerbook, Films fundraiser',
+    year: '2024',
+    venue: 'Domicile Gallery',
+    location: 'Tokyo, Japan',
+    description: [
+      'Films fundraiser and screening with Localstickerbook.',
+    ],
+    links: [],
   },
   {
     id: 'mom-post-internet-is-not-a-phase',
@@ -132,14 +210,55 @@ const EXHIBITIONS = [
     year: '2024',
     venue: 'Okay Initiative Space',
     location: 'Athens, Greece',
-    curators: 'Yan Tashtoush',
     description: [
-      '"Mom, post-internet is not a phase ;(" is a group exhibition exploring the shifting relationship between humans and our digital landscapes amidst visceral cry against the erasure of lives, bombed-out cities and abandoned homes in a global apathy that watches wars unfold, as entire populations are reduced to digital fragments, while the cries for justice are drowned by the endless cycle of "click, scroll, refresh."',
+      'Group exhibition curated by Yan Tashtoush.',
     ],
-    links: [
-      { url: 'https://www.kubaparis.com/submission/469655', label: 'Kuba Paris' },
-    ],
+    links: [],
     imageFolder: 'MOM, POST-INTERNET IS NOT A PHASE _(',
+  },
+  {
+    id: 'book-exhibition-untitled-space',
+    title: 'Book Exhibition',
+    year: '2024',
+    venue: 'UNTITLED SPACE',
+    location: 'Tokyo, Japan',
+    description: [
+      'Book exhibition in Tokyo.',
+    ],
+    links: [],
+  },
+  {
+    id: 'localstickerbook-datsuijo',
+    title: 'Localstickerbook, Films Fundraiser',
+    year: '2024',
+    venue: 'Datsuijo Gallery',
+    location: 'Tokyo, Japan',
+    description: [
+      'Films fundraiser with Localstickerbook.',
+    ],
+    links: [],
+  },
+  {
+    id: 'bezzvuchnodohlukhoty',
+    title: 'bezzvuchnodohlukhoty',
+    year: '2023',
+    venue: 'National Academy of Fine Arts',
+    location: 'Kyiv, Ukraine',
+    description: [
+      'Group exhibition at the National Academy of Fine Arts.',
+    ],
+    links: [],
+  },
+  {
+    id: 'tama-art-university-installation',
+    title: 'Multimedia interactive installation',
+    year: '2023',
+    venue: 'Tama Art University',
+    location: 'Tokyo, Japan',
+    description: [
+      'Multimedia interactive installation presented at Tama Art University.',
+    ],
+    links: [],
   },
 ]
 const EXHIBITION_IMAGES_BY_FOLDER = Object.entries(EXHIBITION_IMAGE_MODULES).reduce((collection, [path, src], index) => {
@@ -166,11 +285,48 @@ EXHIBITION_IMAGES_BY_FOLDER.forEach((images) => {
   images.sort((a, b) => a.sortKey.localeCompare(b.sortKey, undefined, { numeric: true }))
 })
 
+function getStableNumber(value) {
+  return Array.from(value).reduce((sum, char, index) => sum + char.charCodeAt(0) * (index + 1), 0)
+}
+
+function getOpenArchiveAssetKey(path) {
+  const normalizedPath = path.replace(/\\/g, '/')
+  const segments = normalizedPath.split('/')
+  const filename = segments[segments.length - 1] ?? ''
+  const page = segments[segments.length - 2] ?? 'open archive'
+  const stem = filename.replace(/\.[^.]+$/, '')
+  return `${page}/${stem}`
+}
+
+const OPEN_ARCHIVE_THUMBS_BY_KEY = new Map(
+  Object.entries(OPEN_ARCHIVE_THUMB_MODULES).map(([path, src]) => [getOpenArchiveAssetKey(path), src])
+)
+
+const OPEN_ARCHIVE_IMAGES = Object.entries(OPEN_ARCHIVE_IMAGE_MODULES)
+  .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+  .map(([path, src], index) => {
+    const normalizedPath = path.replace(/\\/g, '/')
+    const segments = normalizedPath.split('/')
+    const filename = segments[segments.length - 1] ?? `archive-${index + 1}`
+    const page = segments[segments.length - 2] ?? 'open archive'
+    const stem = filename.replace(/\.[^.]+$/, '')
+    const assetKey = getOpenArchiveAssetKey(path)
+    return {
+      src,
+      thumbSrc: OPEN_ARCHIVE_THUMBS_BY_KEY.get(assetKey) ?? src,
+      alt: stem.replace(/[_-]/g, ' '),
+      filename,
+      page,
+      seed: getStableNumber(`${page}/${filename}`),
+    }
+  })
+
 const FOLDER_DEFINITIONS = [
   {
     id: 'cv',
     label: 'cv',
     title: 'CV',
+    externalUrl: CV_URL,
     bio: {
       name: 'SHELESTVETROVKI',
       born: 'Born Anastasiia Pishchanska, 2000, Odesa Ukraine',
@@ -217,15 +373,40 @@ const FOLDER_DEFINITIONS = [
     ],
   },
   {
-    id: 'performance',
-    label: 'performance',
-    title: 'Performance',
+    id: 'press',
+    label: 'press',
+    title: 'Press',
     sections: [
       {
-        heading: 'SELECTED ARTIST TALKS + PANELS',
-        entries: [
-          { year: '2026', item: 'Girlhood: Fantasy and the Inner Life — A conversation between Laura Pelissier, Anastasiia Pischanska, and Lean Lui, moderated by Francesca Faccani, PhotoVogue, Milan, Italy' },
-          { year: '2023', item: 'Art In The Wartime: lecture for Japanese art students between Anastasiia Pishchanska and Alisa Chen, Tama Art University, Tokyo, Japan' },
+        heading: '2026',
+        links: [
+          { url: 'https://www.vogue.com/article/a-project-about-gen-z-youth-in-ukraine?fbclid=PAdGRleAQpBMlleHRuA2FlbQIxMQBzcnRjBmFwcF9pZA8xMjQwMjQ1NzQyODc0MTQAAadkgc9wIQkccTcXOcbHOOxd4wWiCWSpJvO0sIrSnEJ86m0lLWdtYe7iTQ3YNQ_aem_W62CPaBczjId_yDnCjozuQ', label: 'Photo Vogue: Ukrainian Gen Z Adolescence' },
+          { url: 'https://www.vogue.com/article/women-by-women-the-shortlist', label: 'Vogue: Women By Women: The Shortlist' },
+          { url: 'https://queerwararchive.com/2026/02/18/shelest-vetrovki-anastasiia-pischanska-gen-z/', label: 'Queer War Archive: Shelest Vetrovki' },
+        ],
+      },
+      {
+        heading: '2025',
+        links: [
+          { url: 'https://festivalpanoramic.cat/en/project/panoramic-review-2025/', label: 'Festival Panoramic: Panoramic Review 2025' },
+        ],
+      },
+      {
+        heading: '2024',
+        links: [
+          { url: 'https://www.yokogaomag.com/editorial/shes-so-hot-i-wanna-clean-her-room-shelestvetrovki', label: "Yokogao Mag: She's So Hot I Wanna Clean Her Room" },
+          { url: 'https://goodpress.co.uk/products/dialogues-on-corecore-the-contemporary-online-avant-garde-edited-by-0nty-onmycomputer', label: 'Good Press: Dialogues on CoreCore' },
+          { url: 'https://www.kubaparis.com/submission/469655', label: 'Kuba Paris: MOM, POST-INTERNET IS NOT A PHASE ;(' },
+          { url: 'https://becoming.press/dialogues-on-corecore', label: 'Becoming Press: Dialogues on CoreCore' },
+          { url: 'https://www.instagram.com/p/DDmLc2Th1PV/', label: 'Instagram: Localstickerbook' },
+        ],
+      },
+      {
+        heading: '2023',
+        links: [
+          { url: 'https://www.tamabi.ac.jp/news/55772/', label: 'Tama Art University: Artist at Risk Program' },
+          { url: 'https://i-d.co/article/daria-svertilova-photography-ukraine/', label: 'i-D: Daria Svertilova Photography Ukraine' },
+          { url: 'https://www.vogue.com/article/a-project-about-gen-z-youth-in-ukraine', label: 'Vogue: A Project About Gen-Z Youth in Ukraine' },
         ],
       },
     ],
@@ -236,27 +417,22 @@ const FOLDER_DEFINITIONS = [
     title: 'Writing',
     sections: [
       {
-        heading: 'WRITING BY AND ABOUT',
-        entries: [
-          { year: '2024', item: '"Dialogues on CoreCore & the Contemporary Online Avant-Garde", Becoming Press Publishing' },
-          { year: '', item: '"NPC Collapse", Localstickerbook ISSUE 04, Readellion Publishing' },
-          { year: '', item: '"Spiritual Ecocides", Lexicon Of Nature, LocalGroup, Readellion Publishing' },
+        heading: '2026',
+        links: [
+          { url: 'https://substack.com/@shelestvetrovki/note/p-194245632?utm_source=notes-share-action&r=33oaqu', label: 'Substack: and another fig was a girl wearing nipple patches', image: 'assets/local_sticker_book5_cover-1600x1600.webp', iconLabel: 'and another fig was a girl wearing nipple patches' },
         ],
       },
       {
-        heading: 'WRITING ABOUT',
+        heading: '2025',
         links: [
-          { url: 'https://www.vogue.com/article/a-project-about-gen-z-youth-in-ukraine', label: 'Vogue — A Project About Gen-Z Youth in Ukraine' },
-          { url: 'https://www.vogue.com/article/women-by-women-the-shortlist', label: 'Vogue — Women By Women: The Shortlist' },
-          { url: 'https://festivalpanoramic.cat/en/project/panoramic-review-2025/', label: 'Festival Panoramic — Panoramic Review 2025' },
-          { url: 'https://queerwararchive.com/2026/02/18/shelest-vetrovki-anastasiia-pischanska-gen-z/', label: 'Queer War Archive — Shelest Vetrovki' },
-          { url: 'https://www.yokogaomag.com/editorial/shes-so-hot-i-wanna-clean-her-room-shelestvetrovki', label: "Yokogao Mag — She's So Hot I Wanna Clean Her Room" },
-          { url: 'https://goodpress.co.uk/products/dialogues-on-corecore-the-contemporary-online-avant-garde-edited-by-0nty-onmycomputer', label: 'Good Press — Dialogues on CoreCore' },
-          { url: 'https://www.kubaparis.com/submission/469655', label: 'Kuba Paris' },
-          { url: 'https://becoming.press/dialogues-on-corecore', label: 'Becoming Press — Dialogues on CoreCore' },
-          { url: 'https://www.instagram.com/p/DDmLc2Th1PV/', label: 'Instagram' },
-          { url: 'https://www.tamabi.ac.jp/news/55772/', label: 'Tama Art University' },
-          { url: 'https://i-d.co/article/daria-svertilova-photography-ukraine/', label: 'i-D — Daria Svertilova Photography Ukraine' },
+          { url: 'https://readellion.com/product/lexiconofnature/', label: 'Readellion Publishing: Spiritual Ecocides, Lexicon Of Nature, LocalGroup', image: 'assets/lexicon-new-1600x1600.webp', iconLabel: 'Readellion Publishing: Spiritual Ecocides, Lexicon Of Nature, LocalGroup' },
+        ],
+      },
+      {
+        heading: '2024',
+        links: [
+          { url: 'https://becoming.press/dialogues-on-corecore', label: 'Becoming Press Publishing: Dialogues on CoreCore & the Contemporary Online Avant-Garde', image: 'assets/05A_-CoreCore-front_.png', iconLabel: 'Dialogues on CoreCore & the Contemporary Online Avant-Garde (2024)' },
+          { url: 'https://substack.com/@shelestvetrovki/p-151684169', label: 'Substack: notes on being unemployed (in a spiritual way)', image: 'assets/local_sticker_book5_cover-1600x1600.webp', iconLabel: 'notes on being unemployed (in a spiritual way)' },
         ],
       },
     ],
@@ -269,20 +445,20 @@ const FOLDER_DEFINITIONS = [
       {
         heading: 'SCREENINGS',
         entries: [
-          { year: '2025', item: '"Dream Wanders By The Window", BurningMagazine, Tokyo, Japan' },
-          { year: '', item: "SpilkaParis x Local Group, Kolektiv Radieuse, Le Corbusier's Cité Radieuse, Marseille, France" },
-          { year: '2024', item: 'Localstickerbook, Films Fundraiser, Datsuijo Gallery, Tokyo, Japan' },
-          { year: '2023', item: 'Short Poetic Film Festival, Lviv, Ukraine' },
+          { year: '2025', item: '"Dream Wanders By The Window", BurningMagazine, Tokyo, Japan', url: 'https://burningmagazinejp.com/' },
+          { year: '2025', item: "SpilkaParis x Local Group, Kolektiv Radieuse, Le Corbusier's Cité Radieuse, Marseille, France", url: 'https://www.instagram.com/p/DLiPmNXoxwA/' },
+          { year: '2024', item: 'Localstickerbook, Films Fundraiser, Datsuijo Gallery, Tokyo, Japan', url: 'https://datsuijo.com/' },
+          { year: '2023', item: 'Short Poetic Film Festival, Lviv, Ukraine', url: 'https://wiz-art.ua/en/' },
         ],
       },
       {
-        heading: 'CURATING EXHIBITIONS + SCREENINGS',
+        heading: 'CURATING',
         entries: [
-          { year: '2025', item: "SpilkaParis x Local Group, Kolektiv Radieuse, Le Corbusier's Cité Radieuse, Marseille, France" },
-          { year: '', item: 'Localstickerbook, Films fundraiser, Domicile Gallery, Tokyo, Japan' },
-          { year: '', item: 'OpenSecret x Localstickerbook, Internet Cinema, Untitled Space Gallery, Tokyo, Japan' },
-          { year: '2024', item: 'Localstickerbook, Films Fundraiser, Datsuijo Gallery, Tokyo, Japan' },
-          { year: '2022', item: 'Localstickerbook, Experimental Film Screening, Filaret 16, Bucharest, Romania' },
+          { year: '2025', item: "SpilkaParis x Local Group, Kolektiv Radieuse, Le Corbusier's Cité Radieuse, Marseille, France", url: 'https://www.instagram.com/p/DLiPmNXoxwA/' },
+          { year: '2025', item: 'Localstickerbook, Films fundraiser, Domicile Gallery, Tokyo, Japan', url: 'https://domicile.tokyo/' },
+          { year: '2025', item: 'OpenSecret x Localstickerbook, Internet Cinema, Untitled Space Gallery, Tokyo, Japan', url: 'https://www.ultra.art/p/the-fourth-secret-of-internet-cinema' },
+          { year: '2024', item: 'Localstickerbook, Films Fundraiser, Datsuijo Gallery, Tokyo, Japan', url: 'https://datsuijo.com/' },
+          { year: '2022', item: 'Localstickerbook, Experimental Film Screening, Filaret 16, Bucharest, Romania', url: 'https://www.facebook.com/Filaret16DiY/' },
         ],
       },
     ],
@@ -297,6 +473,18 @@ const FOLDER_DEFINITIONS = [
     id: 'submit-room',
     label: 'submit room',
     title: 'Submit Room',
+    sections: [],
+  },
+  {
+    id: 'diary',
+    label: 'diary',
+    title: 'Diary',
+    sections: [],
+  },
+  {
+    id: 'open-collective-archive',
+    label: 'open collective archive',
+    title: 'Open Collective Archive',
     sections: [],
   },
 ]
@@ -328,6 +516,146 @@ const DEFAULT_ROOM_RENDER_SETTINGS = {
   flatShading: false,
   wireframe: false,
 }
+const ROOM_RENDER_VARIANTS = [
+  {
+    id: 'current',
+    label: 'current',
+    settings: DEFAULT_ROOM_RENDER_SETTINGS,
+    stageEnvironment: null,
+    ambientLightIntensity: 0,
+    controls: {
+      moveSpeed: 0.05,
+      zoomSpeed: 2.2,
+      rotateSpeed: 0.4,
+      panSpeed: 0.4,
+      enablePan: true,
+      dampingFactor: 0.05,
+    },
+  },
+  {
+    id: 'calm',
+    label: 'calm',
+    settings: DEFAULT_ROOM_RENDER_SETTINGS,
+    stageEnvironment: null,
+    ambientLightIntensity: 0,
+    controls: {
+      moveSpeed: 0.025,
+      enablePan: false,
+      zoomSpeed: 0.85,
+      rotateSpeed: 0.35,
+      dampingFactor: 0.08,
+      minDistance: 0.08,
+      maxDistance: 3.8,
+    },
+  },
+  {
+    id: 'snappy',
+    label: 'snappy',
+    settings: DEFAULT_ROOM_RENDER_SETTINGS,
+    stageEnvironment: null,
+    ambientLightIntensity: 0,
+    controls: {
+      moveSpeed: 0.085,
+      enablePan: true,
+      zoomSpeed: 2.8,
+      rotateSpeed: 0.62,
+      panSpeed: 0.55,
+      dampingFactor: 0.035,
+      minDistance: 0.06,
+      maxDistance: 5,
+    },
+  },
+  {
+    id: 'orbit',
+    label: 'orbit only',
+    settings: DEFAULT_ROOM_RENDER_SETTINGS,
+    stageEnvironment: null,
+    ambientLightIntensity: 0,
+    controls: {
+      moveSpeed: 0,
+      enablePan: false,
+      zoomSpeed: 0.75,
+      rotateSpeed: 0.45,
+      dampingFactor: 0.1,
+      minDistance: 0.08,
+      maxDistance: 3.8,
+    },
+  },
+  {
+    id: 'fixed',
+    label: 'fixed target',
+    settings: DEFAULT_ROOM_RENDER_SETTINGS,
+    stageEnvironment: null,
+    ambientLightIntensity: 0,
+    controls: {
+      moveSpeed: 0.035,
+      keyboardTargetMode: 'fixed',
+      enablePan: false,
+      zoomSpeed: 0.9,
+      rotateSpeed: 0.42,
+      dampingFactor: 0.08,
+      minDistance: 0.08,
+      maxDistance: 3.8,
+    },
+  },
+  {
+    id: 'slow',
+    label: 'slow walk',
+    settings: DEFAULT_ROOM_RENDER_SETTINGS,
+    stageEnvironment: null,
+    ambientLightIntensity: 0,
+    controls: {
+      moveSpeed: 0.012,
+      enablePan: true,
+      zoomSpeed: 0.6,
+      rotateSpeed: 0.32,
+      panSpeed: 0.22,
+      dampingFactor: 0.08,
+      minDistance: 0.08,
+      maxDistance: 3.8,
+    },
+  },
+  {
+    id: 'nozoom',
+    label: 'no zoom',
+    settings: DEFAULT_ROOM_RENDER_SETTINGS,
+    stageEnvironment: null,
+    ambientLightIntensity: 0,
+    controls: {
+      moveSpeed: 0.03,
+      enableZoom: false,
+      enablePan: false,
+      zoomSpeed: 0,
+      rotateSpeed: 0.38,
+      dampingFactor: 0.09,
+    },
+  },
+  {
+    id: 'fly',
+    label: 'fly',
+    settings: DEFAULT_ROOM_RENDER_SETTINGS,
+    stageEnvironment: null,
+    ambientLightIntensity: 0,
+    controls: {
+      moveSpeed: 0.032,
+      keyboardAxis: 'view',
+      enablePan: false,
+      zoomSpeed: 0.8,
+      rotateSpeed: 0.4,
+      dampingFactor: 0.075,
+      minDistance: 0.08,
+      maxDistance: 4.2,
+    },
+  },
+]
+const DEFAULT_ROOM_RENDER_VARIANT = ROOM_RENDER_VARIANTS[0]
+const ROOM_RENDER_VARIANT_MAP = new Map(ROOM_RENDER_VARIANTS.map((variant) => [variant.id, variant]))
+const ROOM_RENDER_VARIANT_ALIASES = new Map([
+  ['native', 'calm'],
+  ['soft', 'orbit'],
+  ['bright', 'slow'],
+])
+const CANVAS_GL_OPTIONS = { preserveDrawingBuffer: true }
 
 function buildCursorValue(cursorUrl, fallback = 'auto', hotspot = MAIN_KEY_CURSOR_HOTSPOT) {
   const cursorStack = [`url("${cursorUrl}") ${hotspot}`]
@@ -340,11 +668,17 @@ const HOVER_KEY_CURSOR = buildCursorValue(HOVER_KEY_CURSOR_URL, 'pointer', HOVER
 const DEFAULT_RESPONSIVE_STATE = {
   viewportWidth: 1440,
   viewportHeight: 900,
-  isCompact: false,
   isTouch: false,
   prefersReducedMotion: false,
 }
+const ROOM_PRELOAD_STAGGER_MS = 2500
 const preloadedRoomAssets = new Set()
+const preloadedVideoAssets = new Map()
+
+function getRoomAssetUrl(roomIndex) {
+  const roomFile = ROOM_FILES[roomIndex]
+  return roomFile ? `rooms/${roomFile}` : null
+}
 
 function addMediaQueryListener(query, listener) {
   if (typeof query.addEventListener === 'function') {
@@ -367,10 +701,35 @@ function readResponsiveState() {
   return {
     viewportWidth: window.innerWidth,
     viewportHeight: window.innerHeight,
-    isCompact: window.innerWidth < COMPACT_BREAKPOINT,
     isTouch: coarsePointerQuery.matches,
     prefersReducedMotion: reducedMotionQuery.matches,
   }
+}
+
+function readRoomRenderVariantFromUrl() {
+  if (typeof window === 'undefined') {
+    return {
+      enabled: false,
+      variant: DEFAULT_ROOM_RENDER_VARIANT,
+    }
+  }
+
+  const params = new URLSearchParams(window.location.search)
+  const requestedVariant = params.get('viewer') || params.get('roomViewer')
+  const enabled = params.has('viewerVariants') || params.has('viewer') || params.has('roomViewer')
+  const resolvedVariantId = ROOM_RENDER_VARIANT_ALIASES.get(requestedVariant) ?? requestedVariant
+  const variant = ROOM_RENDER_VARIANT_MAP.get(resolvedVariantId) ?? DEFAULT_ROOM_RENDER_VARIANT
+
+  return { enabled, variant }
+}
+
+function writeRoomRenderVariantToUrl(variantId) {
+  if (typeof window === 'undefined') return
+
+  const url = new URL(window.location.href)
+  url.searchParams.set('viewer', variantId)
+  url.searchParams.set('viewerVariants', '1')
+  window.history.replaceState(window.history.state, '', url)
 }
 
 function useResponsiveShell() {
@@ -385,7 +744,6 @@ function useResponsiveShell() {
       setResponsiveState({
         viewportWidth: window.innerWidth,
         viewportHeight: window.innerHeight,
-        isCompact: window.innerWidth < COMPACT_BREAKPOINT,
         isTouch: coarsePointerQuery.matches,
         prefersReducedMotion: reducedMotionQuery.matches,
       })
@@ -408,10 +766,55 @@ function useResponsiveShell() {
 }
 
 function preloadRoomAsset(roomIndex) {
-  const roomFile = ROOM_FILES[roomIndex]
-  if (!roomFile || preloadedRoomAssets.has(roomFile)) return
-  preloadedRoomAssets.add(roomFile)
-  useGLTF.preload(`rooms/${roomFile}`)
+  const roomUrl = getRoomAssetUrl(roomIndex)
+  if (!roomUrl) return
+  if (preloadedRoomAssets.has(roomUrl)) return
+  preloadedRoomAssets.add(roomUrl)
+  useGLTF.preload(roomUrl)
+}
+
+function preloadRoomRange(startIndex, count, staggerMs = 0) {
+  if (staggerMs <= 0) {
+    for (let offset = 0; offset < count; offset += 1) {
+      preloadRoomAsset((startIndex + offset) % ROOM_FILES.length)
+    }
+    return
+  }
+
+  let offset = 0
+  const preloadNext = () => {
+    if (offset >= count) return
+    preloadRoomAsset((startIndex + offset) % ROOM_FILES.length)
+    offset += 1
+    if (offset < count) window.setTimeout(preloadNext, staggerMs)
+  }
+
+  preloadNext()
+}
+
+function preloadVideoAsset(src) {
+  if (typeof document === 'undefined' || preloadedVideoAssets.has(src)) return
+
+  const video = document.createElement('video')
+  video.preload = 'auto'
+  video.muted = true
+  video.playsInline = true
+  video.src = src
+  video.load()
+  preloadedVideoAssets.set(src, video)
+}
+
+function captureCurrentCanvasFrame() {
+  if (typeof document === 'undefined') return null
+
+  const canvas = document.querySelector('canvas')
+  if (!canvas) return null
+
+  try {
+    return canvas.toDataURL('image/png')
+  } catch {
+    return null
+  }
 }
 
 const DOOR_LINKS = [
@@ -513,12 +916,15 @@ const DOOR_LINKS = [
   },
 ]
 
-function Model({ url, children, onLoaded }) {
+function Model({ url, children, onLoaded, prepareScene }) {
   const { scene } = useGLTF(url)
+  const { gl, camera } = useThree()
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    prepareScene?.(scene)
+    gl.compile(scene, camera)
     if (onLoaded) onLoaded(scene)
-  }, [onLoaded, scene])
+  }, [camera, gl, onLoaded, prepareScene, scene])
 
   return <primitive object={scene}>{children}</primitive>
 }
@@ -548,134 +954,107 @@ function isWithinDoorHitArea(object) {
   return false
 }
 
-function RoomMaterialOverrides({ sceneRoot, settings }) {
-  useEffect(() => {
-    if (!sceneRoot) return undefined
+function applyRoomMaterialOverrides(sceneRoot, settings) {
+  if (!sceneRoot) return
 
-    const touchedMaterials = new Set()
-    const touchedMeshes = new Set()
+  const touchedMaterials = new Set()
 
-    sceneRoot.traverse((child) => {
-      if (!child?.isMesh || isWithinDoorHitArea(child)) return
-      touchedMeshes.add(child)
+  sceneRoot.traverse((child) => {
+    if (!child?.isMesh || isWithinDoorHitArea(child)) return
 
-      if (!child.userData.__roomOriginalMaterial) {
-        child.userData.__roomOriginalMaterial = child.material
+    if (!child.userData.__roomOriginalMaterial) {
+      child.userData.__roomOriginalMaterial = child.material
+    }
+
+    const originalMaterials = Array.isArray(child.userData.__roomOriginalMaterial)
+      ? child.userData.__roomOriginalMaterial
+      : [child.userData.__roomOriginalMaterial]
+
+    const resolvedMaterials = originalMaterials.map((originalMaterial) => {
+      if (!originalMaterial) return originalMaterial
+
+      if (settings.shadingMode !== 'shadeless') {
+        return originalMaterial
       }
 
-      const originalMaterials = Array.isArray(child.userData.__roomOriginalMaterial)
-        ? child.userData.__roomOriginalMaterial
-        : [child.userData.__roomOriginalMaterial]
+      if (!originalMaterial.userData.__roomShadelessMaterial) {
+        const basicMaterial = new THREE.MeshBasicMaterial()
 
-      const resolvedMaterials = originalMaterials.map((originalMaterial) => {
-        if (!originalMaterial) return originalMaterial
+        if (originalMaterial.color) basicMaterial.color.copy(originalMaterial.color)
+        if (originalMaterial.map) basicMaterial.map = originalMaterial.map
+        if (originalMaterial.alphaMap) basicMaterial.alphaMap = originalMaterial.alphaMap
+        if (originalMaterial.transparent != null) basicMaterial.transparent = originalMaterial.transparent
+        if (originalMaterial.opacity != null) basicMaterial.opacity = originalMaterial.opacity
+        if (originalMaterial.side != null) basicMaterial.side = originalMaterial.side
+        if (originalMaterial.wireframe != null) basicMaterial.wireframe = originalMaterial.wireframe
 
-        if (settings.shadingMode !== 'shadeless') {
-          return originalMaterial
-        }
+        originalMaterial.userData.__roomShadelessMaterial = basicMaterial
+      }
 
-        if (!originalMaterial.userData.__roomShadelessMaterial) {
-          const basicMaterial = new THREE.MeshBasicMaterial()
-
-          if (originalMaterial.color) basicMaterial.color.copy(originalMaterial.color)
-          if (originalMaterial.map) basicMaterial.map = originalMaterial.map
-          if (originalMaterial.alphaMap) basicMaterial.alphaMap = originalMaterial.alphaMap
-          if (originalMaterial.transparent != null) basicMaterial.transparent = originalMaterial.transparent
-          if (originalMaterial.opacity != null) basicMaterial.opacity = originalMaterial.opacity
-          if (originalMaterial.side != null) basicMaterial.side = originalMaterial.side
-          if (originalMaterial.wireframe != null) basicMaterial.wireframe = originalMaterial.wireframe
-
-          originalMaterial.userData.__roomShadelessMaterial = basicMaterial
-        }
-
-        return originalMaterial.userData.__roomShadelessMaterial
-      })
-
-      child.material = Array.isArray(child.userData.__roomOriginalMaterial) ? resolvedMaterials : resolvedMaterials[0]
-
-      const materials = Array.isArray(child.material) ? child.material : [child.material]
-      materials.forEach((material) => {
-        if (!material || touchedMaterials.has(material)) return
-        touchedMaterials.add(material)
-
-        if (!material.userData.__roomDefaults) {
-          material.userData.__roomDefaults = {
-            color: material.color?.clone?.() ?? null,
-            metalness: material.metalness,
-            roughness: material.roughness,
-            envMapIntensity: material.envMapIntensity,
-            opacity: material.opacity,
-            emissiveIntensity: material.emissiveIntensity,
-            transparent: material.transparent,
-            depthWrite: material.depthWrite,
-            side: material.side,
-            flatShading: material.flatShading,
-            wireframe: material.wireframe,
-            mapColorSpace: material.map?.colorSpace,
-          }
-        }
-
-        const defaults = material.userData.__roomDefaults
-        const intensityColor = defaults.color?.clone?.() ?? new THREE.Color('#ffffff')
-        intensityColor.multiplyScalar(settings.baseColorIntensity)
-
-        if (material.color) material.color.copy(intensityColor)
-        if (typeof material.metalness === 'number') material.metalness = settings.metalness
-        if (typeof material.roughness === 'number') material.roughness = settings.roughness
-        if (typeof material.envMapIntensity === 'number') material.envMapIntensity = settings.envMapIntensity
-        if (typeof material.opacity === 'number') material.opacity = settings.opacity
-        if (typeof material.emissiveIntensity === 'number') material.emissiveIntensity = settings.emissiveIntensity
-
-        material.transparent = settings.transparent || settings.opacity < 1
-        material.depthWrite = settings.depthWrite
-        material.side = settings.doubleSided ? THREE.DoubleSide : THREE.FrontSide
-        material.flatShading = settings.flatShading
-        material.wireframe = settings.wireframe
-
-        if (material.map) {
-          material.map.colorSpace = settings.textureColorSpace === 'linear' ? THREE.LinearSRGBColorSpace : THREE.SRGBColorSpace
-          material.map.needsUpdate = true
-        }
-
-        material.needsUpdate = true
-      })
+      return originalMaterial.userData.__roomShadelessMaterial
     })
 
-    return () => {
-      touchedMeshes.forEach((mesh) => {
-        if (mesh.userData.__roomOriginalMaterial) {
-          mesh.material = mesh.userData.__roomOriginalMaterial
+    child.material = Array.isArray(child.userData.__roomOriginalMaterial) ? resolvedMaterials : resolvedMaterials[0]
+
+    const materials = Array.isArray(child.material) ? child.material : [child.material]
+    materials.forEach((material) => {
+      if (!material || touchedMaterials.has(material)) return
+      touchedMaterials.add(material)
+
+      if (!material.userData.__roomDefaults) {
+        material.userData.__roomDefaults = {
+          color: material.color?.clone?.() ?? null,
+          metalness: material.metalness,
+          roughness: material.roughness,
+          envMapIntensity: material.envMapIntensity,
+          opacity: material.opacity,
+          emissiveIntensity: material.emissiveIntensity,
+          transparent: material.transparent,
+          depthWrite: material.depthWrite,
+          side: material.side,
+          flatShading: material.flatShading,
+          wireframe: material.wireframe,
+          mapColorSpace: material.map?.colorSpace,
         }
-      })
+      }
 
-      touchedMaterials.forEach((material) => {
-        const defaults = material.userData.__roomDefaults
-        if (!defaults) return
+      const defaults = material.userData.__roomDefaults
+      const intensityColor = defaults.color?.clone?.() ?? new THREE.Color('#ffffff')
+      intensityColor.multiplyScalar(settings.baseColorIntensity)
+      const nextTransparent = settings.transparent || settings.opacity < 1
+      const nextSide = settings.doubleSided ? THREE.DoubleSide : THREE.FrontSide
+      const materialProgramChanged =
+        material.transparent !== nextTransparent ||
+        material.side !== nextSide ||
+        material.flatShading !== settings.flatShading ||
+        material.wireframe !== settings.wireframe
 
-        if (defaults.color && material.color) material.color.copy(defaults.color)
-        if (typeof defaults.metalness === 'number' && typeof material.metalness === 'number') material.metalness = defaults.metalness
-        if (typeof defaults.roughness === 'number' && typeof material.roughness === 'number') material.roughness = defaults.roughness
-        if (typeof defaults.envMapIntensity === 'number' && typeof material.envMapIntensity === 'number') material.envMapIntensity = defaults.envMapIntensity
-        if (typeof defaults.opacity === 'number' && typeof material.opacity === 'number') material.opacity = defaults.opacity
-        if (typeof defaults.emissiveIntensity === 'number' && typeof material.emissiveIntensity === 'number') material.emissiveIntensity = defaults.emissiveIntensity
+      if (material.color) material.color.copy(intensityColor)
+      if (typeof material.metalness === 'number') material.metalness = settings.metalness
+      if (typeof material.roughness === 'number') material.roughness = settings.roughness
+      if (typeof material.envMapIntensity === 'number') material.envMapIntensity = settings.envMapIntensity
+      if (typeof material.opacity === 'number') material.opacity = settings.opacity
+      if (typeof material.emissiveIntensity === 'number') material.emissiveIntensity = settings.emissiveIntensity
 
-        material.transparent = defaults.transparent
-        material.depthWrite = defaults.depthWrite
-        material.side = defaults.side ?? THREE.FrontSide
-        material.flatShading = defaults.flatShading ?? false
-        material.wireframe = defaults.wireframe ?? false
+      material.transparent = nextTransparent
+      material.depthWrite = settings.depthWrite
+      material.side = nextSide
+      material.flatShading = settings.flatShading
+      material.wireframe = settings.wireframe
 
-        if (material.map && defaults.mapColorSpace) {
-          material.map.colorSpace = defaults.mapColorSpace
+      if (material.map) {
+        const nextColorSpace = settings.textureColorSpace === 'linear' ? THREE.LinearSRGBColorSpace : THREE.SRGBColorSpace
+        if (material.map.colorSpace !== nextColorSpace) {
+          material.map.colorSpace = nextColorSpace
           material.map.needsUpdate = true
         }
+      }
 
+      if (materialProgramChanged) {
         material.needsUpdate = true
-      })
-    }
-  }, [sceneRoot, settings])
-
-  return null
+      }
+    })
+  })
 }
 
 function parseRouteFromHash(hashValue) {
@@ -689,9 +1068,16 @@ function parseRouteFromHash(hashValue) {
   }
 
   if (normalized.startsWith(FOLDER_HASH_PREFIX)) {
-    const folderId = normalized.slice(FOLDER_HASH_PREFIX.length)
+    const folderPath = normalized.slice(FOLDER_HASH_PREFIX.length)
+    const [folderId, folderDetailId, lightboxSegment, imageIndexValue] = folderPath.split('/')
     if (FOLDER_MAP.has(folderId)) {
-      return { type: 'folder', folderId }
+      const folderImageIndex = lightboxSegment === FOLDER_LIGHTBOX_HASH_SEGMENT ? Number(imageIndexValue) : null
+      return {
+        type: 'folder',
+        folderId,
+        folderDetailId: folderDetailId || null,
+        folderImageIndex: Number.isInteger(folderImageIndex) && folderImageIndex >= 0 ? folderImageIndex : null,
+      }
     }
   }
 
@@ -715,15 +1101,64 @@ function LoadingCursor() {
   return null
 }
 
+function LoadingCanvasFallback() {
+  return (
+    <>
+      <LoadingCursor />
+      <Html fullscreen zIndexRange={[1000, 1000]} pointerEvents="none">
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontFamily: MAC_LIGHT_FONT_STACK,
+            fontSize: '12px',
+            color: 'rgba(0,0,0,0.56)',
+            textTransform: 'lowercase',
+            letterSpacing: '0.08em',
+            background: 'rgba(255,255,255,0.18)',
+          }}
+        >
+          loading
+        </div>
+      </Html>
+    </>
+  )
+}
+
 function navigateWithHash(nextHash) {
   if (typeof window === 'undefined') return
   if (window.location.hash === nextHash) return
   window.location.hash = nextHash
 }
 
-function getAboutAddress(folderId, tabId = 'about') {
+function getFolderRouteKey(folderId, folderDetailId = null, folderImageIndex = null) {
+  if (!folderId) return ABOUT_HOME_TAB.id
+  const routeParts = [folderId]
+  if (folderDetailId) routeParts.push(folderDetailId)
+  if (folderDetailId && folderImageIndex != null) routeParts.push(FOLDER_LIGHTBOX_HASH_SEGMENT, String(folderImageIndex))
+  return routeParts.join('/')
+}
+
+function getFolderRouteParts(entryId) {
+  if (!entryId || entryId === ABOUT_HOME_TAB.id) return { folderId: null, folderDetailId: null, folderImageIndex: null }
+  const [folderId, folderDetailId, lightboxSegment, imageIndexValue] = String(entryId).split('/')
+  const folderImageIndex = lightboxSegment === FOLDER_LIGHTBOX_HASH_SEGMENT ? Number(imageIndexValue) : null
+  return {
+    folderId,
+    folderDetailId: folderDetailId || null,
+    folderImageIndex: Number.isInteger(folderImageIndex) && folderImageIndex >= 0 ? folderImageIndex : null,
+  }
+}
+
+function getAboutAddress(folderId, tabId = 'about', folderDetailId = null, folderImageIndex = null) {
   if (folderId && FOLDER_MAP.has(folderId)) {
-    return `${ABOUT_BASE_URL}${folderId}`
+    const pathParts = [folderId]
+    if (folderDetailId) pathParts.push(folderDetailId)
+    if (folderDetailId && folderImageIndex != null) pathParts.push(FOLDER_LIGHTBOX_HASH_SEGMENT, String(folderImageIndex))
+    return `${ABOUT_BASE_URL}${pathParts.join('/')}`
   }
 
   if (tabId === ABOUT_HOME_TAB.id) {
@@ -746,15 +1181,18 @@ function getAboutTabId(folderId) {
 
 function getAboutHistoryEntry(route) {
   if (route?.type === 'folder' && route.folderId && FOLDER_MAP.has(route.folderId)) {
-    return route.folderId
+    return getFolderRouteKey(route.folderId, route.folderDetailId, route.folderImageIndex)
   }
 
   return ABOUT_HOME_TAB.id
 }
 
 function getHashForAboutHistoryEntry(entryId) {
-  if (entryId && entryId !== ABOUT_HOME_TAB.id && FOLDER_MAP.has(entryId)) {
-    return `#${FOLDER_HASH_PREFIX}${entryId}`
+  if (entryId && entryId !== ABOUT_HOME_TAB.id) {
+    const { folderId } = getFolderRouteParts(entryId)
+    if (folderId && FOLDER_MAP.has(folderId)) {
+      return `#${FOLDER_HASH_PREFIX}${entryId}`
+    }
   }
 
   return ABOUT_HASH
@@ -770,7 +1208,6 @@ function AboutBrowserChrome({
   onReload,
   canGoBack,
   canGoForward,
-  isCompact = false,
 }) {
   const navButtons = [
     { id: 'back', label: '<', onClick: onBack, disabled: !canGoBack },
@@ -782,7 +1219,7 @@ function AboutBrowserChrome({
     <div
       style={{
         width: '100%',
-        padding: isCompact ? 'calc(8px + env(safe-area-inset-top)) 12px 10px' : '6px 10px 8px',
+        padding: '6px 10px 8px',
         background: 'linear-gradient(180deg, #efefef 0%, #cfcfcf 58%, #bcbcbc 100%)',
         borderBottom: '1px solid #8f8f8f',
         boxSizing: 'border-box',
@@ -794,9 +1231,9 @@ function AboutBrowserChrome({
           display: 'flex',
           alignItems: 'flex-end',
           gap: '4px',
-          overflowX: isCompact ? 'auto' : 'hidden',
+          overflowX: 'hidden',
           overflowY: 'hidden',
-          paddingBottom: isCompact ? '2px' : 0,
+          paddingBottom: 0,
           scrollbarWidth: 'none',
         }}
       >
@@ -820,7 +1257,7 @@ function AboutBrowserChrome({
                   ? 'inset 0 1px 0 rgba(255,255,255,0.95)'
                   : 'inset 0 1px 0 rgba(255,255,255,0.45)',
                 color: '#222',
-                padding: isCompact ? '5px 11px 6px' : '4px 10px 5px',
+                padding: '4px 10px 5px',
                 fontFamily: MAC_LIGHT_FONT_STACK,
                 fontSize: '11px',
                 fontWeight: 400,
@@ -840,11 +1277,11 @@ function AboutBrowserChrome({
           marginTop: '-1px',
           border: '1px solid #8c8c8c',
           background: 'linear-gradient(180deg, #f8f8f8 0%, #d8d8d8 100%)',
-          padding: isCompact ? '8px 10px' : '5px 8px',
+          padding: '5px 8px',
           display: 'flex',
           alignItems: 'center',
-          gap: isCompact ? '10px' : '8px',
-          flexWrap: isCompact ? 'wrap' : 'nowrap',
+          gap: '8px',
+          flexWrap: 'nowrap',
           boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.95)',
         }}
       >
@@ -857,8 +1294,8 @@ function AboutBrowserChrome({
               disabled={button.disabled}
               aria-label={button.id}
               style={{
-                width: isCompact ? '24px' : '18px',
-                height: isCompact ? '24px' : '18px',
+                width: '18px',
+                height: '18px',
                 borderRadius: '50%',
                 border: '1px solid #8e8e8e',
                 background: 'linear-gradient(180deg, #fbfbfb 0%, #cfcfcf 100%)',
@@ -866,7 +1303,7 @@ function AboutBrowserChrome({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: isCompact ? '11px' : '10px',
+                fontSize: '10px',
                 lineHeight: 1,
                 opacity: button.disabled ? 0.55 : 1,
                 cursor: button.disabled ? 'default' : HOVER_KEY_CURSOR,
@@ -881,7 +1318,7 @@ function AboutBrowserChrome({
         <div
           style={{
             flex: 1,
-            minWidth: isCompact ? '100%' : 0,
+            minWidth: 0,
             border: '1px solid #949494',
             borderRadius: '12px',
             background: '#fff',
@@ -896,7 +1333,7 @@ function AboutBrowserChrome({
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
               fontFamily: ARIAL_FONT_STACK,
-              fontSize: isCompact ? '11px' : '12px',
+              fontSize: '12px',
               color: '#333',
             }}
           >
@@ -904,7 +1341,7 @@ function AboutBrowserChrome({
           </span>
         </div>
 
-        <div style={{ display: isCompact ? 'none' : 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
           <span
             aria-hidden="true"
             style={{
@@ -931,7 +1368,7 @@ function AboutBrowserChrome({
   )
 }
 
-function TallyEmbed({ isCompact = false }) {
+function TallyEmbed() {
   useEffect(() => {
     if (typeof document === 'undefined') return undefined
 
@@ -976,7 +1413,7 @@ function TallyEmbed({ isCompact = false }) {
       style={{
         display: 'block',
         width: '100%',
-        minHeight: isCompact ? '3200px' : '3693px',
+        minHeight: '3693px',
         border: 'none',
         background: 'transparent',
       }}
@@ -984,11 +1421,269 @@ function TallyEmbed({ isCompact = false }) {
   )
 }
 
-function Controls() {
+function ExhibitionLightbox({ image, onNext, onClose }) {
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') onClose()
+      if (event.key === 'ArrowRight' || event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault()
+        onNext()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [onClose, onNext])
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label="Next exhibition image"
+      onClick={onNext}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 2147483647,
+        width: '100vw',
+        height: '100vh',
+        background: '#fff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 0,
+        boxSizing: 'border-box',
+      }}
+    >
+      <button
+        type="button"
+        aria-label="Close fullscreen image"
+        onClick={(event) => {
+          event.stopPropagation()
+          onClose()
+        }}
+        style={{
+          position: 'fixed',
+          top: '14px',
+          right: '16px',
+          zIndex: 2147483647,
+          border: 'none',
+          background: 'transparent',
+          color: '#ff0000',
+          font: '700 54px Arial, Helvetica, sans-serif',
+          lineHeight: 1,
+          padding: '4px 10px',
+        }}
+      >
+        ×
+      </button>
+      <img
+        src={image.src}
+        alt={image.alt}
+        style={{
+          display: 'block',
+          width: 'auto',
+          height: 'auto',
+          maxWidth: '100vw',
+          maxHeight: '100vh',
+          objectFit: 'contain',
+        }}
+      />
+    </div>
+  )
+}
+
+const DEFAULT_CAMERA_MOVE_SPEED = 0.2
+const ROOM_CAMERA_MOVE_SPEED = 0.05
+const DEFAULT_CAMERA_ZOOM_SPEED = 1
+const ROOM_CAMERA_ZOOM_SPEED = 2.2
+
+function formatCameraVector(vector) {
+  return vector.map((value) => Number(value).toFixed(3)).join(', ')
+}
+
+function parseCameraVector(value) {
+  const parsed = value
+    .replace(/[\[\]]/g, '')
+    .split(',')
+    .map((part) => Number(part.trim()))
+
+  return parsed.length === 3 && parsed.every(Number.isFinite) ? parsed : null
+}
+
+function CameraPositionControlsOverlay({ controlsApiRef }) {
+  const [positionInput, setPositionInput] = useState('')
+  const [targetInput, setTargetInput] = useState('')
+  const [message, setMessage] = useState('')
+  const isEditingRef = useRef(false)
+
+  const readCamera = useCallback(() => {
+    const cameraState = controlsApiRef.current?.read()
+    if (!cameraState) return null
+
+    const nextPosition = formatCameraVector(cameraState.position)
+    const nextTarget = formatCameraVector(cameraState.target)
+    setPositionInput(nextPosition)
+    setTargetInput(nextTarget)
+    return { position: nextPosition, target: nextTarget }
+  }, [controlsApiRef])
+
+  useEffect(() => {
+    const syncTimer = window.setInterval(() => {
+      if (!isEditingRef.current) readCamera()
+    }, 350)
+
+    return () => window.clearInterval(syncTimer)
+  }, [readCamera])
+
+  const applyCamera = () => {
+    const nextPosition = parseCameraVector(positionInput)
+    const nextTarget = parseCameraVector(targetInput)
+    if (!nextPosition || !nextTarget) {
+      setMessage('Use three comma-separated numbers.')
+      return
+    }
+
+    if (!controlsApiRef.current?.apply) {
+      setMessage('Camera is not ready yet.')
+      return
+    }
+    controlsApiRef.current.apply(nextPosition, nextTarget)
+    setMessage('Applied.')
+  }
+
+  const copyCamera = async () => {
+    const cameraState = readCamera()
+    if (!cameraState) {
+      setMessage('Camera is not ready yet.')
+      return
+    }
+    const { position, target } = cameraState
+    const text = `position: [${position}], target: [${target}]`
+    try {
+      await navigator.clipboard.writeText(text)
+      setMessage('Copied.')
+    } catch {
+      setMessage(text)
+    }
+  }
+
+  const fieldStyle = {
+    width: '100%',
+    boxSizing: 'border-box',
+    border: '1px solid #000',
+    background: '#fff',
+    color: '#000',
+    font: '12px Arial, Helvetica, sans-serif',
+    padding: '4px',
+  }
+  const buttonStyle = {
+    border: '1px solid #000',
+    background: '#fff',
+    color: '#000',
+    font: '12px Arial, Helvetica, sans-serif',
+    padding: '4px 7px',
+  }
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        left: 12,
+        top: 42,
+        zIndex: 100,
+        width: 286,
+        padding: 10,
+        background: 'rgba(255,255,255,0.9)',
+        border: '1px solid #000',
+        color: '#000',
+        font: '12px Arial, Helvetica, sans-serif',
+        lineHeight: 1.35,
+      }}
+    >
+      <div style={{ marginBottom: 6, fontWeight: 700 }}>camera</div>
+      <label style={{ display: 'block', marginBottom: 6 }}>
+        position
+        <input
+          value={positionInput}
+          onChange={(event) => setPositionInput(event.target.value)}
+          onFocus={() => { isEditingRef.current = true }}
+          onBlur={() => { isEditingRef.current = false }}
+          style={fieldStyle}
+        />
+      </label>
+      <label style={{ display: 'block', marginBottom: 8 }}>
+        target
+        <input
+          value={targetInput}
+          onChange={(event) => setTargetInput(event.target.value)}
+          onFocus={() => { isEditingRef.current = true }}
+          onBlur={() => { isEditingRef.current = false }}
+          style={fieldStyle}
+        />
+      </label>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 7 }}>
+        <button type="button" onClick={readCamera} style={buttonStyle}>read</button>
+        <button type="button" onClick={applyCamera} style={buttonStyle}>apply</button>
+        <button type="button" onClick={copyCamera} style={buttonStyle}>copy</button>
+      </div>
+      <div style={{ minHeight: 16, wordBreak: 'break-word' }}>{message}</div>
+    </div>
+  )
+}
+
+function Controls({
+  moveSpeed = DEFAULT_CAMERA_MOVE_SPEED,
+  zoomSpeed = DEFAULT_CAMERA_ZOOM_SPEED,
+  rotateSpeed = 0.4,
+  panSpeed = 0.4,
+  enablePan = true,
+  enableZoom = true,
+  enableRotate = true,
+  dampingFactor = 0.05,
+  keyboardAxis = 'flat',
+  keyboardTargetMode = 'follow',
+  minDistance,
+  maxDistance,
+  positionControlsApiRef = null,
+}) {
   const [, get] = useKeyboardControls()
   const { camera } = useThree()
   const controlsRef = useRef()
-  const moveSpeed = 0.2
+
+  useEffect(() => {
+    if (!positionControlsApiRef) return undefined
+
+    positionControlsApiRef.current = {
+      read() {
+        return {
+          position: camera.position.toArray(),
+          target: controlsRef.current?.target?.toArray?.() ?? DEFAULT_CAMERA_TARGET,
+        }
+      },
+      apply(position, target) {
+        camera.position.set(...position)
+        if (controlsRef.current?.target) {
+          controlsRef.current.target.set(...target)
+          controlsRef.current.update()
+        } else {
+          camera.lookAt(...target)
+        }
+      },
+    }
+
+    return () => {
+      positionControlsApiRef.current = null
+    }
+  }, [camera, positionControlsApiRef])
 
   useFrame(() => {
     const { forward, backward, left, right } = get()
@@ -996,11 +1691,15 @@ function Controls() {
     if (!(forward || backward || left || right)) return
 
     const forwardDir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion)
-    forwardDir.y = 0
+    if (keyboardAxis !== 'view') {
+      forwardDir.y = 0
+    }
     forwardDir.normalize()
 
     const rightDir = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion)
-    rightDir.y = 0
+    if (keyboardAxis !== 'view') {
+      rightDir.y = 0
+    }
     rightDir.normalize()
 
     const moveDir = new THREE.Vector3(0, 0, 0)
@@ -1014,8 +1713,10 @@ function Controls() {
     moveDir.normalize().multiplyScalar(moveSpeed)
     camera.position.add(moveDir)
 
-    if (controlsRef.current) {
+    if (controlsRef.current && keyboardTargetMode !== 'fixed') {
       controlsRef.current.target.add(moveDir)
+      controlsRef.current.update()
+    } else if (controlsRef.current) {
       controlsRef.current.update()
     }
   })
@@ -1024,11 +1725,16 @@ function Controls() {
     <OrbitControls
       ref={controlsRef}
       makeDefault
-      rotateSpeed={0.4}
-      zoomSpeed={1}
-      panSpeed={0.4}
+      rotateSpeed={rotateSpeed}
+      zoomSpeed={zoomSpeed}
+      panSpeed={panSpeed}
+      enablePan={enablePan}
+      enableZoom={enableZoom}
+      enableRotate={enableRotate}
       enableDamping
-      dampingFactor={0.05}
+      dampingFactor={dampingFactor}
+      minDistance={minDistance}
+      maxDistance={maxDistance}
     />
   )
 }
@@ -1046,27 +1752,33 @@ function EditorControls() {
   )
 }
 
-function HomeScene({ onModelLoaded, onOpenRoom, isCompact = false }) {
+function HomeScene({ onModelLoaded, onOpenRoom, onReady }) {
   const [homeOccluderRoot, setHomeOccluderRoot] = useState(null)
+  const prepareHomeScene = useCallback((scene) => {
+    applyRoomMaterialOverrides(scene, DEFAULT_ROOM_RENDER_SETTINGS)
+  }, [])
   const handleHomeModelLoaded = useCallback((scene) => {
     setHomeOccluderRoot(scene)
     if (onModelLoaded) onModelLoaded(scene)
   }, [onModelLoaded])
+  const handleHomeReady = useCallback(() => {
+    onReady?.()
+  }, [onReady])
 
   return (
     <KeyboardControls map={keyboardMap}>
-      <Canvas camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'inherit', touchAction: isCompact ? 'none' : 'auto' }}>
+      <Canvas gl={CANVAS_GL_OPTIONS} camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'inherit', touchAction: 'auto' }}>
         <color attach="background" args={['#fff']} />
-        <Suspense fallback={null}>
+        <Suspense fallback={<LoadingCanvasFallback />}>
           <RendererSettings toneMapping={DEFAULT_ROOM_RENDER_SETTINGS.toneMapping} exposure={DEFAULT_ROOM_RENDER_SETTINGS.exposure} />
-          <Stage environment="city" intensity={DEFAULT_ROOM_RENDER_SETTINGS.environmentIntensity} shadows={false} adjustCamera={false}>
-            <Model url="assets/home.glb" onLoaded={handleHomeModelLoaded}>
+          <Stage environment={null} intensity={DEFAULT_ROOM_RENDER_SETTINGS.environmentIntensity} shadows={false} adjustCamera={false}>
+            <Model url="assets/home.glb" onLoaded={handleHomeModelLoaded} prepareScene={prepareHomeScene}>
               <DoorLinks doors={DOOR_LINKS} onOpenRoom={onOpenRoom} occluderRoot={homeOccluderRoot} />
             </Model>
           </Stage>
-          <RoomMaterialOverrides sceneRoot={homeOccluderRoot} settings={DEFAULT_ROOM_RENDER_SETTINGS} />
           <Controls />
           <CameraReset position={LANDING_CAMERA_POSITION} />
+          <FirstFrameSignal onReady={handleHomeReady} />
         </Suspense>
       </Canvas>
     </KeyboardControls>
@@ -1144,9 +1856,9 @@ function CornerPreview({ corners, activeCornerIndex }) {
 
 function HomeEditorScene({ corners, activeCornerIndex, onPickPoint }) {
   return (
-    <Canvas camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'crosshair' }}>
+    <Canvas gl={CANVAS_GL_OPTIONS} camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'crosshair' }}>
       <color attach="background" args={['#fff']} />
-      <Suspense fallback={null}>
+      <Suspense fallback={<LoadingCanvasFallback />}>
         <Stage environment="city" intensity={0.5} shadows={false} adjustCamera={false}>
           <group
             onClick={(event) => {
@@ -1167,7 +1879,7 @@ function HomeEditorScene({ corners, activeCornerIndex, onPickPoint }) {
   )
 }
 
-function CameraReset({ position, target = [0, 0, 0] }) {
+function CameraReset({ position, target = DEFAULT_CAMERA_TARGET }) {
   const camera = useThree((state) => state.camera)
   const controls = useThree((state) => state.controls)
 
@@ -1184,13 +1896,22 @@ function CameraReset({ position, target = [0, 0, 0] }) {
   return null
 }
 
+function FirstFrameSignal({ onReady }) {
+  const hasSignaledRef = useRef(false)
+
+  useFrame(() => {
+    if (hasSignaledRef.current) return
+    hasSignaledRef.current = true
+    onReady?.()
+  })
+
+  return null
+}
+
 function DoorLinkArea({ door, onOpenRoom, occluderMeshes, isHovered = false, onHoverChange }) {
   const corners = Array.isArray(door.corners) ? door.corners : []
   const meshRef = useRef(null)
-  const hoverFillMaterialRef = useRef(null)
-  const hoverOutlineMaterialRef = useRef(null)
   const occlusionRaycaster = useMemo(() => new THREE.Raycaster(), [])
-  const sparklePhase = useMemo(() => Math.random() * Math.PI * 2, [])
 
   const geometry = useMemo(() => {
     if (corners.length !== 4) return null
@@ -1210,27 +1931,7 @@ function DoorLinkArea({ door, onOpenRoom, occluderMeshes, isHovered = false, onH
     return next
   }, [corners])
 
-  const outlineGeometry = useMemo(() => {
-    if (corners.length !== 4) return null
-
-    const vertices = new Float32Array([
-      ...corners[0],
-      ...corners[1],
-      ...corners[1],
-      ...corners[2],
-      ...corners[2],
-      ...corners[3],
-      ...corners[3],
-      ...corners[0],
-    ])
-
-    const next = new THREE.BufferGeometry()
-    next.setAttribute('position', new THREE.BufferAttribute(vertices, 3))
-    return next
-  }, [corners])
-
   useEffect(() => () => geometry?.dispose(), [geometry])
-  useEffect(() => () => outlineGeometry?.dispose(), [outlineGeometry])
 
   const isDoorClearlyOccluded = useCallback((raycaster, doorDistance) => {
     if (!occluderMeshes?.length) return false
@@ -1258,26 +1959,6 @@ function DoorLinkArea({ door, onOpenRoom, occluderMeshes, isHovered = false, onH
       }
     })
   }, [isDoorClearlyOccluded])
-
-  useFrame(({ clock }) => {
-    const fillMaterial = hoverFillMaterialRef.current
-    const outlineMaterial = hoverOutlineMaterialRef.current
-    if (!fillMaterial && !outlineMaterial) return
-
-    const shimmer = (Math.sin(clock.elapsedTime * 8 + sparklePhase) + 1) * 0.5
-    const fillOpacity = isHovered ? 0.09 + shimmer * 0.14 : 0
-    const outlineOpacity = isHovered ? 0.38 + shimmer * 0.42 : 0
-
-    if (fillMaterial) {
-      fillMaterial.opacity = fillOpacity
-      fillMaterial.color.setHSL(0.15 + shimmer * 0.04, 0.95, 0.68 + shimmer * 0.12)
-    }
-
-    if (outlineMaterial) {
-      outlineMaterial.opacity = outlineOpacity
-      outlineMaterial.color.setHSL(0.12 + shimmer * 0.05, 1, 0.8)
-    }
-  })
 
   if (!geometry) return null
 
@@ -1311,36 +1992,111 @@ function DoorLinkArea({ door, onOpenRoom, occluderMeshes, isHovered = false, onH
       }}
     >
       <meshBasicMaterial transparent opacity={0} side={THREE.DoubleSide} depthTest={false} depthWrite={false} />
-      <mesh
-        geometry={geometry}
-        renderOrder={1001}
-        raycast={() => null}
-        scale={1.012}
-      >
-        <meshBasicMaterial
-          ref={hoverFillMaterialRef}
-          transparent
-          opacity={0}
-          side={THREE.DoubleSide}
-          depthTest={false}
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-        />
-      </mesh>
-      {outlineGeometry ? (
-        <lineSegments geometry={outlineGeometry} renderOrder={1002} raycast={() => null} scale={1.02}>
-          <lineBasicMaterial
-            ref={hoverOutlineMaterialRef}
-            transparent
-            opacity={0}
-            depthTest={false}
-            depthWrite={false}
-            blending={THREE.AdditiveBlending}
-          />
-        </lineSegments>
-      ) : null}
+      <DoorHoverSparkles corners={corners} visible={isHovered} />
     </mesh>
   )
+}
+
+function DoorHoverSparkles({ corners, visible }) {
+  const [sparkles, setSparkles] = useState([])
+  const nextSparkleId = useRef(0)
+  const sparkleTimeouts = useRef([])
+  const sparkleInterval = useRef(null)
+  const sparkleGifIndex = useRef(Math.floor(Math.random() * CURSOR_TRAIL_GIFS.length))
+  const planeOffset = useMemo(() => {
+    if (corners.length !== 4) return new THREE.Vector3(0, 0, 0)
+
+    const a = new THREE.Vector3(...corners[0])
+    const b = new THREE.Vector3(...corners[1])
+    const c = new THREE.Vector3(...corners[2])
+    const ab = new THREE.Vector3().subVectors(b, a)
+    const ac = new THREE.Vector3().subVectors(c, a)
+    const normal = new THREE.Vector3().crossVectors(ab, ac)
+
+    if (normal.lengthSq() === 0) return new THREE.Vector3(0, 0, 0)
+    return normal.normalize().multiplyScalar(0.003)
+  }, [corners])
+
+  const samplePoint = useCallback(() => {
+    if (corners.length !== 4) return null
+
+    const topLeft = new THREE.Vector3(...corners[0])
+    const topRight = new THREE.Vector3(...corners[1])
+    const bottomRight = new THREE.Vector3(...corners[2])
+    const bottomLeft = new THREE.Vector3(...corners[3])
+    const u = Math.random()
+    const v = Math.random()
+    const top = topLeft.clone().lerp(topRight, u)
+    const bottom = bottomLeft.clone().lerp(bottomRight, u)
+    return top.lerp(bottom, v).add(planeOffset)
+  }, [corners, planeOffset])
+
+  useEffect(() => {
+    if (!visible || corners.length !== 4) {
+      if (sparkleInterval.current) {
+        window.clearInterval(sparkleInterval.current)
+        sparkleInterval.current = null
+      }
+      setSparkles([])
+      return undefined
+    }
+
+    const spawnSparkle = () => {
+      const position = samplePoint()
+      if (!position) return
+
+      const id = nextSparkleId.current++
+      const src = CURSOR_TRAIL_GIFS[sparkleGifIndex.current % CURSOR_TRAIL_GIFS.length]
+      sparkleGifIndex.current += 1
+      const size = 18 + Math.random() * 14
+      setSparkles((current) => [...current, { id, position, src, size }])
+
+      const timeoutId = window.setTimeout(() => {
+        setSparkles((current) => current.filter((sparkle) => sparkle.id !== id))
+      }, CURSOR_TRAIL_LIFETIME_MS)
+      sparkleTimeouts.current.push(timeoutId)
+    }
+
+    spawnSparkle()
+    sparkleInterval.current = window.setInterval(spawnSparkle, 120)
+
+    return () => {
+      if (sparkleInterval.current) {
+        window.clearInterval(sparkleInterval.current)
+        sparkleInterval.current = null
+      }
+      sparkleTimeouts.current.forEach((timeoutId) => window.clearTimeout(timeoutId))
+      sparkleTimeouts.current = []
+      setSparkles([])
+    }
+  }, [corners, samplePoint, visible])
+
+  return sparkles.map((sparkle) => (
+    <Html
+      key={sparkle.id}
+      position={sparkle.position.toArray()}
+      transform
+      sprite
+      distanceFactor={0.22}
+      zIndexRange={[1002, 1002]}
+      occlude={false}
+      pointerEvents="none"
+    >
+      <img
+        src={sparkle.src}
+        alt=""
+        draggable="false"
+        style={{
+          width: `${sparkle.size}px`,
+          height: `${sparkle.size}px`,
+          objectFit: 'contain',
+          userSelect: 'none',
+          pointerEvents: 'none',
+          transform: 'translate(-35%, -70%)',
+        }}
+      />
+    </Html>
+  ))
 }
 
 function DoorLinks({ doors, onOpenRoom, occluderRoot }) {
@@ -1373,15 +2129,65 @@ function DoorLinks({ doors, onOpenRoom, occluderRoot }) {
   )
 }
 
-function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onOpenNextRoom, isCompact = false }) {
-  const [roomSceneRoot, setRoomSceneRoot] = useState(null)
-  const handleRoomModelLoaded = useCallback((scene) => {
-    setRoomSceneRoot(scene)
-  }, [])
+function RoomTickerBar({ onOpenSubmit }) {
+  return (
+    <button type="button" className="room-ticker-bar" onClick={onOpenSubmit} aria-label="Submit room">
+      <span>clean my room +++++ clean my room +++++ clean my room +++++</span>
+    </button>
+  )
+}
 
-  useEffect(() => {
-    setRoomSceneRoot(null)
-  }, [roomFile])
+function MobileDesktopNotice() {
+  return (
+    <main className="mobile-desktop-notice" aria-label="Desktop notice">
+      <img src={HOME_WELCOME_GIF} alt="welcome to my page" />
+      <p>please open on desktop</p>
+    </main>
+  )
+}
+
+function RoomRenderVariantControls({ selectedVariantId, onSelectVariant }) {
+  const selectedVariant = ROOM_RENDER_VARIANT_MAP.get(selectedVariantId) ?? DEFAULT_ROOM_RENDER_VARIANT
+
+  return (
+    <div className="room-render-variant-controls" aria-label="Room render variants">
+      <div className="room-render-variant-status">movement test: {selectedVariant.label}</div>
+      {ROOM_RENDER_VARIANTS.map((variant) => (
+        <button
+          type="button"
+          key={variant.id}
+          className={variant.id === selectedVariantId ? 'is-active' : ''}
+          onClick={() => onSelectVariant(variant.id)}
+        >
+          {variant.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenNextRoom, onOpenSubmit, canGoBack, onReady }) {
+  const positionControlsApiRef = useRef(null)
+  const roomRenderVariantState = useMemo(readRoomRenderVariantFromUrl, [])
+  const [roomRenderVariantId, setRoomRenderVariantId] = useState(roomRenderVariantState.variant.id)
+  const roomRenderVariant = ROOM_RENDER_VARIANT_MAP.get(roomRenderVariantId) ?? DEFAULT_ROOM_RENDER_VARIANT
+  const roomRenderSettings = roomRenderVariant.settings
+  const prepareRoomScene = useCallback((scene) => {
+    applyRoomMaterialOverrides(scene, roomRenderSettings)
+  }, [roomRenderSettings])
+  const handleSelectRoomRenderVariant = useCallback((variantId) => {
+    setRoomRenderVariantId(variantId)
+    writeRoomRenderVariantToUrl(variantId)
+  }, [])
+  const showPositionControls = useMemo(() => {
+    if (typeof window === 'undefined') return false
+    const params = new URLSearchParams(window.location.search)
+    return (
+      params.get('positionControls') === '1' ||
+      params.get('cameraControls') === '1' ||
+      params.get('controls') === 'position'
+    )
+  }, [])
 
   return (
     <div
@@ -1396,40 +2202,87 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onOpenNextRoom,
         position: 'relative',
       }}
     >
+      <RoomTickerBar onOpenSubmit={onOpenSubmit} />
       <KeyboardControls map={keyboardMap}>
-        <Canvas camera={{ position: cameraDefault.position, fov: 47.5 }} style={{ cursor: 'inherit', touchAction: isCompact ? 'none' : 'auto' }}>
+        <Canvas gl={CANVAS_GL_OPTIONS} camera={{ position: cameraDefault.position, fov: 47.5 }} style={{ cursor: 'inherit', touchAction: 'auto' }}>
           <color attach="background" args={['#fff']} />
-          <Suspense fallback={<LoadingCursor />}>
-            <RendererSettings toneMapping={DEFAULT_ROOM_RENDER_SETTINGS.toneMapping} exposure={DEFAULT_ROOM_RENDER_SETTINGS.exposure} />
-            <Stage environment="studio" intensity={DEFAULT_ROOM_RENDER_SETTINGS.environmentIntensity} shadows={false} adjustCamera={false}>
-              <Model url={`rooms/${roomFile}`} onLoaded={handleRoomModelLoaded} />
+          <Suspense fallback={<LoadingCanvasFallback />}>
+            <RendererSettings toneMapping={roomRenderSettings.toneMapping} exposure={roomRenderSettings.exposure} />
+            {roomRenderVariant.ambientLightIntensity > 0 && <ambientLight intensity={roomRenderVariant.ambientLightIntensity} />}
+            <Stage environment={roomRenderVariant.stageEnvironment} intensity={roomRenderSettings.environmentIntensity} shadows={false} adjustCamera={false}>
+              <Model url={`rooms/${roomFile}`} prepareScene={prepareRoomScene} />
             </Stage>
-            <RoomMaterialOverrides sceneRoot={roomSceneRoot} settings={DEFAULT_ROOM_RENDER_SETTINGS} />
-            <Controls />
+            <Controls
+              moveSpeed={roomRenderVariant.controls.moveSpeed ?? ROOM_CAMERA_MOVE_SPEED}
+              zoomSpeed={roomRenderVariant.controls.zoomSpeed ?? ROOM_CAMERA_ZOOM_SPEED}
+              rotateSpeed={roomRenderVariant.controls.rotateSpeed ?? 0.4}
+              panSpeed={roomRenderVariant.controls.panSpeed ?? 0.4}
+              enablePan={roomRenderVariant.controls.enablePan ?? true}
+              enableZoom={roomRenderVariant.controls.enableZoom ?? true}
+              enableRotate={roomRenderVariant.controls.enableRotate ?? true}
+              dampingFactor={roomRenderVariant.controls.dampingFactor ?? 0.05}
+              keyboardAxis={roomRenderVariant.controls.keyboardAxis ?? 'flat'}
+              keyboardTargetMode={roomRenderVariant.controls.keyboardTargetMode ?? 'follow'}
+              minDistance={roomRenderVariant.controls.minDistance}
+              maxDistance={roomRenderVariant.controls.maxDistance}
+              positionControlsApiRef={showPositionControls ? positionControlsApiRef : null}
+            />
             <CameraReset position={cameraDefault.position} target={cameraDefault.target} />
+            <FirstFrameSignal onReady={onReady} />
           </Suspense>
         </Canvas>
       </KeyboardControls>
+      {showPositionControls && <CameraPositionControlsOverlay controlsApiRef={positionControlsApiRef} />}
+      {roomRenderVariantState.enabled && (
+        <RoomRenderVariantControls
+          selectedVariantId={roomRenderVariant.id}
+          onSelectVariant={handleSelectRoomRenderVariant}
+        />
+      )}
 
       <button
         type="button"
         onClick={onBack}
+        disabled={!canGoBack}
         style={{
           position: 'absolute',
-          bottom: isCompact ? 'calc(24px + env(safe-area-inset-bottom))' : '48px',
-          left: isCompact ? '18px' : '24px',
+          bottom: '48px',
+          left: '24px',
           border: 'none',
           background: 'transparent',
           padding: 0,
           zIndex: 20,
-          cursor: HOVER_KEY_CURSOR,
+          cursor: canGoBack ? HOVER_KEY_CURSOR : 'default',
         }}
-        aria-label="Go back to house view"
+        aria-label="Go back to previous room"
       >
         <img
           src={GO_BACK_GIF}
           alt="Go back"
-          style={{ width: isCompact ? '64px' : 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
+          style={{ width: 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: canGoBack ? HOVER_KEY_CURSOR : 'default' }}
+        />
+      </button>
+
+      <button
+        type="button"
+        onClick={onHome}
+        aria-label="Go home"
+        style={{
+          position: 'absolute',
+          top: '24px',
+          right: '24px',
+          zIndex: 20,
+          border: 'none',
+          background: 'transparent',
+          padding: 0,
+          cursor: HOVER_KEY_CURSOR,
+        }}
+      >
+        <img
+          src={ABOUT_HOME_GIF}
+          alt="home"
+          draggable={false}
+          style={{ width: 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
         />
       </button>
 
@@ -1439,8 +2292,8 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onOpenNextRoom,
         aria-label={`Go to room ${roomNumber === ROOM_FILES.length ? 1 : roomNumber + 1}`}
         style={{
           position: 'absolute',
-          bottom: isCompact ? 'calc(24px + env(safe-area-inset-bottom))' : '48px',
-          right: isCompact ? '18px' : '24px',
+          bottom: '48px',
+          right: '24px',
           zIndex: 20,
           border: 'none',
           background: 'transparent',
@@ -1450,10 +2303,41 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onOpenNextRoom,
       >
         <img
           src={NEXT_DOOR_GIF}
-          alt="Go to the next door"
-          style={{ width: isCompact ? '64px' : 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
+          alt={`Go to room ${roomNumber === ROOM_FILES.length ? 1 : roomNumber + 1}`}
+          style={{ width: 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
         />
       </button>
+    </div>
+  )
+}
+
+function SceneTransitionCover({ snapshotUrl }) {
+  if (!snapshotUrl) return null
+
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1000,
+        pointerEvents: 'none',
+        overflow: 'hidden',
+        backgroundColor: '#fff',
+      }}
+    >
+      <img
+        src={snapshotUrl}
+        alt=""
+        draggable="false"
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'block',
+          objectFit: 'cover',
+          userSelect: 'none',
+        }}
+      />
     </div>
   )
 }
@@ -1605,7 +2489,7 @@ function TinyPlayer({ onTitleBarMouseDown, width = 290 }) {
   )
 }
 
-function DiaryDeck({ left, top, width, availableHeight, inline = false }) {
+function DiaryDeck({ left, top, width, availableHeight, inline = false, onOpenDiary }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const photoCount = DIARY_PHOTOS.length
   const autoplayTimerRef = useRef(null)
@@ -1709,8 +2593,8 @@ function DiaryDeck({ left, top, width, availableHeight, inline = false }) {
             <button
               key={`${photo.src}-${offset}`}
               type="button"
-              onClick={offset < 0 ? showPrev : offset > 0 ? showNext : undefined}
-              aria-label={offset < 0 ? 'Show previous diary photo' : offset > 0 ? 'Show next diary photo' : activePhoto.label}
+              onClick={offset < 0 ? showPrev : offset > 0 ? showNext : onOpenDiary}
+              aria-label={offset < 0 ? 'Show previous diary photo' : offset > 0 ? 'Show next diary photo' : 'Open diary'}
               style={{
                 position: 'absolute',
                 top: 0,
@@ -1725,7 +2609,8 @@ function DiaryDeck({ left, top, width, availableHeight, inline = false }) {
                 transformOrigin: 'center bottom',
                 opacity,
                 zIndex: 10 - Math.abs(offset),
-                pointerEvents: isActive ? 'none' : 'auto',
+                pointerEvents: 'auto',
+                cursor: isActive && onOpenDiary ? HOVER_KEY_CURSOR : 'pointer',
               }}
             >
               <img
@@ -1831,147 +2716,6 @@ function DiaryDeck({ left, top, width, availableHeight, inline = false }) {
   )
 }
 
-function CompactPhoneIcon({
-  label,
-  imageSrc,
-  onClick,
-  accent = 'linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(240,240,240,0.92) 100%)',
-  imageStyle,
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        border: 'none',
-        background: 'transparent',
-        padding: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '8px',
-      }}
-    >
-      <div
-        style={{
-          width: '72px',
-          height: '72px',
-          borderRadius: '19px',
-          background: accent,
-          boxShadow: '0 12px 24px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.82)',
-          border: '1px solid rgba(255,255,255,0.52)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          overflow: 'hidden',
-          backdropFilter: 'blur(6px)',
-        }}
-      >
-        <img
-          src={imageSrc}
-          alt=""
-          aria-hidden="true"
-          style={{
-            width: '54px',
-            height: '54px',
-            objectFit: 'contain',
-            ...imageStyle,
-          }}
-        />
-      </div>
-
-      <span
-        style={{
-          width: '100%',
-          fontFamily: ARIAL_FONT_STACK,
-          fontSize: '11px',
-          fontWeight: 500,
-          color: '#fff',
-          lineHeight: 1.2,
-          textAlign: 'center',
-          textShadow: '0 1px 2px rgba(0,0,0,0.34)',
-          textTransform: 'lowercase',
-        }}
-      >
-        {label}
-      </span>
-    </button>
-  )
-}
-
-function CompactPhoneSheet({ title, onClose, children }) {
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        inset: 0,
-        zIndex: 25,
-        background: 'rgba(14,18,30,0.38)',
-        backdropFilter: 'blur(12px)',
-        display: 'flex',
-        alignItems: 'flex-end',
-      }}
-    >
-      <div
-        style={{
-          width: '100%',
-          maxHeight: 'calc(100% - 24px)',
-          background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(244,244,244,0.96) 100%)',
-          borderTopLeftRadius: '28px',
-          borderTopRightRadius: '28px',
-          boxShadow: '0 -22px 42px rgba(0,0,0,0.18)',
-          overflow: 'hidden',
-        }}
-      >
-        <div
-          style={{
-            padding: '14px 16px 12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
-            borderBottom: '1px solid rgba(0,0,0,0.08)',
-            background: 'linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(232,232,232,0.92) 100%)',
-          }}
-        >
-          <div style={{ minWidth: 0, fontFamily: MAC_LIGHT_FONT_STACK, fontSize: '18px', color: '#111' }}>
-            {title}
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              border: '1px solid rgba(0,0,0,0.12)',
-              background: '#fff',
-              color: '#111',
-              borderRadius: '999px',
-              padding: '9px 13px',
-              fontSize: '12px',
-              fontFamily: ARIAL_FONT_STACK,
-              textTransform: 'lowercase',
-              flexShrink: 0,
-            }}
-          >
-            close
-          </button>
-        </div>
-
-        <div
-          style={{
-            maxHeight: 'calc(100dvh - 132px)',
-            overflowY: 'auto',
-            padding: '18px 16px calc(24px + env(safe-area-inset-bottom))',
-            boxSizing: 'border-box',
-          }}
-        >
-          {children}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function AboutPage({
   onBackHome,
   onShowAbout,
@@ -1982,9 +2726,10 @@ function AboutPage({
   canBrowserGoBack = false,
   canBrowserGoForward = false,
   activeFolderId = null,
+  activeFolderDetailId = null,
+  activeFolderImageIndex = null,
   openedFolderIds = [],
   onRememberFolderOpen,
-  isCompact = false,
   isTouch = false,
 }) {
   const editorContentRef = useRef(null)
@@ -1996,42 +2741,45 @@ function AboutPage({
     height: typeof window !== 'undefined' ? window.innerHeight : 900,
   }))
   const [activeBrowserTab, setActiveBrowserTab] = useState(getAboutTabId(activeFolderId))
-  const [browserAddress, setBrowserAddress] = useState(() => getAboutAddress(activeFolderId, getAboutTabId(activeFolderId)))
-  const [compactPanelId, setCompactPanelId] = useState(null)
+  const [browserAddress, setBrowserAddress] = useState(() => getAboutAddress(activeFolderId, getAboutTabId(activeFolderId), activeFolderDetailId, activeFolderImageIndex))
 
   const folderArcLayout = [
-    { id: 'performance', left: '22%', top: '62%' },
-    { id: 'writing', left: '30%', top: '36%' },
+    { id: 'press', left: '25%', top: '36%' },
+    { id: 'writing', left: '37%', top: '34%' },
     { id: 'exhibitions', left: '47%', top: '56%' },
     { id: 'filmmaking', left: '73%', top: '42%' },
     { id: 'cv', left: '84%', top: '65%' },
     { id: 'submit-room', left: '94%', top: '43%' },
+    { id: 'open-collective-archive', left: '93%', top: '57%' },
   ]
   const [folderPositions, setFolderPositions] = useState(
     () => new Map(folderArcLayout.map((p) => [p.id, { left: p.left, top: p.top }]))
   )
   const rightStageWidth = '100vw'
 
-  const [aboutWinPos, setAboutWinPos] = useState({ x: 24, y: 168 })
+  const [aboutWinPos, setAboutWinPos] = useState({ x: 24, y: 112 })
   const aboutWinPosRef = useRef(aboutWinPos)
   aboutWinPosRef.current = aboutWinPos
 
   const [playerPos, setPlayerPos] = useState(() => ({
     x: 24,
-    y: typeof window !== 'undefined' ? window.innerHeight - 200 : 400,
+    y: typeof window !== 'undefined' ? window.innerHeight - 250 : 450,
   }))
   const playerPosRef = useRef(playerPos)
   playerPosRef.current = playerPos
-  const leftColumnWidth = Math.max(212, Math.min(viewport.width * 0.17, 246))
+  const leftColumnWidth = Math.max(188, Math.min(viewport.width * 0.15, 218))
+  const aboutWindowWidth = leftColumnWidth + 34
+  const welcomeWidth = 126
+  const welcomeHeight = Math.round(welcomeWidth * (55 / 135))
   const leftColumnX = Math.round((aboutWinPos.x + playerPos.x) / 2)
   const aboutWindowTop = aboutWinPos.y + 36
-  const aboutWindowHeight = 197
+  const aboutWindowHeight = 181
   const playerWindowTop = playerPos.y + 36
   const diaryGapStart = aboutWindowTop + aboutWindowHeight + 10
   const diaryGapHeight = Math.max(playerWindowTop - diaryGapStart - 10, 154)
   const diaryHeight = Math.max(154, Math.min(diaryGapHeight, 220))
   const diaryTop = diaryGapStart + Math.max((diaryGapHeight - diaryHeight) / 2, 0)
-  const diaryWidth = Math.max(Math.min(leftColumnWidth - 38, 148), 116)
+  const diaryWidth = Math.max(Math.min(leftColumnWidth - 34, 132), 106)
 
   const makeTitleBarDrag = useCallback((posRef, setPos) => (e) => {
     if (isTouch) return
@@ -2136,12 +2884,8 @@ function AboutPage({
   useEffect(() => {
     const nextTab = getAboutTabId(activeFolderId)
     setActiveBrowserTab(nextTab)
-    setBrowserAddress(getAboutAddress(activeFolderId, nextTab))
-  }, [activeFolderId])
-
-  useEffect(() => {
-    setCompactPanelId(null)
-  }, [activeFolderId])
+    setBrowserAddress(getAboutAddress(activeFolderId, nextTab, activeFolderDetailId, activeFolderImageIndex))
+  }, [activeFolderDetailId, activeFolderId, activeFolderImageIndex])
 
   useEffect(() => {
     if (!activeFolderId || !FOLDER_MAP.has(activeFolderId)) return
@@ -2180,10 +2924,23 @@ function AboutPage({
   }, [onOpenFolder, onShowAbout])
 
   const handleFolderOpen = useCallback((folderId) => {
+    const folder = FOLDER_MAP.get(folderId)
+    if (folder?.externalUrl) {
+      window.open(folder.externalUrl, '_blank', 'noopener,noreferrer')
+      return
+    }
+
     onRememberFolderOpen?.(folderId)
     setActiveBrowserTab(getAboutTabId(folderId))
     setBrowserAddress(getAboutAddress(folderId, getAboutTabId(folderId)))
     onOpenFolder(folderId)
+  }, [onOpenFolder, onRememberFolderOpen])
+
+  const handleFolderRouteOpen = useCallback((folderId, folderDetailId = null, folderImageIndex = null) => {
+    onRememberFolderOpen?.(folderId)
+    setActiveBrowserTab(getAboutTabId(folderId))
+    setBrowserAddress(getAboutAddress(folderId, getAboutTabId(folderId), folderDetailId, folderImageIndex))
+    onOpenFolder(folderId, folderDetailId, folderImageIndex)
   }, [onOpenFolder, onRememberFolderOpen])
 
   const handleFolderClick = useCallback((folderId, e) => {
@@ -2197,304 +2954,9 @@ function AboutPage({
     handleFolderOpen(folderId)
   }, [handleFolderOpen])
 
-  if (isCompact) {
-    const compactColumnWidth = Math.max(300, Math.min(viewport.width - 28, 430))
-    const compactPlayerWidth = Math.max(252, Math.min(compactColumnWidth - 20, 320))
-    const compactDiaryWidth = Math.max(220, Math.min(compactColumnWidth - 40, 280))
-    const compactAppTitle = compactPanelId === 'about'
-      ? 'about'
-      : compactPanelId === 'diary'
-        ? 'diary'
-        : compactPanelId === 'radio'
-          ? 'radio'
-          : ''
-    const homescreenIcons = [
-      { id: 'diary', label: 'diary', imageSrc: DIARY_PHOTOS[0]?.src ?? 'assets/welcome.webp', accent: 'linear-gradient(180deg, #fef2ff 0%, #f5bfd8 100%)', imageStyle: { width: '72px', height: '72px', objectFit: 'cover' }, action: () => setCompactPanelId('diary') },
-      { id: 'performance', label: 'performance', imageSrc: 'assets/folder-icon-macos.webp', accent: 'linear-gradient(180deg, #7ac0ff 0%, #3778ff 100%)', action: () => handleFolderOpen('performance') },
-      { id: 'writing', label: 'writing', imageSrc: 'assets/folder-icon-macos.webp', accent: 'linear-gradient(180deg, #7bd6ff 0%, #3b97d3 100%)', action: () => handleFolderOpen('writing') },
-      { id: 'exhibitions', label: 'exhibitions', imageSrc: 'assets/folder-icon-macos.webp', accent: 'linear-gradient(180deg, #ffe58a 0%, #ff9b3d 100%)', action: () => handleFolderOpen('exhibitions') },
-      { id: 'filmmaking', label: 'filmmaking', imageSrc: 'assets/folder-icon-macos.webp', accent: 'linear-gradient(180deg, #ffd1f2 0%, #ff7ec5 100%)', action: () => handleFolderOpen('filmmaking') },
-      { id: 'cv', label: 'cv', imageSrc: 'assets/folder-icon-macos.webp', accent: 'linear-gradient(180deg, #cbf0b9 0%, #7ab95a 100%)', action: () => handleFolderOpen('cv') },
-      { id: 'submit-room', label: 'submit room', imageSrc: 'assets/folder-icon-macos.webp', accent: 'linear-gradient(180deg, #f0e4ff 0%, #a579ff 100%)', action: () => handleFolderOpen('submit-room') },
-    ]
-    const dockIcons = [
-      { id: 'home', label: 'home', imageSrc: ABOUT_HOME_GIF, accent: 'linear-gradient(180deg, #ffffff 0%, #efefef 100%)', action: onBackHome, imageStyle: { width: '48px', height: '48px' } },
-      { id: 'about', label: 'about', imageSrc: 'assets/welcome.webp', accent: 'linear-gradient(180deg, #fff6d7 0%, #f8c26b 100%)', action: () => setCompactPanelId('about'), imageStyle: { width: '60px', height: '60px' } },
-      { id: 'radio', label: 'radio', imageSrc: 'assets/radio.gif', accent: 'linear-gradient(180deg, #f6fbff 0%, #cde1ff 100%)', action: () => setCompactPanelId('radio') },
-      { id: 'contact', label: 'contact', imageSrc: 'assets/envelope.gif', accent: 'linear-gradient(180deg, #fff0f4 0%, #f59fc0 100%)', action: () => { window.location.href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('knock knock')}` } },
-    ]
-
-    if (isFolderView && activeFolder) {
-      return (
-        <div
-          style={{
-            width: '100vw',
-            height: '100dvh',
-            backgroundColor: '#fff',
-            color: '#000',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-          }}
-        >
-          <div style={{ position: 'sticky', top: 0, zIndex: 30 }}>
-            <AboutBrowserChrome
-              tabs={browserTabs}
-              activeTabId={activeBrowserTab}
-              addressValue={browserAddress}
-              onSelectTab={handleBrowserTabSelect}
-              onBack={onBrowserBack}
-              onForward={onBrowserForward}
-              onReload={onBrowserReload}
-              canGoBack={canBrowserGoBack}
-              canGoForward={canBrowserGoForward}
-              isCompact
-            />
-          </div>
-
-          <div style={{ padding: '12px 16px 0', background: '#fff', borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
-            <div style={{ width: 'min(100%, 430px)', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', paddingBottom: '12px' }}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontFamily: ARIAL_FONT_STACK, fontSize: '11px', fontWeight: 600, color: 'rgba(0,0,0,0.45)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                  archive
-                </div>
-                <div style={{ marginTop: '4px', fontFamily: MAC_LIGHT_FONT_STACK, fontSize: '18px', color: '#111' }}>{activeFolder.title}</div>
-              </div>
-
-              <button
-                type="button"
-                onClick={onBackHome}
-                style={{
-                  border: '1px solid rgba(0,0,0,0.12)',
-                  background: '#fff',
-                  color: '#111',
-                  borderRadius: '999px',
-                  padding: '9px 13px',
-                  fontSize: '12px',
-                  fontFamily: ARIAL_FONT_STACK,
-                  textTransform: 'lowercase',
-                  flexShrink: 0,
-                }}
-              >
-                home
-              </button>
-            </div>
-          </div>
-
-          <div style={{ flex: 1, minHeight: 0 }}>
-            <AboutFolderContent folder={activeFolder} isCompact />
-          </div>
-        </div>
-      )
-    }
-
-    return (
-      <div
-        style={{
-          width: '100vw',
-          height: '100dvh',
-          backgroundColor: '#fff',
-          color: '#000',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-        }}
-      >
-        <div style={{ position: 'sticky', top: 0, zIndex: 30 }}>
-          <AboutBrowserChrome
-            tabs={browserTabs}
-            activeTabId={activeBrowserTab}
-            addressValue={browserAddress}
-            onSelectTab={handleBrowserTabSelect}
-            onBack={onBrowserBack}
-            onForward={onBrowserForward}
-            onReload={onBrowserReload}
-            canGoBack={canBrowserGoBack}
-            canGoForward={canBrowserGoForward}
-            isCompact
-          />
-        </div>
-
-        <div
-          style={{
-            flex: 1,
-            position: 'relative',
-            overflow: 'hidden',
-            background: 'linear-gradient(180deg, #89b9ff 0%, #d8efff 24%, #f8d4e6 62%, #f4ecda 100%)',
-          }}
-        >
-          <div
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              top: '8%',
-              right: '-12%',
-              width: '220px',
-              height: '220px',
-              borderRadius: '50%',
-              background: 'rgba(255,255,255,0.22)',
-              filter: 'blur(8px)',
-            }}
-          />
-          <div
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              left: '-14%',
-              bottom: '18%',
-              width: '240px',
-              height: '240px',
-              borderRadius: '50%',
-              background: 'rgba(255,255,255,0.18)',
-              filter: 'blur(10px)',
-            }}
-          />
-
-          <div
-            style={{
-              position: 'relative',
-              zIndex: 1,
-              width: `${compactColumnWidth}px`,
-              maxWidth: '100%',
-              height: '100%',
-              margin: '0 auto',
-              padding: '18px 10px calc(20px + env(safe-area-inset-bottom))',
-              boxSizing: 'border-box',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
-              <div>
-                <div style={{ fontFamily: ARIAL_FONT_STACK, fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.86)', letterSpacing: '0.14em', textTransform: 'uppercase', textShadow: '0 1px 2px rgba(0,0,0,0.15)' }}>
-                  nana os
-                </div>
-                <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <img src="assets/zodiac.gif" alt="" aria-hidden="true" style={{ width: '18px', height: 'auto', objectFit: 'contain' }} />
-                  <img src="assets/shelestvetrovki-glitter.gif" alt="shelestvetrovki" style={{ width: 'min(180px, 52vw)', height: 'auto', objectFit: 'contain' }} />
-                </div>
-              </div>
-
-              <img
-                src="assets/welcome.webp"
-                alt="welcome to my page"
-                style={{
-                  width: '72px',
-                  height: '72px',
-                  objectFit: 'contain',
-                  filter: 'drop-shadow(0 8px 14px rgba(0,0,0,0.14))',
-                  flexShrink: 0,
-                }}
-              />
-            </div>
-
-            <div style={{ marginTop: '18px', fontFamily: ARIAL_FONT_STACK, fontSize: '13px', lineHeight: 1.5, color: 'rgba(255,255,255,0.94)', textShadow: '0 1px 2px rgba(0,0,0,0.18)' }}>
-              Tap an icon to open an app.
-            </div>
-
-            <div
-              style={{
-                marginTop: '22px',
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                gap: '18px 8px',
-                alignContent: 'start',
-              }}
-            >
-              {homescreenIcons.map((icon) => (
-                <CompactPhoneIcon
-                  key={icon.id}
-                  label={icon.label}
-                  imageSrc={icon.imageSrc}
-                  onClick={icon.action}
-                  accent={icon.accent}
-                  imageStyle={icon.imageStyle}
-                />
-              ))}
-            </div>
-
-            <div style={{ flex: 1 }} />
-
-            <div
-              style={{
-                marginTop: '18px',
-                padding: '12px 10px',
-                borderRadius: '28px',
-                background: 'rgba(255,255,255,0.24)',
-                border: '1px solid rgba(255,255,255,0.3)',
-                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.26)',
-                backdropFilter: 'blur(16px)',
-              }}
-            >
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-                  gap: '8px',
-                }}
-              >
-                {dockIcons.map((icon) => (
-                  <CompactPhoneIcon
-                    key={icon.id}
-                    label={icon.label}
-                    imageSrc={icon.imageSrc}
-                    onClick={icon.action}
-                    accent={icon.accent}
-                    imageStyle={icon.imageStyle}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {compactPanelId && (
-            <CompactPhoneSheet title={compactAppTitle} onClose={() => setCompactPanelId(null)}>
-              {compactPanelId === 'about' && (
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                    <img src="assets/welcome.webp" alt="" aria-hidden="true" style={{ width: '76px', height: 'auto', objectFit: 'contain' }} />
-                    <div style={{ fontFamily: ARIAL_FONT_STACK, fontSize: '13px', lineHeight: 1.55, color: 'rgba(0,0,0,0.62)' }}>
-                      Anastasiia Pishchanska&apos;s archive, artist page, and room index.
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      fontFamily: MAC_LIGHT_FONT_STACK,
-                      fontSize: '13px',
-                      fontWeight: 300,
-                      lineHeight: 1.72,
-                      color: '#1a1a1a',
-                    }}
-                    onClick={(event) => {
-                      const anchor = event.target.closest?.('a')
-                      if (!anchor) return
-                      event.preventDefault()
-                      event.stopPropagation()
-                      window.open(anchor.href, '_blank', 'noopener,noreferrer')
-                    }}
-                    dangerouslySetInnerHTML={{ __html: DEFAULT_ABOUT_HTML }}
-                  />
-                </div>
-              )}
-
-              {compactPanelId === 'diary' && (
-                <div style={{ display: 'flex', justifyContent: 'center' }}>
-                  <DiaryDeck inline width={compactDiaryWidth} availableHeight={360} />
-                </div>
-              )}
-
-              {compactPanelId === 'radio' && (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <img src="assets/radio.gif" alt="" aria-hidden="true" style={{ width: '60px', height: 'auto', objectFit: 'contain', marginBottom: '12px' }} />
-                  <TinyPlayer width={compactPlayerWidth} />
-                </div>
-              )}
-            </CompactPhoneSheet>
-          )}
-        </div>
-      </div>
-    )
-  }
+  const handleDiaryOpen = useCallback(() => {
+    handleFolderOpen('diary')
+  }, [handleFolderOpen])
 
   return (
     <div
@@ -2509,11 +2971,11 @@ function AboutPage({
     >
       {/* ── Welcome gif (static) ── */}
       {!isFolderView && (
-        <div style={{ position: 'fixed', left: leftColumnX, top: '132px', zIndex: 21, pointerEvents: 'none' }}>
+        <div style={{ position: 'fixed', left: leftColumnX, top: aboutWindowTop - welcomeHeight - 12, zIndex: 21, pointerEvents: 'none' }}>
           <img
             src="assets/welcome.webp"
             alt="welcome to my page"
-            style={{ width: '144px', maxWidth: `${leftColumnWidth}px`, height: 'auto', objectFit: 'contain' }}
+            style={{ width: `${welcomeWidth}px`, maxWidth: `${aboutWindowWidth}px`, height: 'auto', objectFit: 'contain' }}
           />
         </div>
       )}
@@ -2526,7 +2988,7 @@ function AboutPage({
             left: leftColumnX,
             top: aboutWinPos.y + 36,
             zIndex: 21,
-            width: `${leftColumnWidth}px`,
+            width: `${aboutWindowWidth}px`,
           }}
           onClick={(event) => event.stopPropagation()}
         >
@@ -2552,7 +3014,7 @@ function AboutPage({
             </div>
 
             {/* Body */}
-            <div style={{ background: '#f5f5f5', position: 'relative', height: '164px' }}>
+            <div style={{ background: '#f5f5f5', position: 'relative', height: '148px' }}>
               <div
                 ref={editorContentRef}
                 className="classic-textedit-scroll"
@@ -2572,13 +3034,13 @@ function AboutPage({
                   background: 'transparent',
                   color: '#1a1a1a',
                   fontFamily: MAC_LIGHT_FONT_STACK,
-                  fontSize: '11px',
+                  fontSize: '9.25px',
                   fontWeight: 300,
-                  lineHeight: 1.4,
+                  lineHeight: 1.38,
                   whiteSpace: 'pre-wrap',
                   overflowX: 'hidden',
                   overflowY: 'auto',
-                  padding: '8px 20px 8px 9px',
+                  padding: '8px 32px 8px 9px',
                   boxSizing: 'border-box',
                 }}
                 dangerouslySetInnerHTML={{ __html: DEFAULT_ABOUT_HTML }}
@@ -2621,12 +3083,13 @@ function AboutPage({
           top={diaryTop}
           width={diaryWidth}
           availableHeight={diaryGapHeight}
+          onOpenDiary={handleDiaryOpen}
         />
       )}
 
       {/* ── Safety pin (between left col and right stage) ── */}
       {!isFolderView && (
-        <div style={{ position: 'absolute', left: `${leftColumnX + leftColumnWidth + 28}px`, top: '42%', zIndex: 20, pointerEvents: 'none' }}>
+        <div style={{ position: 'absolute', left: `${leftColumnX + aboutWindowWidth + 24}px`, top: '42%', zIndex: 20, pointerEvents: 'none' }}>
           <img
             src="assets/safety-pin.gif"
             alt=""
@@ -2650,7 +3113,7 @@ function AboutPage({
             justifyContent: 'center',
           }}
         >
-          <img src="assets/radio.gif" alt="" aria-hidden="true" style={{ width: '48px', height: 'auto', objectFit: 'contain' }} />
+          <img src="assets/radio.gif" alt="" aria-hidden="true" style={{ width: '42px', height: 'auto', objectFit: 'contain' }} />
         </div>
       )}
 
@@ -2814,7 +3277,12 @@ function AboutPage({
               overflow: 'hidden',
             }}
           >
-            <AboutFolderContent folder={activeFolder} />
+            <AboutFolderContent
+              folder={activeFolder}
+              activeFolderDetailId={activeFolderDetailId}
+              activeFolderImageIndex={activeFolderImageIndex}
+              onOpenFolderRoute={handleFolderRouteOpen}
+            />
           </div>
         )}
 
@@ -2877,277 +3345,708 @@ function AboutPage({
   )
 }
 
-function AboutFolderContent({ folder, isCompact = false }) {
-  if (folder.id === 'submit-room') {
+function AboutFolderContent({
+  folder,
+  activeFolderDetailId = null,
+  activeFolderImageIndex = null,
+  onOpenFolderRoute,
+}) {
+  const plainPageStyle = {
+    width: '100%',
+    height: '100%',
+    overflowY: 'auto',
+    fontFamily: ARIAL_FONT_STACK,
+    fontSize: '13px',
+    lineHeight: 1.45,
+    color: '#000',
+    background: '#fff',
+    boxSizing: 'border-box',
+    padding: '14px 16px 48px',
+  }
+  const plainLinkStyle = {
+    color: '#00e',
+    textDecoration: 'underline',
+  }
+  const pressLinkStyle = {
+    ...plainLinkStyle,
+    color: '#000',
+    fontSize: '18px',
+    lineHeight: 1.25,
+  }
+  const filmmakingLinkStyle = {
+    ...pressLinkStyle,
+    display: 'inline',
+  }
+  const filmmakingHeadingStyle = {
+    margin: '0 0 18px',
+    fontSize: '18px',
+    fontWeight: 700,
+    lineHeight: 1.25,
+    textTransform: 'uppercase',
+  }
+  const plainHeadingStyle = {
+    margin: '18px 0 8px',
+    fontSize: '13px',
+    fontWeight: 700,
+    textTransform: 'uppercase',
+  }
+  const pressHeadingStyle = {
+    ...plainHeadingStyle,
+    fontSize: '18px',
+    lineHeight: 1.25,
+  }
+  const writingDesktopRef = useRef(null)
+  const draggedWritingRef = useRef(null)
+  const writingScatterLayout = useMemo(() => [
+    { left: '7%', top: '22%' },
+    { left: '23%', top: '15%' },
+    { left: '39%', top: '29%' },
+    { left: '55%', top: '20%' },
+  ], [])
+  const writingIconLinkStyle = {
+    display: 'grid',
+    gap: '6px',
+    color: '#000',
+    textDecoration: 'none',
+    position: 'absolute',
+    width: '126px',
+    justifyItems: 'center',
+    padding: '4px',
+    userSelect: 'none',
+  }
+  const writingIconMediaStyle = {
+    width: '94px',
+    height: '112px',
+    border: 'none',
+    background: 'transparent',
+    objectFit: 'contain',
+    boxSizing: 'border-box',
+  }
+  const writingIconPlaceholderStyle = {
+    ...writingIconMediaStyle,
+    display: 'grid',
+    placeItems: 'center',
+    padding: '10px',
+    fontSize: '12px',
+    fontWeight: 700,
+    lineHeight: 1.12,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+  }
+  const writingIconFilenameStyle = {
+    display: 'block',
+    fontFamily: ARIAL_FONT_STACK,
+    fontSize: '11px',
+    lineHeight: 1.12,
+    color: '#000',
+    textAlign: 'center',
+    overflowWrap: 'anywhere',
+    textDecoration: 'none',
+  }
+  const writingLinks = useMemo(
+    () => (folder.id === 'writing' ? folder.sections.flatMap((section) => section.links ?? []) : []),
+    [folder.id, folder.sections]
+  )
+  const [writingIconPositions, setWritingIconPositions] = useState(
+    () => new Map(writingLinks.map((link, index) => [link.url, writingScatterLayout[index] ?? { left: `${8 + index * 14}%`, top: `${18 + (index % 2) * 14}%` }]))
+  )
+  useEffect(() => {
+    if (folder.id !== 'writing') return
+    setWritingIconPositions((prev) => {
+      let changed = false
+      const next = new Map(prev)
+      writingLinks.forEach((link, index) => {
+        if (next.has(link.url)) return
+        changed = true
+        next.set(link.url, writingScatterLayout[index] ?? { left: `${8 + index * 14}%`, top: `${18 + (index % 2) * 14}%` })
+      })
+      return changed ? next : prev
+    })
+  }, [folder.id, writingLinks, writingScatterLayout])
+  const startWritingIconDrag = useCallback((linkUrl, e) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    const container = writingDesktopRef.current
+    if (!container) return
+    const containerRect = container.getBoundingClientRect()
+    const el = e.currentTarget
+    const elRect = el.getBoundingClientRect()
+    const startPx = elRect.left + elRect.width / 2 - containerRect.left
+    const startPy = elRect.top + elRect.height / 2 - containerRect.top
+    const startMx = e.clientX
+    const startMy = e.clientY
+    let moved = false
+    draggedWritingRef.current = null
+
+    const onMove = (me) => {
+      const dx = me.clientX - startMx
+      const dy = me.clientY - startMy
+      if (!moved && Math.abs(dx) < FOLDER_DRAG_THRESHOLD_PX && Math.abs(dy) < FOLDER_DRAG_THRESHOLD_PX) return
+      moved = true
+      draggedWritingRef.current = linkUrl
+      setWritingIconPositions((prev) => {
+        const next = new Map(prev)
+        next.set(linkUrl, { left: startPx + dx, top: startPy + dy, isPx: true })
+        return next
+      })
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [])
+  const isExhibitionOverview = activeFolderDetailId === 'overview'
+  const selectedExhibition = !isExhibitionOverview
+    ? EXHIBITIONS.find((exhibition) => exhibition.id === activeFolderDetailId) ?? EXHIBITIONS[0] ?? null
+    : null
+  const getExhibitionDescription = (exhibition) => {
+    const descriptionText = exhibition.description?.[0] ?? ''
+    const placeText = [exhibition.venue, exhibition.location].filter(Boolean).join(', ')
+    return [descriptionText, placeText].filter(Boolean).join(' ')
+  }
+
+  if (folder.id === 'diary') {
     return (
       <div
         style={{
-          width: '100%',
-          height: '100%',
+          ...plainPageStyle,
+          padding: '26px 18px 80px',
+          fontSize: '15px',
+          lineHeight: 1.55,
+        }}
+      >
+        <div style={{ maxWidth: '760px', margin: '0 auto' }}>
+          <h1
+            style={{
+              margin: '0 0 26px',
+              fontSize: '18px',
+              fontWeight: 400,
+              lineHeight: 1.2,
+            }}
+          >
+            diary
+          </h1>
+
+          {DIARY_PHOTOS.map((photo, index) => (
+            <section key={photo.src} style={{ margin: '0 0 34px' }}>
+              <p style={{ margin: '0 0 10px' }}>{photo.label}</p>
+              <img
+                src={photo.src}
+                alt={photo.alt}
+                loading="lazy"
+                decoding="async"
+                style={{
+                  display: 'block',
+                  width: 'auto',
+                  maxWidth: index % 5 === 0 ? 'min(100%, 620px)' : 'min(100%, 470px)',
+                  maxHeight: index % 4 === 0 ? '560px' : '430px',
+                  height: 'auto',
+                  objectFit: 'contain',
+                }}
+              />
+            </section>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (folder.id === 'submit-room') {
+    return (
+      <div
+        style={plainPageStyle}
+      >
+        <h1 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: 700 }}>{folder.title}</h1>
+        <TallyEmbed />
+      </div>
+    )
+  }
+
+  if (folder.id === 'open-collective-archive') {
+    const columns = 9
+    const rowHeight = 132
+    const archivePageHeight = Math.max(680, Math.ceil(OPEN_ARCHIVE_IMAGES.length / columns) * rowHeight + 190)
+    const archiveLayout = OPEN_ARCHIVE_IMAGES.map((image, index) => {
+      const row = Math.floor(index / columns)
+      const column = index % columns
+      const columnOffset = ((column + 0.5) / columns) * 100
+      const xJitter = (image.seed % 47) - 23
+      const yJitter = ((Math.floor(image.seed / 7) % 55) - 20)
+      const width = 46 + (image.seed % 54)
+      const rotation = (Math.floor(image.seed / 11) % 17) - 8
+
+      return {
+        left: `calc(${columnOffset}% + ${xJitter}px)`,
+        top: `${58 + row * rowHeight + yJitter}px`,
+        width,
+        rotation,
+        zIndex: 10 + (image.seed % 40),
+      }
+    })
+    const activeArchiveImage = activeFolderImageIndex != null && OPEN_ARCHIVE_IMAGES.length > 0
+      ? OPEN_ARCHIVE_IMAGES[activeFolderImageIndex % OPEN_ARCHIVE_IMAGES.length]
+      : null
+    const showNextArchiveImage = () => {
+      if (OPEN_ARCHIVE_IMAGES.length === 0) return
+      onOpenFolderRoute?.(folder.id, 'view', ((activeFolderImageIndex ?? 0) + 1) % OPEN_ARCHIVE_IMAGES.length)
+    }
+
+    return (
+      <div
+        style={{
+          ...plainPageStyle,
           overflowY: 'auto',
-          fontFamily: MAC_LIGHT_FONT_STACK,
+          overflowX: 'hidden',
+          padding: 0,
           background: '#fff',
         }}
       >
         <div
           style={{
-            width: 'min(100%, 980px)',
-            margin: '0 auto',
-            padding: isCompact ? '18px 16px calc(28px + env(safe-area-inset-bottom))' : '24px 24px 40px',
-            boxSizing: 'border-box',
-            background: '#fff',
+            position: 'relative',
+            minHeight: `${archivePageHeight}px`,
+            width: '100%',
           }}
         >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '2px',
-              marginBottom: '18px',
-            }}
-          >
-            <img
-              src="assets/zodiac.gif"
-              alt=""
-              aria-hidden="true"
-              style={{ width: '23px', height: 'auto', objectFit: 'contain' }}
-            />
-            <img
-              src="assets/shelestvetrovki-glitter.gif"
-              alt="shelestvetrovki"
-              style={{ width: isCompact ? 'min(172px, 46vw)' : 'min(172px, 14.4vw)', height: 'auto', objectFit: 'contain' }}
-            />
-            <img
-              src="assets/7ADo.gif"
-              alt=""
-              aria-hidden="true"
-              style={{ width: '23px', height: 'auto', objectFit: 'contain' }}
-            />
-          </div>
+          {OPEN_ARCHIVE_IMAGES.map((image, imageIndex) => {
+            const layout = archiveLayout[imageIndex]
 
-          <TallyEmbed isCompact={isCompact} />
+            return (
+              <button
+                key={`${image.page}/${image.filename}`}
+                type="button"
+                onClick={() => onOpenFolderRoute?.(folder.id, 'view', imageIndex)}
+                title={image.filename}
+                style={{
+                  position: 'absolute',
+                  left: layout.left,
+                  top: layout.top,
+                  zIndex: layout.zIndex,
+                  width: `${layout.width}px`,
+                  transform: `translate(-50%, -50%) rotate(${layout.rotation}deg)`,
+                  border: 'none',
+                  background: 'transparent',
+                  padding: 0,
+                  display: 'block',
+                  lineHeight: 0,
+                }}
+              >
+                <img
+                  src={image.thumbSrc}
+                  alt={image.alt}
+                  loading="lazy"
+                  decoding="async"
+                  draggable={false}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    height: 'auto',
+                    maxHeight: '96px',
+                    objectFit: 'contain',
+                    boxShadow: '0 2px 7px rgba(0,0,0,0.16)',
+                  }}
+                />
+              </button>
+            )
+          })}
         </div>
+
+        {activeArchiveImage && createPortal(
+          <ExhibitionLightbox
+            image={activeArchiveImage}
+            onNext={showNextArchiveImage}
+            onClose={() => onOpenFolderRoute?.(folder.id)}
+          />,
+          document.body,
+        )}
       </div>
     )
   }
 
   if (folder.id === 'exhibitions') {
-    return (
-      <div
+    const navButtonBaseStyle = {
+      display: 'block',
+      width: '100%',
+      border: 'none',
+      background: 'transparent',
+      padding: '0 0 8px',
+      font: 'inherit',
+      fontSize: '13px',
+      lineHeight: 1.25,
+      color: '#00e',
+      textAlign: 'left',
+      textDecoration: 'underline',
+    }
+    const exhibitionShellStyle = {
+      ...plainPageStyle,
+      display: 'grid',
+      gridTemplateColumns: '170px minmax(0, 1fr)',
+      gap: '30px',
+      alignItems: 'start',
+      padding: '40px 32px 64px',
+      fontSize: '16px',
+      lineHeight: 1.45,
+    }
+    const renderExhibitionNav = () => (
+      <nav
+        aria-label="Exhibitions"
         style={{
-          width: '100%',
-          height: '100%',
+          position: 'sticky',
+          top: 0,
+          alignSelf: 'start',
+          maxHeight: 'calc(100vh - 44px)',
           overflowY: 'auto',
-          fontFamily: MAC_LIGHT_FONT_STACK,
-          background: 'linear-gradient(180deg, #fbfbfb 0%, #efefef 100%)',
+          padding: '0 0 18px',
         }}
       >
-        <div
+        <button
+          type="button"
+          onClick={() => onOpenFolderRoute?.(folder.id, 'overview')}
           style={{
-            width: 'min(100%, 1120px)',
-            margin: '0 auto',
-            padding: isCompact ? '18px 16px calc(28px + env(safe-area-inset-bottom))' : '28px 28px 44px',
-            boxSizing: 'border-box',
+            ...navButtonBaseStyle,
+            margin: '0 0 14px',
+            color: isExhibitionOverview ? '#000' : '#00e',
+            fontWeight: isExhibitionOverview ? 700 : 400,
+            textDecoration: isExhibitionOverview ? 'none' : 'underline',
           }}
         >
-          <div style={{ marginBottom: '28px' }}>
-            <div style={{ fontSize: isCompact ? '24px' : '30px', fontWeight: 500, color: '#161616', letterSpacing: '0.01em' }}>Exhibitions</div>
-            <div style={{ marginTop: '8px', fontSize: '13px', fontWeight: 300, color: '#666', lineHeight: 1.6, maxWidth: isCompact ? '32rem' : 'none' }}>
-              Selected group exhibitions, installation views, and exhibition texts.
+          overview
+        </button>
+        {EXHIBITIONS.map((exhibition) => {
+          const isActive = selectedExhibition?.id === exhibition.id
+          return (
+            <button
+              key={exhibition.id}
+              type="button"
+              onClick={() => onOpenFolderRoute?.(folder.id, exhibition.id)}
+              style={{
+                ...navButtonBaseStyle,
+                color: isActive ? '#000' : '#00e',
+                fontWeight: isActive ? 700 : 400,
+                textDecoration: isActive ? 'none' : 'underline',
+              }}
+            >
+              {exhibition.title}
+            </button>
+          )
+        })}
+      </nav>
+    )
+
+    if (selectedExhibition) {
+      const images = EXHIBITION_IMAGES_BY_FOLDER.get(selectedExhibition.imageFolder) ?? []
+      const openLightbox = (imageIndex) => onOpenFolderRoute?.(folder.id, selectedExhibition.id, imageIndex)
+      const activeLightboxImage = activeFolderImageIndex != null && images.length > 0
+        ? images[activeFolderImageIndex % images.length]
+        : null
+      const showNextLightboxImage = () => {
+        if (images.length === 0) return
+        onOpenFolderRoute?.(folder.id, selectedExhibition.id, ((activeFolderImageIndex ?? 0) + 1) % images.length)
+      }
+      const institutionText = [selectedExhibition.venue, selectedExhibition.location].filter(Boolean).join('\n')
+
+      return (
+        <div style={exhibitionShellStyle}>
+          {renderExhibitionNav()}
+
+          <main style={{ minWidth: 0, maxWidth: '1180px', margin: '0 auto' }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(220px, 1fr) minmax(260px, 1fr)',
+                columnGap: 'clamp(44px, 14vw, 220px)',
+                rowGap: '24px',
+                alignItems: 'start',
+                margin: '0 0 52px',
+              }}
+            >
+              <div>
+                <p style={{ margin: 0, fontSize: '20px', fontWeight: 700, lineHeight: 1.28, whiteSpace: 'pre-line' }}>
+                  {institutionText}
+                </p>
+              </div>
+              <div>
+                <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 700, lineHeight: 1.28 }}>
+                  {selectedExhibition.title}
+                  <br />
+                  {selectedExhibition.dates ?? selectedExhibition.year}
+                </h1>
+              </div>
             </div>
-          </div>
 
-          {EXHIBITIONS.map((exhibition) => {
-            const images = EXHIBITION_IMAGES_BY_FOLDER.get(exhibition.imageFolder) ?? []
+            <div style={{ margin: '0 auto 34px', maxWidth: '700px', fontSize: '18px', lineHeight: 1.42 }}>
+              {selectedExhibition.description?.map((paragraph) => (
+                <p key={paragraph} style={{ margin: '0 0 18px' }}>
+                  {paragraph}
+                </p>
+              ))}
+            </div>
 
-            return (
-              <section
-                key={exhibition.id}
-                style={{
-                  marginBottom: '34px',
-                  border: '1px solid #dddddd',
-                  borderRadius: '18px',
-                  overflow: 'hidden',
-                  background: 'rgba(255,255,255,0.82)',
-                  boxShadow: '0 12px 32px rgba(0,0,0,0.06)',
-                }}
-              >
-                <div
+            {selectedExhibition.links?.length > 0 && (
+              <div style={{ margin: '0 auto 42px', maxWidth: '700px', fontSize: '18px', lineHeight: 1.42 }}>
+                {selectedExhibition.links.map((link) => (
+                  <React.Fragment key={link.url}>
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`about-folder-link${folder.id === 'press' ? ' press-folder-link' : ''}`}
+                      style={folder.id === 'press' ? pressLinkStyle : plainLinkStyle}
+                    >
+                      {link.label}
+                    </a>
+                    <br />
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
+
+            {images.map((image, imageIndex) => (
+              <figure key={image.src} style={{ margin: '0 auto 28px', maxWidth: '490px', textAlign: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => openLightbox(imageIndex)}
                   style={{
-                    padding: isCompact ? '18px 16px 16px' : '20px 22px 18px',
-                    borderBottom: '1px solid #e6e6e6',
-                    background: 'linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(244,244,244,0.92) 100%)',
+                    border: 'none',
+                    background: 'transparent',
+                    padding: 0,
+                    display: 'block',
+                    margin: '0 auto',
+                    textAlign: 'center',
                   }}
                 >
-                  <div style={{ fontSize: isCompact ? '20px' : '24px', fontWeight: 500, color: '#181818', lineHeight: 1.15 }}>{exhibition.title}</div>
-                  <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 300, color: '#666', lineHeight: 1.7 }}>
-                    {[exhibition.year, exhibition.venue, exhibition.location].filter(Boolean).join(' · ')}
-                  </div>
-                  {exhibition.medium && (
-                    <div style={{ marginTop: '6px', fontSize: '12px', fontWeight: 300, color: '#666' }}>{exhibition.medium}</div>
-                  )}
-                  {exhibition.artists && (
-                    <div style={{ marginTop: '6px', fontSize: '12px', fontWeight: 300, color: '#444', lineHeight: 1.6 }}>
-                      {exhibition.artists}
-                    </div>
-                  )}
-                  {exhibition.curators && (
-                    <div style={{ marginTop: '4px', fontSize: '12px', fontWeight: 300, color: '#444', lineHeight: 1.6 }}>
-                      Curated by {exhibition.curators}
-                    </div>
-                  )}
-                </div>
-
-                <div style={{ padding: isCompact ? '18px 16px 20px' : '20px 22px 24px' }}>
-                  <div
+                  <img
+                    src={image.src}
+                    alt={image.alt}
+                    loading="lazy"
+                    decoding="async"
                     style={{
-                      display: 'grid',
-                      gridTemplateColumns: isCompact ? 'minmax(0, 1fr)' : 'repeat(auto-fit, minmax(280px, 1fr))',
-                      gap: isCompact ? '18px' : '24px',
+                      display: 'block',
+                      width: '100%',
+                      maxHeight: '36vh',
+                      height: 'auto',
+                      margin: '0 auto',
+                      objectFit: 'contain',
+                    }}
+                  />
+                </button>
+                <figcaption style={{ marginTop: '7px', fontSize: '13px' }}>{image.alt}</figcaption>
+              </figure>
+            ))}
+          </main>
+
+          {activeLightboxImage && createPortal(
+            <ExhibitionLightbox
+              image={activeLightboxImage}
+              onNext={showNextLightboxImage}
+              onClose={() => onOpenFolderRoute?.(folder.id, selectedExhibition.id)}
+            />,
+            document.body,
+          )}
+        </div>
+      )
+    }
+
+    return (
+      <div
+        style={exhibitionShellStyle}
+      >
+        {renderExhibitionNav()}
+        <main style={{ minWidth: 0, textAlign: 'center' }}>
+          {EXHIBITIONS.map((exhibition, exhibitionIndex) => {
+            const images = EXHIBITION_IMAGES_BY_FOLDER.get(exhibition.imageFolder) ?? []
+            const previewImage = images[0] ?? null
+
+            return (
+              <section key={exhibition.id} style={{ margin: '0 0 56px' }}>
+                {exhibitionIndex > 0 && (
+                  <div aria-hidden="true" style={{ margin: '0 0 30px' }}>
+                    ⋆ ˚｡⋆୨୧˚ ✿ ˚୨୧⋆｡˚ ⋆
+                  </div>
+                )}
+                <h2 style={{ ...plainHeadingStyle, margin: '0 0 14px', fontSize: '22px', fontStyle: 'italic', lineHeight: 1.55, textTransform: 'none' }}>{exhibition.title}</h2>
+                <p style={{ margin: '0 0 8px' }}>{exhibition.year}</p>
+
+                {previewImage && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenFolderRoute?.(folder.id, exhibition.id)}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      padding: 0,
+                      display: 'block',
+                      margin: '0 auto',
+                      textAlign: 'center',
                     }}
                   >
-                    <div>
-                      {exhibition.description.map((paragraph) => (
-                        <p
-                          key={paragraph}
-                          style={{ margin: '0 0 14px', fontSize: '13px', fontWeight: 300, color: '#222', lineHeight: 1.75 }}
-                        >
-                          {paragraph}
-                        </p>
-                      ))}
+                    <figure style={{ margin: '0 0 8px' }}>
+                      <img
+                        src={previewImage.src}
+                        alt={previewImage.alt}
+                        loading="lazy"
+                        decoding="async"
+                        style={{
+                          display: 'block',
+                          width: 'min(100%, 260px)',
+                          maxHeight: '220px',
+                          height: 'auto',
+                          margin: '0 auto',
+                          objectFit: 'contain',
+                        }}
+                      />
+                      <figcaption style={{ marginTop: '4px' }}>{previewImage.alt}</figcaption>
+                    </figure>
+                  </button>
+                )}
 
-                      {exhibition.links?.length > 0 && (
-                        <div style={{ paddingTop: '4px' }}>
-                          {exhibition.links.map((link) => (
-                            <div key={link.url} style={{ marginBottom: '8px' }}>
-                              <a
-                                href={link.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="about-folder-link"
-                                style={{ fontSize: '13px', fontWeight: 300, color: '#4a90d9', textDecoration: 'none', lineHeight: 1.6 }}
-                              >
-                                {link.label}
-                              </a>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: images.length > 1
-                          ? isCompact
-                            ? 'minmax(0, 1fr)'
-                            : 'repeat(2, minmax(0, 1fr))'
-                          : 'minmax(0, 1fr)',
-                        gap: '12px',
-                        alignContent: 'start',
-                      }}
-                    >
-                      {images.map((image) => (
-                        <figure
-                          key={image.src}
-                          style={{
-                            margin: 0,
-                            borderRadius: '14px',
-                            overflow: 'hidden',
-                            background: '#f2f2f2',
-                            border: '1px solid #ececec',
-                          }}
-                        >
-                          <img
-                            src={image.src}
-                            alt={image.alt}
-                            loading="lazy"
-                            decoding="async"
-                            style={{
-                              display: 'block',
-                              width: '100%',
-                              height: '100%',
-                              minHeight: images.length > 1 ? (isCompact ? '240px' : '180px') : (isCompact ? '320px' : '280px'),
-                              objectFit: 'cover',
-                            }}
-                          />
-                        </figure>
-                      ))}
-                    </div>
-                  </div>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => onOpenFolderRoute?.(folder.id, exhibition.id)}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      padding: 0,
+                      font: 'inherit',
+                      color: '#00e',
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    more photos / more info
+                  </button>
+                  {exhibition.links?.slice(0, 2).map((link) => (
+                    <React.Fragment key={link.url}>
+                      <br />
+                      <a
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="about-folder-link"
+                        style={plainLinkStyle}
+                      >
+                        {link.label}
+                      </a>
+                    </React.Fragment>
+                  ))}
                 </div>
               </section>
             )
           })}
-        </div>
+        </main>
       </div>
     )
   }
 
   return (
-    <div
-      style={{
-        width: '100%',
-        height: '100%',
-        fontFamily: MAC_LIGHT_FONT_STACK,
-        display: 'flex',
-        flexDirection: 'column',
-        background: 'linear-gradient(180deg, #fbfbfb 0%, #efefef 100%)',
-      }}
-    >
-      <div
-        style={{
-          padding: isCompact ? '18px 16px 16px' : '22px 28px 18px',
-          borderBottom: '1px solid #d8d8d8',
-          background: 'linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(239,239,239,0.92) 100%)',
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.85)',
-        }}
-      >
-        <div style={{ fontSize: isCompact ? '22px' : '26px', fontWeight: 500, color: '#1a1a1a', letterSpacing: '0.01em' }}>{folder.title}</div>
-        {folder.bio && (
-          <div style={{ marginTop: '10px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#1a1a1a', letterSpacing: '0.08em' }}>{folder.bio.name}</div>
-            <div style={{ fontSize: '12px', fontWeight: 300, color: '#555', lineHeight: 1.6, marginTop: '4px' }}>{folder.bio.born}</div>
-            <div style={{ fontSize: '12px', fontWeight: 300, color: '#555', lineHeight: 1.6 }}>{folder.bio.lives}</div>
-          </div>
-        )}
-      </div>
+    <div style={plainPageStyle}>
+      {folder.id !== 'press' && folder.id !== 'writing' && folder.id !== 'filmmaking' && (
+        <h1 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: 700 }}>{folder.title}</h1>
+      )}
+      {folder.bio && (
+        <p style={{ margin: '0 0 18px' }}>
+          {folder.bio.name}
+          <br />
+          {folder.bio.born}
+          <br />
+          {folder.bio.lives}
+        </p>
+      )}
 
-      <div style={{ overflowY: 'auto', flex: 1, padding: isCompact ? '18px 16px calc(28px + env(safe-area-inset-bottom))' : '24px 28px 42px' }}>
-        {folder.sections.map((section) => (
-          <div key={section.heading} style={{ marginBottom: '26px' }}>
-            <div style={{ fontSize: '11px', fontWeight: 600, color: '#777', letterSpacing: '0.12em', marginBottom: '12px', borderBottom: '1px solid #ddd', paddingBottom: '8px' }}>
-              {section.heading}
-            </div>
-            {section.entries && section.entries.map((entry, i) => (
-              // eslint-disable-next-line react/no-array-index-key
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: isCompact ? '1fr' : '120px 1fr', gap: isCompact ? '2px' : '14px', marginBottom: '10px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 300, color: '#888', lineHeight: 1.5 }}>{entry.year}</div>
-                <div style={{ fontSize: '13px', fontWeight: 300, color: '#1a1a1a', lineHeight: 1.5 }}>{entry.item}</div>
-              </div>
-            ))}
-            {section.links && section.links.map((link) => (
-              <div key={link.url} style={{ marginBottom: '10px' }}>
-                <a
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="about-folder-link"
-                  style={{ fontSize: '13px', fontWeight: 300, color: '#4a90d9', textDecoration: 'none', lineHeight: 1.6 }}
-                >
-                  {link.label}
-                </a>
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
+      {folder.id === 'writing' && (
+        <div
+          ref={writingDesktopRef}
+          style={{
+            position: 'relative',
+            minHeight: '440px',
+            width: '100%',
+          }}
+        >
+          {writingLinks.map((link, index) => {
+            const pos = writingIconPositions.get(link.url) ?? writingScatterLayout[index] ?? { left: '10%', top: '20%' }
+            return (
+              <a
+                key={link.url}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="about-folder-link cursor-grab"
+                onMouseDown={(e) => startWritingIconDrag(link.url, e)}
+                onClick={(e) => {
+                  if (draggedWritingRef.current === link.url) {
+                    e.preventDefault()
+                    draggedWritingRef.current = null
+                  }
+                }}
+                style={{
+                  ...writingIconLinkStyle,
+                  left: pos.isPx ? `${pos.left}px` : pos.left,
+                  top: pos.isPx ? `${pos.top}px` : pos.top,
+                  transform: 'translate(-50%, -50%)',
+                }}
+                title={link.label}
+              >
+                <img src={link.image} alt={link.label} draggable={false} style={writingIconMediaStyle} />
+                <span style={writingIconFilenameStyle}>{link.iconLabel}</span>
+              </a>
+            )
+          })}
+        </div>
+      )}
+
+      {folder.id !== 'writing' && folder.sections.map((section) => {
+        const isFilmmaking = folder.id === 'filmmaking'
+        return (
+          <section key={section.heading} style={{ margin: isFilmmaking ? '0 0 86px' : '0 0 20px' }}>
+            <h2 style={isFilmmaking ? filmmakingHeadingStyle : folder.id === 'press' ? pressHeadingStyle : plainHeadingStyle}>{section.heading}</h2>
+            {section.entries && (
+              <ul style={{ margin: 0, paddingLeft: '22px' }}>
+                {section.entries.map((entry, i) => (
+                  // eslint-disable-next-line react/no-array-index-key
+                  <li key={i} style={{ marginBottom: isFilmmaking ? '12px' : '6px', fontSize: isFilmmaking ? '18px' : undefined, lineHeight: isFilmmaking ? 1.25 : undefined }}>
+                    {entry.year ? `${entry.year} - ` : ''}
+                    {entry.url ? (
+                      <a
+                        href={entry.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`about-folder-link${isFilmmaking ? ' press-folder-link' : ''}`}
+                        style={isFilmmaking ? filmmakingLinkStyle : plainLinkStyle}
+                      >
+                        {entry.item}
+                      </a>
+                    ) : entry.item}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {section.links && (
+              <ul style={{ margin: 0, paddingLeft: '22px' }}>
+                {section.links.map((link) => (
+                  <li key={link.url} style={{ marginBottom: '6px' }}>
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`about-folder-link${folder.id === 'press' ? ' press-folder-link' : ''}`}
+                      style={folder.id === 'press' ? pressLinkStyle : plainLinkStyle}
+                    >
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )
+      })}
     </div>
   )
 }
 
-function ProjectPreviewWindow({ onClose, isCompact = false, isTouch = false }) {
+function ProjectPreviewWindow({ onClose, onPreviewStarted, isTouch = false }) {
   const videoRef = useRef(null)
   const [animateIn, setAnimateIn] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
@@ -3159,7 +4058,7 @@ function ProjectPreviewWindow({ onClose, isCompact = false, isTouch = false }) {
   windowPosRef.current = windowPos
 
   const startDrag = useCallback((event) => {
-    if (isTouch || isCompact) return
+    if (isTouch) return
     if (event.button !== 0) return
     event.preventDefault()
     const startMx = event.clientX
@@ -3178,10 +4077,11 @@ function ProjectPreviewWindow({ onClose, isCompact = false, isTouch = false }) {
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-  }, [isCompact, isTouch])
+  }, [isTouch])
 
   useEffect(() => {
     const frameId = window.requestAnimationFrame(() => setAnimateIn(true))
+    onPreviewStarted?.()
     const video = videoRef.current
     if (video) {
       video.muted = false
@@ -3193,7 +4093,7 @@ function ProjectPreviewWindow({ onClose, isCompact = false, isTouch = false }) {
     }
 
     return () => window.cancelAnimationFrame(frameId)
-  }, [])
+  }, [onPreviewStarted])
 
   const handleToggleMute = useCallback(() => {
     const video = videoRef.current
@@ -3203,97 +4103,6 @@ function ProjectPreviewWindow({ onClose, isCompact = false, isTouch = false }) {
     if (!nextMuted) video.volume = 0.5
     setIsMuted(nextMuted)
   }, [isMuted])
-
-  if (isCompact) {
-    return (
-      <div
-        style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 45,
-          display: 'flex',
-          flexDirection: 'column',
-          background: 'rgba(247,247,247,0.96)',
-          backdropFilter: 'blur(18px)',
-        }}
-      >
-        <div
-          style={{
-            padding: 'calc(10px + env(safe-area-inset-top)) 14px 12px',
-            borderBottom: '1px solid rgba(0,0,0,0.08)',
-            background: 'linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(236,236,236,0.92) 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
-          }}
-        >
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              border: '1px solid rgba(0,0,0,0.12)',
-              background: '#fff',
-              color: '#111',
-              borderRadius: '999px',
-              padding: '9px 13px',
-              fontSize: '12px',
-              fontFamily: ARIAL_FONT_STACK,
-              textTransform: 'lowercase',
-            }}
-          >
-            close
-          </button>
-
-          <div style={{ minWidth: 0, textAlign: 'center', fontFamily: MAC_LIGHT_FONT_STACK, fontSize: '12px', color: '#555' }}>
-            {PREVIEW_FILENAME}
-          </div>
-
-          <button
-            type="button"
-            onClick={handleToggleMute}
-            style={{
-              border: '1px solid rgba(0,0,0,0.12)',
-              background: '#111',
-              color: '#fff',
-              borderRadius: '999px',
-              padding: '9px 13px',
-              fontSize: '12px',
-              fontFamily: ARIAL_FONT_STACK,
-              textTransform: 'lowercase',
-            }}
-          >
-            {isMuted ? 'unmute' : 'mute'}
-          </button>
-        </div>
-
-        <div style={{ flex: 1, minHeight: 0, padding: '14px 14px calc(14px + env(safe-area-inset-bottom))' }}>
-          <div
-            style={{
-              position: 'relative',
-              width: '100%',
-              height: '100%',
-              borderRadius: '22px',
-              overflow: 'hidden',
-              background: '#050505',
-              boxShadow: '0 24px 56px rgba(0,0,0,0.18)',
-            }}
-          >
-            <video
-              ref={videoRef}
-              src={HOME_PREVIEW_VIDEO}
-              autoPlay
-              muted
-              playsInline
-              loop
-              preload="auto"
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-            />
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div
@@ -3395,16 +4204,16 @@ function ProjectPreviewWindow({ onClose, isCompact = false, isTouch = false }) {
   )
 }
 
-function PreviewLauncher({ onOpen, isTouch = false, isCompact = false }) {
+function PreviewLauncher({ onOpen, isTouch = false }) {
   const [iconPos, setIconPos] = useState(() => ({
-    x: typeof window !== 'undefined' ? (isCompact ? window.innerWidth / 2 - 60 : window.innerWidth / 2 - 220) : 180,
-    y: typeof window !== 'undefined' ? (isCompact ? window.innerHeight - 250 : window.innerHeight / 2 - 10) : 320,
+    x: typeof window !== 'undefined' ? window.innerWidth / 2 - 220 : 180,
+    y: typeof window !== 'undefined' ? window.innerHeight / 2 - 10 : 320,
   }))
   const iconPosRef = useRef(iconPos)
   iconPosRef.current = iconPos
 
   const startDrag = useCallback((event) => {
-    if (isTouch || isCompact) return
+    if (isTouch) return
     if (event.button !== 0) return
     event.preventDefault()
     const startMx = event.clientX
@@ -3423,93 +4232,7 @@ function PreviewLauncher({ onOpen, isTouch = false, isCompact = false }) {
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-  }, [isCompact, isTouch])
-
-  if (isCompact) {
-    return (
-      <button
-        type="button"
-        onClick={onOpen}
-        style={{
-          position: 'absolute',
-          left: '50%',
-          bottom: 'calc(28px + env(safe-area-inset-bottom))',
-          transform: 'translateX(-50%)',
-          border: 'none',
-          background: 'transparent',
-          padding: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '10px',
-          width: '132px',
-        }}
-      >
-        <div
-          style={{
-            position: 'relative',
-            width: '56px',
-            height: '52px',
-            imageRendering: 'pixelated',
-            background: 'linear-gradient(180deg,#d8ebff 0%,#9ecbff 100%)',
-            border: '1px solid #6e97c8',
-            boxShadow: '3px 3px 0 rgba(0,0,0,0.14)',
-          }}
-        >
-          <div
-            style={{
-              position: 'absolute',
-              top: '-1px',
-              left: '7px',
-              width: '20px',
-              height: '9px',
-              background: '#f4f8ff',
-              border: '1px solid #6e97c8',
-              borderBottom: 'none',
-            }}
-          />
-          <div
-            style={{
-              position: 'absolute',
-              inset: '8px 6px 6px',
-              background: '#eef6ff',
-              border: '1px solid rgba(110,151,200,0.9)',
-            }}
-          >
-            <div
-              style={{
-                position: 'absolute',
-                left: '50%',
-                top: '50%',
-                transform: 'translate(-42%, -50%)',
-                width: 0,
-                height: 0,
-                borderTop: '8px solid transparent',
-                borderBottom: '8px solid transparent',
-                borderLeft: '13px solid #285a93',
-              }}
-            />
-          </div>
-        </div>
-
-        <span
-          style={{
-            maxWidth: '132px',
-            color: '#000',
-            fontFamily: MAC_LIGHT_FONT_STACK,
-            fontSize: '13px',
-            fontWeight: 300,
-            lineHeight: 1.15,
-            textAlign: 'center',
-            textShadow: '1px 1px 0 rgba(255,255,255,0.92)',
-            wordBreak: 'break-word',
-          }}
-        >
-          {PREVIEW_FILENAME}
-        </span>
-      </button>
-    )
-  }
+  }, [isTouch])
 
   return (
     <button
@@ -3699,13 +4422,99 @@ function CursorSparkles() {
   )
 }
 
+function LoadingGlitterOverlay({ active, reducedMotion = false }) {
+  const [sparkles, setSparkles] = useState([])
+  const nextSparkleId = useRef(0)
+  const nextGifIndex = useRef(0)
+  const sparkleTimeouts = useRef([])
+
+  useEffect(() => {
+    if (!active || typeof window === 'undefined') return undefined
+
+    const spawnSparkle = (bandIndex = 0, bandCount = 1) => {
+      const id = nextSparkleId.current++
+      const src = CURSOR_TRAIL_GIFS[nextGifIndex.current % CURSOR_TRAIL_GIFS.length]
+      nextGifIndex.current += 1
+      const edgePadding = 24
+      const availableWidth = Math.max(window.innerWidth - edgePadding * 2, 1)
+      const availableHeight = Math.max(window.innerHeight - edgePadding * 2, 1)
+      const bandWidth = availableWidth / Math.max(bandCount, 1)
+      const x = edgePadding + bandWidth * bandIndex + Math.random() * bandWidth
+      const y = edgePadding + Math.random() * availableHeight
+      const size = 22 + Math.random() * 42
+      const rotation = -24 + Math.random() * 48
+
+      setSparkles((current) => [...current.slice(-LOADING_SPARKLE_MAX_COUNT), { id, x, y, src, size, rotation }])
+      const timeoutId = window.setTimeout(() => {
+        setSparkles((current) => current.filter((sparkle) => sparkle.id !== id))
+      }, LOADING_SPARKLE_LIFETIME_MS)
+      sparkleTimeouts.current.push(timeoutId)
+    }
+
+    const spawnBurst = () => {
+      const count = reducedMotion ? 6 : LOADING_SPARKLE_BURST_COUNT
+      for (let index = 0; index < count; index += 1) {
+        spawnSparkle(index, count)
+      }
+    }
+
+    const initialWaveCount = reducedMotion ? 4 : LOADING_SPARKLE_INITIAL_WAVES
+    for (let waveIndex = 0; waveIndex < initialWaveCount; waveIndex += 1) {
+      const timeoutId = window.setTimeout(spawnBurst, waveIndex * 32 + Math.random() * 26)
+      sparkleTimeouts.current.push(timeoutId)
+    }
+    const intervalId = window.setInterval(spawnBurst, reducedMotion ? 150 : LOADING_SPARKLE_INTERVAL_MS)
+
+    return () => {
+      window.clearInterval(intervalId)
+      sparkleTimeouts.current.forEach((timeoutId) => window.clearTimeout(timeoutId))
+      sparkleTimeouts.current = []
+      setSparkles([])
+    }
+  }, [active, reducedMotion])
+
+  if (!active) return null
+
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 2147483646,
+        pointerEvents: 'none',
+        overflow: 'hidden',
+      }}
+    >
+      {sparkles.map((sparkle) => (
+        <img
+          key={sparkle.id}
+          src={sparkle.src}
+          alt=""
+          style={{
+            position: 'absolute',
+            left: `${sparkle.x}px`,
+            top: `${sparkle.y}px`,
+            width: `${sparkle.size}px`,
+            height: `${sparkle.size}px`,
+            transform: `translate(-50%, -50%) rotate(${sparkle.rotation}deg)`,
+            objectFit: 'contain',
+            userSelect: 'none',
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
 export default function App() {
   const responsive = useResponsiveShell()
   const {
-    isCompact,
     isTouch,
+    viewportWidth,
     prefersReducedMotion,
   } = responsive
+  const shouldShowMobileNotice = isTouch || viewportWidth <= 700
   const [route, setRoute] = useState(() =>
     parseRouteFromHash(typeof window !== 'undefined' ? window.location.hash : ''),
   )
@@ -3722,6 +4531,11 @@ export default function App() {
   const [activeEditorCorner, setActiveEditorCorner] = useState(0)
   const [snapshotLabel, setSnapshotLabel] = useState('')
   const [savedSnapshots, setSavedSnapshots] = useState([])
+  const pendingRoomNavigationRef = useRef(0)
+  const [visitedRoomHistory, setVisitedRoomHistory] = useState([])
+  const [transitionSnapshotUrl, setTransitionSnapshotUrl] = useState(null)
+  const [isSceneTransitioning, setIsSceneTransitioning] = useState(false)
+  const hasStartedHouseRoomPreloadsRef = useRef(false)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -3800,7 +4614,19 @@ export default function App() {
     }
 
     const syncFromHash = () => {
-      setRoute(parseRouteFromHash(window.location.hash))
+      const nextRoute = parseRouteFromHash(window.location.hash)
+      setRoute(nextRoute)
+      if (nextRoute.type === 'about' || nextRoute.type === 'folder') {
+        const nextEntry = getAboutHistoryEntry(nextRoute)
+        setAboutBrowserHistory((current) => {
+          if (current.entries[current.index] === nextEntry) return current
+          const existingIndex = current.entries.lastIndexOf(nextEntry)
+          if (existingIndex >= 0) return { ...current, index: existingIndex }
+          const nextEntries = current.entries.slice(0, current.index + 1)
+          nextEntries.push(nextEntry)
+          return { entries: nextEntries, index: nextEntries.length - 1 }
+        })
+      }
     }
 
     syncFromHash()
@@ -3809,7 +4635,12 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    useGLTF.preload('assets/home.glb')
+    preloadVideoAsset(HOME_PREVIEW_VIDEO)
+    const sparkleAssets = [...CURSOR_TRAIL_GIFS, CURSOR_CLICK_GIF]
+    sparkleAssets.forEach((src) => {
+      const image = new Image()
+      image.src = src
+    })
   }, [])
 
   useEffect(() => {
@@ -3832,22 +4663,70 @@ export default function App() {
     document.documentElement.style.setProperty('--app-hover-cursor', HOVER_KEY_CURSOR)
   }, [isTouch, route.type])
 
-  const openRoom = useCallback((roomNumber) => {
-    preloadRoomAsset(roomNumber - 1)
-    navigateWithHash(`#${ROOM_HASH_PREFIX}${roomNumber}`)
+  const clearTransitionCover = useCallback(() => {
+    setTransitionSnapshotUrl(null)
+    setIsSceneTransitioning(false)
   }, [])
+
+  const handleHomeReady = useCallback(() => {
+    clearTransitionCover()
+    if (hasStartedHouseRoomPreloadsRef.current) return
+    hasStartedHouseRoomPreloadsRef.current = true
+    preloadRoomRange(0, 4, ROOM_PRELOAD_STAGGER_MS)
+  }, [clearTransitionCover])
+
+  const beginSceneTransition = useCallback(() => {
+    setIsSceneTransitioning(true)
+    setTransitionSnapshotUrl(captureCurrentCanvasFrame())
+  }, [])
+
+  const preloadHome = useCallback(() => {
+    useGLTF.preload('assets/home.glb')
+  }, [])
+
+  const openRoom = useCallback((roomNumber) => {
+    const navigationId = pendingRoomNavigationRef.current + 1
+    pendingRoomNavigationRef.current = navigationId
+    beginSceneTransition()
+    setVisitedRoomHistory(route.type === 'room' ? [route.roomIndex] : [])
+    preloadRoomAsset(roomNumber - 1)
+    if (pendingRoomNavigationRef.current !== navigationId) return
+    navigateWithHash(`#${ROOM_HASH_PREFIX}${roomNumber}`)
+  }, [beginSceneTransition, route])
 
   const openNextRoom = useCallback((roomNumber) => {
     const nextRoomNumber = roomNumber >= ROOM_FILES.length ? 1 : roomNumber + 1
+    const navigationId = pendingRoomNavigationRef.current + 1
+    pendingRoomNavigationRef.current = navigationId
+    beginSceneTransition()
+    if (route.type === 'room') {
+      setVisitedRoomHistory((current) => [...current, route.roomIndex])
+    }
     preloadRoomAsset(nextRoomNumber - 1)
+    if (pendingRoomNavigationRef.current !== navigationId) return
     navigateWithHash(`#${ROOM_HASH_PREFIX}${nextRoomNumber}`)
-  }, [])
+  }, [beginSceneTransition, route])
+
+  const openPreviousRoom = useCallback(() => {
+    const previousRoomIndex = visitedRoomHistory[visitedRoomHistory.length - 1]
+    if (previousRoomIndex == null) return
+
+    const navigationId = pendingRoomNavigationRef.current + 1
+    pendingRoomNavigationRef.current = navigationId
+    beginSceneTransition()
+    setVisitedRoomHistory((current) => current.slice(0, -1))
+    preloadRoomAsset(previousRoomIndex)
+    if (pendingRoomNavigationRef.current !== navigationId) return
+    navigateWithHash(`#${ROOM_HASH_PREFIX}${previousRoomIndex + 1}`)
+  }, [beginSceneTransition, visitedRoomHistory])
 
   const closeRoom = useCallback(() => {
     setIsPreviewOpen(false)
     setHasOpenedPreview(true)
+    setVisitedRoomHistory([])
+    beginSceneTransition()
     navigateWithHash(HOME_HASH)
-  }, [])
+  }, [beginSceneTransition])
 
   const openAbout = useCallback(() => {
     setAboutBrowserHistory((current) => {
@@ -3865,15 +4744,20 @@ export default function App() {
     navigateWithHash(HOME_HASH)
   }, [])
 
-  const openFolder = useCallback((folderId) => {
+  const openFolder = useCallback((folderId, folderDetailId = null, folderImageIndex = null) => {
     setAboutBrowserHistory((current) => {
-      if (!folderId || !FOLDER_MAP.has(folderId) || current.entries[current.index] === folderId) return current
+      const nextEntry = getFolderRouteKey(folderId, folderDetailId, folderImageIndex)
+      if (!folderId || !FOLDER_MAP.has(folderId) || current.entries[current.index] === nextEntry) return current
       const nextEntries = current.entries.slice(0, current.index + 1)
-      nextEntries.push(folderId)
+      nextEntries.push(nextEntry)
       return { entries: nextEntries, index: nextEntries.length - 1 }
     })
-    navigateWithHash(`#${FOLDER_HASH_PREFIX}${folderId}`)
+    navigateWithHash(getHashForAboutHistoryEntry(getFolderRouteKey(folderId, folderDetailId, folderImageIndex)))
   }, [])
+
+  const openSubmitRoom = useCallback(() => {
+    openFolder('submit-room')
+  }, [openFolder])
 
   const rememberAboutFolderOpen = useCallback((folderId) => {
     if (!folderId || !FOLDER_MAP.has(folderId)) return
@@ -3969,6 +4853,16 @@ export default function App() {
     null,
     2,
   )
+  const sceneTransitionLayer = (
+    <>
+      <SceneTransitionCover snapshotUrl={transitionSnapshotUrl} />
+      <LoadingGlitterOverlay active={isSceneTransitioning} reducedMotion={prefersReducedMotion} />
+    </>
+  )
+
+  if (shouldShowMobileNotice) {
+    return <MobileDesktopNotice />
+  }
 
   if (route.type === 'room') {
     const roomNumber = route.roomIndex + 1
@@ -3976,13 +4870,18 @@ export default function App() {
     return (
       <>
         <RoomPage
+          key={roomFile}
           roomNumber={roomNumber}
           roomFile={roomFile}
-          cameraDefault={ROOM_CAMERA_DEFAULTS[route.roomIndex]}
-          onBack={closeRoom}
+          cameraDefault={ROOM_CAMERA_DEFAULTS[route.roomIndex] ?? ROOM_CAMERA_DEFAULTS[0]}
+          onBack={openPreviousRoom}
+          onHome={closeRoom}
           onOpenNextRoom={() => openNextRoom(roomNumber)}
-          isCompact={isCompact}
+          onOpenSubmit={openSubmitRoom}
+          canGoBack={visitedRoomHistory.length > 0}
+          onReady={clearTransitionCover}
         />
+        {sceneTransitionLayer}
       </>
     )
   }
@@ -4002,9 +4901,9 @@ export default function App() {
           canBrowserGoForward={aboutBrowserHistory.index < aboutBrowserHistory.entries.length - 1}
           openedFolderIds={openedAboutFolderIds}
           onRememberFolderOpen={rememberAboutFolderOpen}
-          isCompact={isCompact}
           isTouch={isTouch}
         />
+        {sceneTransitionLayer}
         {!isTouch && !prefersReducedMotion && <CursorSparkles />}
       </>
     )
@@ -4024,11 +4923,13 @@ export default function App() {
           canBrowserGoBack={aboutBrowserHistory.index > 0}
           canBrowserGoForward={aboutBrowserHistory.index < aboutBrowserHistory.entries.length - 1}
           activeFolderId={route.folderId}
+          activeFolderDetailId={route.folderDetailId}
+          activeFolderImageIndex={route.folderImageIndex}
           openedFolderIds={openedAboutFolderIds}
           onRememberFolderOpen={rememberAboutFolderOpen}
-          isCompact={isCompact}
           isTouch={isTouch}
         />
+        {sceneTransitionLayer}
         {!isTouch && !prefersReducedMotion && <CursorSparkles />}
       </>
     )
@@ -4289,37 +5190,43 @@ export default function App() {
         style={{
           position: 'absolute',
           inset: 0,
-          opacity: isCompact || (hasOpenedPreview && !isPreviewOpen) ? 1 : 0,
-          pointerEvents: isCompact || (hasOpenedPreview && !isPreviewOpen) ? 'auto' : 'none',
+          opacity: hasOpenedPreview && !isPreviewOpen ? 1 : 0,
+          pointerEvents: hasOpenedPreview && !isPreviewOpen ? 'auto' : 'none',
           transition: 'opacity 180ms ease',
         }}
-        aria-hidden={!(isCompact || (hasOpenedPreview && !isPreviewOpen))}
+        aria-hidden={!(hasOpenedPreview && !isPreviewOpen)}
       >
-        <HomeScene onModelLoaded={undefined} onOpenRoom={openRoom} isCompact={isCompact} />
+        {hasOpenedPreview && !isPreviewOpen && (
+          <HomeScene
+            onModelLoaded={undefined}
+            onOpenRoom={openRoom}
+            onReady={handleHomeReady}
+          />
+        )}
       </div>
 
       <div
         style={{
           position: 'absolute',
           left: '50%',
-          top: isCompact ? 'calc(18px + env(safe-area-inset-top))' : `${HOME_HEADER_TOP}px`,
+          top: `${HOME_HEADER_TOP}px`,
           transform: 'translateX(-50%)',
           zIndex: 40,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: isCompact ? '8px' : '6px',
+          gap: '6px',
         }}
       >
-        {(isCompact || (hasOpenedPreview && !isPreviewOpen)) && (
+        {hasOpenedPreview && !isPreviewOpen && (
           <img
             src={HOME_WELCOME_GIF}
             alt=""
             aria-hidden="true"
-            style={{ width: isCompact ? 'min(110px, 28vw)' : 'min(124px, 18vw)', height: 'auto', display: 'block' }}
+            style={{ width: 'min(124px, 18vw)', height: 'auto', display: 'block' }}
           />
         )}
-        {!isCompact && (!hasOpenedPreview || isPreviewOpen) && (
+        {(!hasOpenedPreview || isPreviewOpen) && (
           <img
             src={HOME_WELCOME_GIF}
             alt=""
@@ -4336,9 +5243,9 @@ export default function App() {
             background: 'transparent',
             color: '#000',
             padding: 0,
-            width: isCompact ? 'min(250px, 64vw)' : 'min(220px, 32vw)',
+            width: 'min(220px, 32vw)',
             fontFamily: ARIAL_FONT_STACK,
-            fontSize: isCompact ? '24px' : '25px',
+            fontSize: '25px',
             fontWeight: 400,
             letterSpacing: '0.01em',
             lineHeight: 1,
@@ -4351,10 +5258,11 @@ export default function App() {
         </button>
       </div>
 
-      {((isCompact && !isPreviewOpen) || (!isCompact && !hasOpenedPreview && !isPreviewOpen)) && (
-        <PreviewLauncher onOpen={openPreview} isTouch={isTouch} isCompact={isCompact} />
+      {!hasOpenedPreview && !isPreviewOpen && (
+        <PreviewLauncher onOpen={openPreview} isTouch={isTouch} />
       )}
-      {isPreviewOpen && <ProjectPreviewWindow onClose={closePreview} isCompact={isCompact} isTouch={isTouch} />}
+      {isPreviewOpen && <ProjectPreviewWindow onClose={closePreview} onPreviewStarted={preloadHome} isTouch={isTouch} />}
+      {sceneTransitionLayer}
     </div>
   )
 }
