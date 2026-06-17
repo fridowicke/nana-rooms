@@ -3394,12 +3394,17 @@ function AboutFolderContent({
   }
   const writingDesktopRef = useRef(null)
   const draggedWritingRef = useRef(null)
-  const writingScatterLayout = useMemo(() => [
-    { left: '7%', top: '22%' },
-    { left: '23%', top: '15%' },
-    { left: '39%', top: '29%' },
-    { left: '55%', top: '20%' },
-  ], [])
+  const writingScatterLayout = useMemo(() => {
+    const count = 20
+    const positions = []
+    for (let i = 0; i < count; i++) {
+      positions.push({
+        left: `${5 + Math.random() * 68}%`,
+        top: `${5 + Math.random() * 70}%`,
+      })
+    }
+    return positions
+  }, [])
   const writingIconLinkStyle = {
     display: 'grid',
     gap: '6px',
