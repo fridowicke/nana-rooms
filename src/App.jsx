@@ -403,7 +403,7 @@ const FOLDER_DEFINITIONS = [
         heading: '2023',
         links: [
           { url: 'https://www.tamabi.ac.jp/news/55772/', label: 'Tama Art University: Artist at Risk Program' },
-          { url: 'https://i-d.co/article/daria-svertilova-photography-ukraine/', label: 'i-D: Daria Svertilova Photography Ukraine' },
+          { url: 'https://i-d.co/article/daria-svertilova-photography-ukraine/', label: 'i-D: temporary homes' },
 
         ],
       },
