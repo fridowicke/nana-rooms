@@ -417,7 +417,7 @@ const FOLDER_DEFINITIONS = [
       {
         heading: '2026',
         links: [
-          { url: 'https://substack.com/@shelestvetrovki/note/p-194245632?utm_source=notes-share-action&r=33oaqu', label: 'Substack: and another fig was a girl wearing nipple patches', image: 'assets/local_sticker_book5_cover-1600x1600.webp', iconLabel: 'and another fig was a girl wearing nipple patches' },
+          { url: 'https://substack.com/@shelestvetrovki/note/p-194245632?utm_source=notes-share-action&r=33oaqu', label: 'Substack: and another fig was a girl wearing nipple patches', image: 'assets/another-fig-cover.jpg', iconLabel: 'and another fig was a girl wearing nipple patches' },
         ],
       },
       {
