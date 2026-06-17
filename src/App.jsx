@@ -430,7 +430,7 @@ const FOLDER_DEFINITIONS = [
         heading: '2024',
         links: [
           { url: 'https://becoming.press/dialogues-on-corecore', label: 'Becoming Press Publishing: Dialogues on CoreCore & the Contemporary Online Avant-Garde', image: 'assets/05A_-CoreCore-front_.png', iconLabel: 'Dialogues on CoreCore & the Contemporary Online Avant-Garde (2024)' },
-          { url: 'https://substack.com/@shelestvetrovki/p-151684169', label: 'Substack: notes on being unemployed (in a spiritual way)', image: 'assets/local_sticker_book5_cover-1600x1600.webp', iconLabel: 'notes on being unemployed (in a spiritual way)' },
+          { url: 'https://substack.com/@shelestvetrovki/p-151684169', label: 'Substack: notes on being unemployed (in a spiritual way)', image: 'assets/notes-unemployed-cover.jpg', iconLabel: 'notes on being unemployed (in a spiritual way)' },
         ],
       },
     ],
