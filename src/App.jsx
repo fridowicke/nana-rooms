@@ -2774,7 +2774,11 @@ function AboutPage({
   const aboutWindowHeight = 181
   const playerWindowTop = playerPos.y + 36
   const diaryHeight = Math.max(154, Math.min(playerWindowTop - aboutWindowTop - aboutWindowHeight - 40, 220))
-  const equalGap = Math.max(8, Math.floor((playerWindowTop - aboutWindowTop - aboutWindowHeight - diaryHeight) / 2))
+  const BROWSER_CHROME_HEIGHT = 62
+  const equalGap = Math.max(8, Math.min(
+    Math.floor((playerWindowTop - aboutWindowTop - aboutWindowHeight - diaryHeight) / 2),
+    aboutWindowTop - welcomeHeight - BROWSER_CHROME_HEIGHT - 8
+  ))
   const diaryTop = aboutWindowTop + aboutWindowHeight + equalGap
   const diaryWidth = Math.max(Math.min(leftColumnWidth - 34, 132), 106)
 
