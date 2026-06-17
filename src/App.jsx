@@ -3406,14 +3406,14 @@ function AboutFolderContent({
     color: '#000',
     textDecoration: 'none',
     position: 'absolute',
-    width: '126px',
+    width: '220px',
     justifyItems: 'center',
     padding: '4px',
     userSelect: 'none',
   }
   const writingIconMediaStyle = {
-    width: '94px',
-    height: '112px',
+    width: '200px',
+    height: '240px',
     border: 'none',
     background: 'transparent',
     objectFit: 'contain',
