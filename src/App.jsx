@@ -147,6 +147,7 @@ const DIARY_PHOTOS = Object.entries(DIARY_PHOTO_MODULES)
     }
   })
 const EXHIBITION_IMAGE_MODULES = import.meta.glob('../target/exhibitions/**/*.{jpeg,jpg,jpg_,png,webp,JPEG,JPG,PNG,WEBP}', { eager: true, query: '?url', import: 'default' })
+const EXHIBITION_VIDEO_MODULES = import.meta.glob('../target/exhibitions/**/*.{mov,mp4,webm,MOV,MP4,WEBM}', { eager: true, query: '?url', import: 'default' })
 const OPEN_ARCHIVE_IMAGE_MODULES = import.meta.glob('../target/open collective archive/**/*.{jpeg,jpg,png,webp,gif,JPEG,JPG,PNG,WEBP,GIF}', { eager: true, query: '?url', import: 'default' })
 const OPEN_ARCHIVE_THUMB_MODULES = import.meta.glob('../target/open collective archive thumbnails/**/*.jpg', { eager: true, query: '?url', import: 'default' })
 const EXHIBITIONS = [
@@ -173,7 +174,10 @@ const EXHIBITIONS = [
     venue: 'Festival Panoramic',
     location: 'Barcelona, Spain',
     description: [
-      'Group show curated by Estela Ortiz and Juan Evaristo Valls Boix.',
+      '6x3m digital print, 2025.',
+      "Group exhibition - Bed doesn't ask questions. Chantal Akerman, Anne Glassner, Naked Space, shelestvetrovki. Curated by Estela Ortiz & Juan Evaristo Valls Boix.",
+      "The exhibition reflects on rest, centering on the bed and the private room, taking Chantal Akerman's La chambre as its point of departure. Through a dialogue between artistic works and memetic expressions from recent years, this group show explores which bodies have access to rest and highlights the public dimension of practices that, at first glance, appear to be private.",
+      'In the contemporary world, the imperatives of work infiltrate our beds and encroach upon our intimacy, while idleness and pause too often remain privileges accessible to only a few. For this reason, a sleeping body today stands as a radical image of freedom--yet also the most elusive: the embrace of time without purpose.',
     ],
     links: [
       { url: 'https://festivalpanoramic.cat/en/project/panoramic-review-2025/', label: 'Festival Panoramic' },
@@ -190,6 +194,7 @@ const EXHIBITIONS = [
       'Group project with Local Group at Kolektiv Radieuse.',
     ],
     links: [],
+    imageFolder: '2025   SpilkaParis x Local Group, Kolektiv Radieuse, Le Corbusier’s Cité Radieuse, Marseille, France',
   },
   {
     id: 'localstickerbook-domicile',
@@ -240,12 +245,13 @@ const EXHIBITIONS = [
     id: 'bezzvuchnodohlukhoty',
     title: 'bezzvuchnodohlukhoty',
     year: '2023',
-    venue: 'National Academy of Fine Arts',
+    venue: 'Kyiv National Academy of Arts',
     location: 'Kyiv, Ukraine',
     description: [
       'Group exhibition at the National Academy of Fine Arts.',
     ],
     links: [],
+    imageFolder: 'Kyiv National Academy of Arts',
   },
   {
     id: 'tama-art-university-installation',
@@ -257,6 +263,7 @@ const EXHIBITIONS = [
       'Multimedia interactive installation presented at Tama Art University.',
     ],
     links: [],
+    videoFolder: 'Tama Art University 2023',
   },
 ]
 const EXHIBITION_IMAGES_BY_FOLDER = Object.entries(EXHIBITION_IMAGE_MODULES).reduce((collection, [path, src], index) => {
@@ -281,6 +288,30 @@ const EXHIBITION_IMAGES_BY_FOLDER = Object.entries(EXHIBITION_IMAGE_MODULES).red
 
 EXHIBITION_IMAGES_BY_FOLDER.forEach((images) => {
   images.sort((a, b) => a.sortKey.localeCompare(b.sortKey, undefined, { numeric: true }))
+})
+
+const EXHIBITION_VIDEOS_BY_FOLDER = Object.entries(EXHIBITION_VIDEO_MODULES).reduce((collection, [path, src], index) => {
+  const normalizedPath = path.replace(/\\/g, '/')
+  const segments = normalizedPath.split('/')
+  const folderName = segments[segments.length - 2] ?? 'exhibition'
+  const filename = segments[segments.length - 1] ?? `video-${index + 1}`
+  const stem = filename.replace(/\.[^.]+$/, '')
+
+  if (!collection.has(folderName)) {
+    collection.set(folderName, [])
+  }
+
+  collection.get(folderName).push({
+    src,
+    title: stem.replace(/[_-]/g, ' '),
+    sortKey: filename,
+  })
+
+  return collection
+}, new Map())
+
+EXHIBITION_VIDEOS_BY_FOLDER.forEach((videos) => {
+  videos.sort((a, b) => a.sortKey.localeCompare(b.sortKey, undefined, { numeric: true }))
 })
 
 function getStableNumber(value) {
@@ -2758,49 +2789,20 @@ function AboutPage({
   )
   const rightStageWidth = '100vw'
 
-  const [aboutWinPos, setAboutWinPos] = useState({ x: 24, y: 112 })
-  const aboutWinPosRef = useRef(aboutWinPos)
-  aboutWinPosRef.current = aboutWinPos
-
-  const [playerPos, setPlayerPos] = useState(() => ({
-    x: 24,
-    y: typeof window !== 'undefined' ? window.innerHeight - 250 : 450,
-  }))
-  const playerPosRef = useRef(playerPos)
-  playerPosRef.current = playerPos
   const leftColumnWidth = Math.max(188, Math.min(viewport.width * 0.15, 218))
   const aboutWindowWidth = leftColumnWidth + 34
   const welcomeWidth = 126
   const welcomeHeight = Math.round(welcomeWidth * (55 / 135))
-  const leftColumnX = Math.round((aboutWinPos.x + playerPos.x) / 2)
-  const aboutWindowTop = aboutWinPos.y + 36
+  const leftColumnX = 24
+  const aboutWindowTop = 148
   const aboutWindowHeight = 181
-  const playerWindowTop = playerPos.y + 36
-  const diaryHeight = Math.max(154, Math.min(playerWindowTop - aboutWindowTop - aboutWindowHeight - 40, 220))
   const BROWSER_CHROME_HEIGHT = 62
-  const equalGap = Math.max(8, Math.min(
-    Math.floor((playerWindowTop - aboutWindowTop - aboutWindowHeight - diaryHeight) / 2),
-    aboutWindowTop - welcomeHeight - BROWSER_CHROME_HEIGHT - 8
-  ))
-  const diaryTop = aboutWindowTop + aboutWindowHeight + equalGap
+  const welcomeTop = Math.round(BROWSER_CHROME_HEIGHT + ((aboutWindowTop - BROWSER_CHROME_HEIGHT - welcomeHeight) / 2))
+  const playerWindowHeight = Math.round(132 * (leftColumnWidth / 290))
+  const playerWindowTop = Math.max(aboutWindowTop + aboutWindowHeight + 430, viewport.height - playerWindowHeight - 28)
+  const diaryHeight = Math.max(154, Math.min(playerWindowTop - aboutWindowTop - aboutWindowHeight - 96, 220))
+  const diaryTop = Math.max(aboutWindowTop + aboutWindowHeight + 96, playerWindowTop - diaryHeight - 190)
   const diaryWidth = Math.max(Math.min(leftColumnWidth - 34, 132), 106)
-
-  const makeTitleBarDrag = useCallback((posRef, setPos) => (e) => {
-    if (isTouch) return
-    if (e.button !== 0) return
-    e.preventDefault()
-    const startMx = e.clientX
-    const startMy = e.clientY
-    const startPx = posRef.current.x
-    const startPy = posRef.current.y
-    const onMove = (me) => setPos({ x: startPx + me.clientX - startMx, y: startPy + me.clientY - startMy })
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-  }, [isTouch])
 
   const startFolderDrag = useCallback((folderId, e) => {
     if (isTouch) return
@@ -2818,6 +2820,7 @@ function AboutPage({
     const startMx = e.clientX
     const startMy = e.clientY
     let moved = false
+
     const onMove = (me) => {
       const dx = me.clientX - startMx
       const dy = me.clientY - startMy
@@ -2830,10 +2833,12 @@ function AboutPage({
         return next
       })
     }
+
     const onUp = () => {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
     }
+
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
   }, [isTouch])
@@ -2975,7 +2980,7 @@ function AboutPage({
     >
       {/* ── Welcome gif (static) ── */}
       {!isFolderView && (
-        <div style={{ position: 'fixed', left: leftColumnX, top: aboutWindowTop - welcomeHeight - equalGap, zIndex: 21, pointerEvents: 'none' }}>
+        <div style={{ position: 'fixed', left: leftColumnX, top: welcomeTop, zIndex: 21, pointerEvents: 'none' }}>
           <img
             src="assets/welcome.webp"
             alt="welcome to my page"
@@ -2990,7 +2995,7 @@ function AboutPage({
           style={{
             position: 'fixed',
             left: leftColumnX,
-            top: aboutWinPos.y + 36,
+            top: aboutWindowTop,
             zIndex: 21,
             width: `${aboutWindowWidth}px`,
           }}
@@ -3007,8 +3012,6 @@ function AboutPage({
           >
             {/* Title bar */}
             <div
-              onMouseDown={makeTitleBarDrag(aboutWinPosRef, setAboutWinPos)}
-              className="cursor-grab"
               style={{ background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid #b0b0b0', userSelect: 'none' }}
             >
               <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-block' }} />
@@ -3093,7 +3096,7 @@ function AboutPage({
 
       {/* ── Safety pin (between left col and right stage) ── */}
       {!isFolderView && (
-        <div style={{ position: 'absolute', left: `${leftColumnX + aboutWindowWidth + 24}px`, top: '42%', zIndex: 20, pointerEvents: 'none' }}>
+        <div style={{ position: 'absolute', left: `${leftColumnX + aboutWindowWidth + 24}px`, top: '48%', zIndex: 20, pointerEvents: 'none' }}>
           <img
             src="assets/safety-pin.gif"
             alt=""
@@ -3109,7 +3112,7 @@ function AboutPage({
           style={{
             position: 'fixed',
             left: leftColumnX,
-            top: playerPos.y - 4,
+            top: playerWindowTop - 40,
             zIndex: 21,
             pointerEvents: 'none',
             width: `${leftColumnWidth}px`,
@@ -3127,13 +3130,13 @@ function AboutPage({
           style={{
             position: 'fixed',
             left: leftColumnX,
-            top: playerPos.y + 36,
+            top: playerWindowTop,
             zIndex: 21,
             width: `${leftColumnWidth}px`,
           }}
           onClick={(event) => event.stopPropagation()}
         >
-          <TinyPlayer onTitleBarMouseDown={makeTitleBarDrag(playerPosRef, setPlayerPos)} width={leftColumnWidth} />
+          <TinyPlayer width={leftColumnWidth} />
         </div>
       )}
 
@@ -3401,6 +3404,8 @@ function AboutFolderContent({
   }
   const writingDesktopRef = useRef(null)
   const draggedWritingRef = useRef(null)
+  const archiveDesktopRef = useRef(null)
+  const draggedArchiveRef = useRef(null)
   const writingScatterLayout = useMemo(() => {
     const count = 20
     const positions = []
@@ -3456,9 +3461,46 @@ function AboutFolderContent({
     () => (folder.id === 'writing' ? folder.sections.flatMap((section) => section.links ?? []) : []),
     [folder.id, folder.sections]
   )
+  const getArchiveImageKey = useCallback((image) => `${image.page}/${image.filename}`, [])
+  const archiveColumns = 9
+  const archiveRowHeight = 132
+  const archiveBaseLayout = useMemo(() => OPEN_ARCHIVE_IMAGES.map((image, index) => {
+    const row = Math.floor(index / archiveColumns)
+    const column = index % archiveColumns
+    const columnOffset = ((column + 0.5) / archiveColumns) * 100
+    const xJitter = (image.seed % 47) - 23
+    const yJitter = ((Math.floor(image.seed / 7) % 55) - 20)
+    const width = 46 + (image.seed % 54)
+    const rotation = (Math.floor(image.seed / 11) % 17) - 8
+
+    return {
+      left: `calc(${columnOffset}% + ${xJitter}px)`,
+      top: `${58 + row * archiveRowHeight + yJitter}px`,
+      width,
+      rotation,
+      zIndex: 10 + (image.seed % 40),
+    }
+  }), [])
+  const [archiveImagePositions, setArchiveImagePositions] = useState(
+    () => new Map(OPEN_ARCHIVE_IMAGES.map((image, index) => [getArchiveImageKey(image), archiveBaseLayout[index]]))
+  )
   const [writingIconPositions, setWritingIconPositions] = useState(
     () => new Map(writingLinks.map((link, index) => [link.url, writingScatterLayout[index] ?? { left: `${8 + index * 14}%`, top: `${18 + (index % 2) * 14}%` }]))
   )
+  useEffect(() => {
+    if (folder.id !== 'open-collective-archive') return
+    setArchiveImagePositions((prev) => {
+      let changed = false
+      const next = new Map(prev)
+      OPEN_ARCHIVE_IMAGES.forEach((image, index) => {
+        const key = getArchiveImageKey(image)
+        if (next.has(key)) return
+        changed = true
+        next.set(key, archiveBaseLayout[index])
+      })
+      return changed ? next : prev
+    })
+  }, [archiveBaseLayout, folder.id, getArchiveImageKey])
   useEffect(() => {
     if (folder.id !== 'writing') return
     setWritingIconPositions((prev) => {
@@ -3496,6 +3538,41 @@ function AboutFolderContent({
       setWritingIconPositions((prev) => {
         const next = new Map(prev)
         next.set(linkUrl, { left: startPx + dx, top: startPy + dy, isPx: true })
+        return next
+      })
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [])
+  const startArchiveImageDrag = useCallback((imageKey, e) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    const container = archiveDesktopRef.current
+    if (!container) return
+    const containerRect = container.getBoundingClientRect()
+    const el = e.currentTarget
+    const elRect = el.getBoundingClientRect()
+    const startPx = elRect.left + elRect.width / 2 - containerRect.left
+    const startPy = elRect.top + elRect.height / 2 - containerRect.top
+    const startMx = e.clientX
+    const startMy = e.clientY
+    let moved = false
+    draggedArchiveRef.current = null
+
+    const onMove = (me) => {
+      const dx = me.clientX - startMx
+      const dy = me.clientY - startMy
+      if (!moved && Math.abs(dx) < FOLDER_DRAG_THRESHOLD_PX && Math.abs(dy) < FOLDER_DRAG_THRESHOLD_PX) return
+      moved = true
+      draggedArchiveRef.current = imageKey
+      setArchiveImagePositions((prev) => {
+        const current = prev.get(imageKey) ?? {}
+        const next = new Map(prev)
+        next.set(imageKey, { ...current, left: startPx + dx, top: startPy + dy, isPx: true })
         return next
       })
     }
@@ -3574,26 +3651,7 @@ function AboutFolderContent({
   }
 
   if (folder.id === 'open-collective-archive') {
-    const columns = 9
-    const rowHeight = 132
-    const archivePageHeight = Math.max(680, Math.ceil(OPEN_ARCHIVE_IMAGES.length / columns) * rowHeight + 190)
-    const archiveLayout = OPEN_ARCHIVE_IMAGES.map((image, index) => {
-      const row = Math.floor(index / columns)
-      const column = index % columns
-      const columnOffset = ((column + 0.5) / columns) * 100
-      const xJitter = (image.seed % 47) - 23
-      const yJitter = ((Math.floor(image.seed / 7) % 55) - 20)
-      const width = 46 + (image.seed % 54)
-      const rotation = (Math.floor(image.seed / 11) % 17) - 8
-
-      return {
-        left: `calc(${columnOffset}% + ${xJitter}px)`,
-        top: `${58 + row * rowHeight + yJitter}px`,
-        width,
-        rotation,
-        zIndex: 10 + (image.seed % 40),
-      }
-    })
+    const archivePageHeight = Math.max(680, Math.ceil(OPEN_ARCHIVE_IMAGES.length / archiveColumns) * archiveRowHeight + 190)
     const activeArchiveImage = activeFolderImageIndex != null && OPEN_ARCHIVE_IMAGES.length > 0
       ? OPEN_ARCHIVE_IMAGES[activeFolderImageIndex % OPEN_ARCHIVE_IMAGES.length]
       : null
@@ -3613,6 +3671,7 @@ function AboutFolderContent({
         }}
       >
         <div
+          ref={archiveDesktopRef}
           style={{
             position: 'relative',
             minHeight: `${archivePageHeight}px`,
@@ -3620,18 +3679,31 @@ function AboutFolderContent({
           }}
         >
           {OPEN_ARCHIVE_IMAGES.map((image, imageIndex) => {
-            const layout = archiveLayout[imageIndex]
+            const imageKey = getArchiveImageKey(image)
+            const layout = archiveImagePositions.get(imageKey) ?? archiveBaseLayout[imageIndex]
+            const layoutLeft = layout.isPx ? `${layout.left}px` : layout.left
+            const layoutTop = layout.isPx ? `${layout.top}px` : layout.top
 
             return (
               <button
-                key={`${image.page}/${image.filename}`}
+                key={imageKey}
                 type="button"
-                onClick={() => onOpenFolderRoute?.(folder.id, 'view', imageIndex)}
+                onMouseDown={(event) => startArchiveImageDrag(imageKey, event)}
+                onClick={(event) => {
+                  if (draggedArchiveRef.current === imageKey) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    draggedArchiveRef.current = null
+                    return
+                  }
+                  onOpenFolderRoute?.(folder.id, 'view', imageIndex)
+                }}
                 title={image.filename}
+                className="cursor-grab"
                 style={{
                   position: 'absolute',
-                  left: layout.left,
-                  top: layout.top,
+                  left: layoutLeft,
+                  top: layoutTop,
                   zIndex: layout.zIndex,
                   width: `${layout.width}px`,
                   transform: `translate(-50%, -50%) rotate(${layout.rotation}deg)`,
@@ -3640,6 +3712,8 @@ function AboutFolderContent({
                   padding: 0,
                   display: 'block',
                   lineHeight: 0,
+                  cursor: 'inherit',
+                  userSelect: 'none',
                 }}
               >
                 <img
@@ -3746,6 +3820,7 @@ function AboutFolderContent({
 
     if (selectedExhibition) {
       const images = EXHIBITION_IMAGES_BY_FOLDER.get(selectedExhibition.imageFolder) ?? []
+      const videos = EXHIBITION_VIDEOS_BY_FOLDER.get(selectedExhibition.videoFolder ?? selectedExhibition.imageFolder) ?? []
       const openLightbox = (imageIndex) => onOpenFolderRoute?.(folder.id, selectedExhibition.id, imageIndex)
       const activeLightboxImage = activeFolderImageIndex != null && images.length > 0
         ? images[activeFolderImageIndex % images.length]
@@ -3847,6 +3922,24 @@ function AboutFolderContent({
                   />
                 </button>
               ))}
+              {videos.map((video) => (
+                <figure key={video.src} style={{ margin: 0, width: 'min(100%, 620px)' }}>
+                  <video
+                    src={video.src}
+                    controls
+                    preload="metadata"
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      maxHeight: '58vh',
+                      background: '#000',
+                    }}
+                  />
+                  <figcaption style={{ marginTop: '7px', fontSize: '13px', lineHeight: 1.25 }}>
+                    {video.title}
+                  </figcaption>
+                </figure>
+              ))}
             </div>
           </main>
 
@@ -3870,6 +3963,7 @@ function AboutFolderContent({
         <main style={{ minWidth: 0, textAlign: 'center' }}>
           {EXHIBITIONS.map((exhibition, exhibitionIndex) => {
             const images = EXHIBITION_IMAGES_BY_FOLDER.get(exhibition.imageFolder) ?? []
+            const videos = EXHIBITION_VIDEOS_BY_FOLDER.get(exhibition.videoFolder ?? exhibition.imageFolder) ?? []
             const previewImage = images[0] ?? null
 
             return (
@@ -3912,6 +4006,24 @@ function AboutFolderContent({
                       />
 
                     </figure>
+                  </button>
+                )}
+                {!previewImage && videos.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenFolderRoute?.(folder.id, exhibition.id)}
+                    style={{
+                      border: '1px solid #111',
+                      background: '#fff',
+                      padding: '12px 18px',
+                      margin: '0 auto 8px',
+                      display: 'inline-block',
+                      font: 'inherit',
+                      fontSize: '13px',
+                      color: '#000',
+                    }}
+                  >
+                    video documentation
                   </button>
                 )}
 
@@ -4154,7 +4266,11 @@ function ProjectPreviewWindow({ onClose, onPreviewStarted, isTouch = false }) {
         <button
           type="button"
           aria-label="Close preview"
-          onClick={onClose}
+          onClick={(event) => {
+            event.stopPropagation()
+            onClose()
+          }}
+          onMouseDown={(event) => event.stopPropagation()}
           style={{
             width: '12px',
             height: '12px',
