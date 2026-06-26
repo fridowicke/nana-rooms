@@ -1470,8 +1470,8 @@ function ExhibitionLightbox({ image, onNext, onClose }) {
         }}
         style={{
           position: 'fixed',
-          bottom: '48px',
-          left: '24px',
+          top: '14px',
+          right: '16px',
           zIndex: 2147483647,
           border: 'none',
           background: 'transparent',
@@ -1483,7 +1483,7 @@ function ExhibitionLightbox({ image, onNext, onClose }) {
           src={GO_BACK_GIF}
           alt="Go back"
           draggable={false}
-          style={{ width: 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
+          style={{ width: 'min(42px, 7vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
         />
       </button>
       <img
