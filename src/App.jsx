@@ -1470,18 +1470,21 @@ function ExhibitionLightbox({ image, onNext, onClose }) {
         }}
         style={{
           position: 'fixed',
-          top: '14px',
-          right: '16px',
+          bottom: '48px',
+          left: '24px',
           zIndex: 2147483647,
           border: 'none',
           background: 'transparent',
-          color: '#ff0000',
-          font: '700 54px Arial, Helvetica, sans-serif',
-          lineHeight: 1,
-          padding: '4px 10px',
+          padding: 0,
+          cursor: HOVER_KEY_CURSOR,
         }}
       >
-        ×
+        <img
+          src={GO_BACK_GIF}
+          alt="Go back"
+          draggable={false}
+          style={{ width: 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
+        />
       </button>
       <img
         src={image.src}
@@ -3752,6 +3755,12 @@ function AboutFolderContent({
         onOpenFolderRoute?.(folder.id, selectedExhibition.id, ((activeFolderImageIndex ?? 0) + 1) % images.length)
       }
       const institutionText = [selectedExhibition.venue, selectedExhibition.location].filter(Boolean).join('\n')
+      const detailContentStyle = {
+        margin: '0 0 34px',
+        maxWidth: '700px',
+        fontSize: '18px',
+        lineHeight: 1.42,
+      }
 
       return (
         <div style={exhibitionShellStyle}>
@@ -3782,7 +3791,7 @@ function AboutFolderContent({
               </div>
             </div>
 
-            <div style={{ margin: '0 auto 34px', maxWidth: '700px', fontSize: '18px', lineHeight: 1.42 }}>
+            <div style={detailContentStyle}>
               {selectedExhibition.description?.map((paragraph) => (
                 <p key={paragraph} style={{ margin: '0 0 18px' }}>
                   {paragraph}
@@ -3791,7 +3800,7 @@ function AboutFolderContent({
             </div>
 
             {selectedExhibition.links?.length > 0 && (
-              <div style={{ margin: '0 auto 42px', maxWidth: '700px', fontSize: '18px', lineHeight: 1.42 }}>
+              <div style={{ ...detailContentStyle, marginBottom: '42px' }}>
                 {selectedExhibition.links.map((link) => (
                   <React.Fragment key={link.url}>
                     <a
