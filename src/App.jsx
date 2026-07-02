@@ -417,7 +417,7 @@ const FOLDER_DEFINITIONS = [
       {
         heading: '2025',
         links: [
-          { url: 'https://festivalpanoramic.cat/en/project/panoramic-review-2025/', label: 'Festival Panoramic: Panoramic Review 2025' },
+          { url: 'https://festivalpanoramic.cat/en/project/panoramic-review-2025/', label: "Festival Panoramic: Bed Doesn't Ask Questions 2025" },
         ],
       },
       {
