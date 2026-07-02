@@ -430,14 +430,7 @@ const FOLDER_DEFINITIONS = [
           { url: 'https://www.instagram.com/p/DDmLc2Th1PV/', label: 'SABUKARU JAPAN: 3D scanned messes' },
         ],
       },
-      {
-        heading: '2023',
-        links: [
-          { url: 'https://www.tamabi.ac.jp/news/55772/', label: 'Tama Art University: Artist at Risk Program' },
-          { url: 'https://i-d.co/article/daria-svertilova-photography-ukraine/', label: 'i-D: temporary homes' },
 
-        ],
-      },
     ],
   },
   {
