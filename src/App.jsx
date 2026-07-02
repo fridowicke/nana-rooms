@@ -469,7 +469,7 @@ const FOLDER_DEFINITIONS = [
         heading: 'CURATING',
         entries: [
           { year: '2025', item: "SpilkaParis x Local Group, Kolektiv Radieuse, Le Corbusier's Cité Radieuse, Marseille, France", url: 'https://www.instagram.com/p/DLiPmNXoxwA/' },
-          { year: '2025', item: 'Localstickerbook, Films fundraiser, Domicile Gallery, Tokyo, Japan', url: 'https://domicile.tokyo/' },
+          { year: '2025', item: 'Localstickerbook, Films fundraiser, Domicile Gallery, Tokyo, Japan', url: 'https://www.instagram.com/p/DF5DwVPiRwL/' },
           { year: '2025', item: 'OpenSecret x Localstickerbook, Internet Cinema, Untitled Space Gallery, Tokyo, Japan', url: 'https://www.ultra.art/p/the-fourth-secret-of-internet-cinema' },
           { year: '2024', item: 'Localstickerbook, Films Fundraiser, Datsuijo Gallery, Tokyo, Japan', url: 'https://datsuijo.com/' },
           { year: '2022', item: 'Localstickerbook, Experimental Film Screening, Filaret 16, Bucharest, Romania', url: 'https://www.facebook.com/Filaret16DiY/' },
