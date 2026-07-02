@@ -464,15 +464,7 @@ const FOLDER_DEFINITIONS = [
     label: 'filmmaking',
     title: 'Filmmaking',
     sections: [
-      {
-        heading: 'SCREENINGS',
-        entries: [
-          { year: '2025', item: '"Dream Wanders By The Window", BurningMagazine, Tokyo, Japan', url: 'https://burningmagazinejp.com/' },
-          { year: '2025', item: "SpilkaParis x Local Group, Kolektiv Radieuse, Le Corbusier's Cité Radieuse, Marseille, France", url: 'https://www.instagram.com/p/DLiPmNXoxwA/' },
-          { year: '2024', item: 'Localstickerbook, Films Fundraiser, Datsuijo Gallery, Tokyo, Japan', url: 'https://datsuijo.com/' },
-          { year: '2023', item: 'Short Poetic Film Festival, Lviv, Ukraine', url: 'https://wiz-art.ua/en/' },
-        ],
-      },
+
       {
         heading: 'CURATING',
         entries: [
