@@ -3751,11 +3751,14 @@ function AboutFolderContent({
       color: '#000',
       textAlign: 'left',
       textDecoration: 'underline',
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
     }
     const exhibitionShellStyle = {
       ...plainPageStyle,
       display: 'grid',
-      gridTemplateColumns: '170px minmax(0, 1fr)',
+      gridTemplateColumns: '220px minmax(0, 1fr)',
       gap: '30px',
       alignItems: 'start',
       padding: '40px 32px 64px',
