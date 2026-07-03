@@ -261,7 +261,7 @@ const EXHIBITIONS = [
   },
   {
     id: 'tama-art-university-installation',
-    title: 'Multimedia interactive installation',
+    title: 'I miss my pre-internet brain',
     year: '2023',
     venue: 'Tama Art University',
     location: 'Tokyo, Japan',
