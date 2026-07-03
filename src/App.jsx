@@ -410,7 +410,7 @@ const FOLDER_DEFINITIONS = [
         heading: '2026',
         links: [
           { url: 'https://www.vogue.com/article/a-project-about-gen-z-youth-in-ukraine?fbclid=PAdGRleAQpBMlleHRuA2FlbQIxMQBzcnRjBmFwcF9pZA8xMjQwMjQ1NzQyODc0MTQAAadkgc9wIQkccTcXOcbHOOxd4wWiCWSpJvO0sIrSnEJ86m0lLWdtYe7iTQ3YNQ_aem_W62CPaBczjId_yDnCjozuQ', label: 'Photo Vogue: Ukrainian Gen Z Adolescence' },
-          { url: 'https://www.vogue.com/article/women-by-women-the-shortlist', label: 'Vogue: Women By Women: The Shortlist' },
+          { url: 'https://www.vogue.com/article/women-by-women-the-shortlist', label: 'PhotoVogue Global, Women by Women Shortlist' },
           { url: 'https://queerwararchive.com/2026/02/18/shelest-vetrovki-anastasiia-pischanska-gen-z/', label: 'Queer War Archive: Ukrainian Gen Z Youth' },
         ],
       },
