@@ -2786,7 +2786,7 @@ function AboutPage({
   const playerWindowHeight = Math.round(132 * (leftColumnWidth / 290))
   const playerWindowTop = Math.max(aboutWindowTop + aboutWindowHeight + 430, viewport.height - playerWindowHeight - 28)
   const diaryHeight = Math.max(154, Math.min(playerWindowTop - aboutWindowTop - aboutWindowHeight - 96, 220))
-  const diaryTop = Math.max(aboutWindowTop + aboutWindowHeight + 96, playerWindowTop - diaryHeight - 190)
+  const diaryTop = Math.max(aboutWindowTop + aboutWindowHeight + 96, playerWindowTop - diaryHeight - 260)
   const diaryWidth = Math.max(Math.min(leftColumnWidth - 34, 132), 106)
 
   const startFolderDrag = useCallback((folderId, e) => {
