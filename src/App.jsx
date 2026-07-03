@@ -3879,21 +3879,22 @@ function AboutFolderContent({
             )}
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '18px' }}>
-              {images.map((image, imageIndex) => (
+              {images.length > 0 && (
                 <button
-                  key={image.src}
+                  key={images[0].src}
                   type="button"
-                  onClick={() => openLightbox(imageIndex)}
+                  onClick={() => openLightbox(0)}
                   style={{
                     border: 'none',
                     background: 'transparent',
                     padding: 0,
                     display: 'block',
                     lineHeight: 0,
+                    cursor: 'pointer',
                   }}
                 >
                   <img
-                    src={image.src}
+                    src={images[0].src}
                     alt=""
                     loading="lazy"
                     decoding="async"
@@ -3906,7 +3907,7 @@ function AboutFolderContent({
                     }}
                   />
                 </button>
-              ))}
+              )}
               {videos.map((video) => (
                 <figure key={video.src} style={{ margin: 0, width: 'min(100%, 620px)' }}>
                   <video
