@@ -3826,24 +3826,24 @@ function AboutFolderContent({
         <div style={exhibitionShellStyle}>
           {renderExhibitionNav()}
 
-          <main style={{ minWidth: 0, maxWidth: '1180px', margin: '0 auto' }}>
+          <main style={{ minWidth: 0, maxWidth: '860px', margin: '0 auto', padding: '0 0 80px' }}>
+            {/* Title block — two equal columns */}
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'minmax(220px, 1fr) minmax(260px, 1fr)',
-                columnGap: 'clamp(44px, 14vw, 220px)',
-                rowGap: '24px',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '24px',
                 alignItems: 'start',
-                margin: '0 0 52px',
+                margin: '0 0 48px',
               }}
             >
               <div>
-                <p style={{ margin: 0, fontSize: '20px', fontWeight: 700, lineHeight: 1.28, whiteSpace: 'pre-line' }}>
+                <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 700, lineHeight: 1.3, whiteSpace: 'pre-line' }}>
                   {institutionText}
-                </p>
+                </h1>
               </div>
               <div>
-                <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 700, lineHeight: 1.28 }}>
+                <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 700, lineHeight: 1.3 }}>
                   {selectedExhibition.title}
                   <br />
                   {selectedExhibition.dates ?? selectedExhibition.year}
@@ -3851,37 +3851,40 @@ function AboutFolderContent({
               </div>
             </div>
 
-            <div style={detailContentStyle}>
-              {selectedExhibition.description?.map((paragraph) => (
-                <p key={paragraph} style={{ margin: '0 0 18px' }}>
-                  {paragraph}
-                </p>
-              ))}
-            </div>
-
-            {selectedExhibition.links?.length > 0 && (
-              <div style={{ ...detailContentStyle, marginBottom: '42px' }}>
-                {selectedExhibition.links.map((link) => (
-                  <React.Fragment key={link.url}>
-                    <a
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`about-folder-link${folder.id === 'press' ? ' press-folder-link' : ''}`}
-                      style={folder.id === 'press' ? pressLinkStyle : plainLinkStyle}
-                    >
-                      {link.label}
-                    </a>
-                    <br />
-                  </React.Fragment>
+            {/* Description */}
+            {selectedExhibition.description?.length > 0 && (
+              <div style={{ padding: '0 40px', marginBottom: '36px' }}>
+                {selectedExhibition.description.map((paragraph) => (
+                  <p key={paragraph} style={{ margin: '0 0 18px', fontSize: '18px', lineHeight: 1.5 }}>
+                    {paragraph}
+                  </p>
                 ))}
               </div>
             )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '18px' }}>
-              {images.length > 0 && (
+            {/* Images section */}
+            {images.length > 0 && (
+              <div style={{ marginBottom: '28px' }}>
+                {/* "Installation Images (N) →" link */}
                 <button
-                  key={images[0].src}
+                  type="button"
+                  onClick={() => openLightbox(0)}
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    padding: '0 0 10px',
+                    cursor: 'pointer',
+                    fontSize: '18px',
+                    textDecoration: 'underline',
+                    color: 'inherit',
+                    fontFamily: 'inherit',
+                    display: 'block',
+                  }}
+                >
+                  {`Installation Images (${images.length}) →`}
+                </button>
+                {/* First image full width */}
+                <button
                   type="button"
                   onClick={() => openLightbox(0)}
                   style={{
@@ -3889,6 +3892,7 @@ function AboutFolderContent({
                     background: 'transparent',
                     padding: 0,
                     display: 'block',
+                    width: '100%',
                     lineHeight: 0,
                     cursor: 'pointer',
                   }}
@@ -3900,33 +3904,57 @@ function AboutFolderContent({
                     decoding="async"
                     style={{
                       display: 'block',
-                      height: '38vh',
-                      width: 'auto',
-                      maxWidth: '100%',
-                      objectFit: 'contain',
+                      width: '100%',
+                      height: 'auto',
+                      objectFit: 'cover',
                     }}
                   />
                 </button>
-              )}
-              {videos.map((video) => (
-                <figure key={video.src} style={{ margin: 0, width: 'min(100%, 620px)' }}>
-                  <video
-                    src={video.src}
-                    controls
-                    preload="metadata"
-                    style={{
-                      display: 'block',
-                      width: '100%',
-                      maxHeight: '58vh',
-                      background: '#000',
-                    }}
-                  />
-                  <figcaption style={{ marginTop: '7px', fontSize: '13px', lineHeight: 1.25 }}>
-                    {video.title}
-                  </figcaption>
-                </figure>
-              ))}
-            </div>
+              </div>
+            )}
+
+            {/* Links */}
+            {selectedExhibition.links?.length > 0 && (
+              <div style={{ padding: '0 40px', marginBottom: '36px' }}>
+                {selectedExhibition.links.map((link) => (
+                  <React.Fragment key={link.url}>
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ fontSize: '18px', color: 'inherit', textDecoration: 'underline', display: 'inline-block', marginBottom: '8px' }}
+                    >
+                      {link.label} ↓
+                    </a>
+                    <br />
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
+
+            {/* Videos */}
+            {videos.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                {videos.map((video) => (
+                  <figure key={video.src} style={{ margin: 0, width: '100%' }}>
+                    <video
+                      src={video.src}
+                      controls
+                      preload="metadata"
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        maxHeight: '58vh',
+                        background: '#000',
+                      }}
+                    />
+                    <figcaption style={{ marginTop: '7px', fontSize: '13px', lineHeight: 1.25 }}>
+                      {video.title}
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            )}
           </main>
 
           {activeLightboxImage && createPortal(
