@@ -3128,7 +3128,7 @@ function AboutPage({
             position: 'fixed',
             left: leftColumnX,
             top: playerWindowTop,
-            zIndex: 21,
+            zIndex: 35,
             width: `${leftColumnWidth}px`,
           }}
           onClick={(event) => event.stopPropagation()}
