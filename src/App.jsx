@@ -175,7 +175,8 @@ const EXHIBITIONS = [
     location: 'Barcelona, Spain',
     caption: '6x3m digital print, 2025.',
     description: [
-      "Chantal Akerman, Anne Glassner, Naked Space, shelestvetrovki. Curated by Estela Ortiz & Juan Evaristo Valls Boix.",
+      "Chantal Akerman, Anne Glassner, Naked Space, shelestvetrovki.",
+      "Curated by Estela Ortiz & Juan Evaristo Valls Boix.",
       "The exhibition reflects on rest, centering on the bed and the private room, taking Chantal Akerman's La chambre as its point of departure. Through a dialogue between artistic works and memetic expressions from recent years, this group show explores which bodies have access to rest and highlights the public dimension of practices that, at first glance, appear to be private.",
       'In the contemporary world, the imperatives of work infiltrate our beds and encroach upon our intimacy, while idleness and pause too often remain privileges accessible to only a few. For this reason, a sleeping body today stands as a radical image of freedom--yet also the most elusive: the embrace of time without purpose.',
     ],
