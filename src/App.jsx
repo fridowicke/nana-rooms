@@ -3852,7 +3852,7 @@ function AboutFolderContent({
 
             {/* Description */}
             {selectedExhibition.description?.length > 0 && (
-              <div style={{ padding: '0 40px', marginBottom: '36px' }}>
+              <div style={{ marginBottom: '36px' }}>
                 {selectedExhibition.description.map((paragraph) => (
                   <p key={paragraph} style={{ margin: '0 0 18px', fontSize: '18px', lineHeight: 1.5 }}>
                     {paragraph}
@@ -3914,7 +3914,7 @@ function AboutFolderContent({
 
             {/* Links */}
             {selectedExhibition.links?.length > 0 && (
-              <div style={{ padding: '0 40px', marginBottom: '36px' }}>
+              <div style={{ marginBottom: '36px' }}>
                 {selectedExhibition.links.map((link) => (
                   <React.Fragment key={link.url}>
                     <a
