@@ -1447,6 +1447,173 @@ function TallyEmbed() {
   )
 }
 
+function NodeGraph({ images, onOpenImage }) {
+  const containerRef = React.useRef(null)
+  const [size, setSize] = React.useState({ w: 800, h: 600 })
+  const [transform, setTransform] = React.useState({ x: 0, y: 0, scale: 1 })
+  const [nodes, setNodes] = React.useState([])
+  const animRef = React.useRef(null)
+  const nodesRef = React.useRef([])
+  const isPanningRef = React.useRef(false)
+  const panStartRef = React.useRef({ x: 0, y: 0, tx: 0, ty: 0 })
+
+  // Measure container
+  React.useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => {
+      setSize({ w: el.offsetWidth, h: el.offsetHeight })
+    })
+    ro.observe(el)
+    setSize({ w: el.offsetWidth, h: el.offsetHeight })
+    return () => ro.disconnect()
+  }, [])
+
+  // Init nodes in a spiral around center
+  React.useEffect(() => {
+    if (!images.length || !size.w) return
+    const cx = size.w / 2
+    const cy = size.h / 2
+    const NODE_SIZE = 52
+    const initialized = images.map((image, i) => {
+      const angle = (i / images.length) * Math.PI * 2 * Math.ceil(images.length / 8)
+      const radius = 80 + (i % 8) * 38 + Math.floor(i / 8) * 42
+      return {
+        id: i,
+        image,
+        x: cx + Math.cos(angle) * radius,
+        y: cy + Math.sin(angle) * radius,
+        vx: 0,
+        vy: 0,
+        size: NODE_SIZE,
+      }
+    })
+    nodesRef.current = initialized
+    setNodes([...initialized])
+  }, [images, size.w, size.h])
+
+  // Force simulation
+  React.useEffect(() => {
+    if (!nodesRef.current.length || !size.w) return
+    const cx = size.w / 2
+    const cy = size.h / 2
+    const TARGET_RADIUS = Math.min(size.w, size.h) * 0.38
+
+    const tick = () => {
+      const ns = nodesRef.current
+      for (let i = 0; i < ns.length; i++) {
+        const n = ns[i]
+        // Pull toward orbit radius from center
+        const dx = n.x - cx
+        const dy = n.y - cy
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1
+        const diff = dist - TARGET_RADIUS
+        n.vx -= (dx / dist) * diff * 0.004
+        n.vy -= (dy / dist) * diff * 0.004
+        // Repel from other nodes
+        for (let j = i + 1; j < ns.length; j++) {
+          const m = ns[j]
+          const ex = n.x - m.x
+          const ey = n.y - m.y
+          const d = Math.sqrt(ex * ex + ey * ey) || 1
+          const minD = (n.size + m.size) * 0.6
+          if (d < minD) {
+            const force = (minD - d) / d * 0.15
+            n.vx += ex * force
+            n.vy += ey * force
+            m.vx -= ex * force
+            m.vy -= ey * force
+          }
+        }
+        n.vx *= 0.82
+        n.vy *= 0.82
+        n.x += n.vx
+        n.y += n.vy
+      }
+      setNodes(ns.map(n => ({ ...n })))
+      animRef.current = requestAnimationFrame(tick)
+    }
+    animRef.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(animRef.current)
+  }, [nodes.length, size.w, size.h])
+
+  // Pan handlers
+  const onMouseDown = (e) => {
+    if (e.button !== 0) return
+    isPanningRef.current = true
+    panStartRef.current = { x: e.clientX, y: e.clientY, tx: transform.x, ty: transform.y }
+  }
+  const onMouseMove = (e) => {
+    if (!isPanningRef.current) return
+    setTransform(t => ({ ...t, x: panStartRef.current.tx + e.clientX - panStartRef.current.x, y: panStartRef.current.ty + e.clientY - panStartRef.current.y }))
+  }
+  const onMouseUp = () => { isPanningRef.current = false }
+  const onWheel = (e) => {
+    e.preventDefault()
+    const factor = e.deltaY < 0 ? 1.1 : 0.91
+    setTransform(t => ({ ...t, scale: Math.min(4, Math.max(0.2, t.scale * factor)) }))
+  }
+
+  const cx = size.w / 2
+  const cy = size.h / 2
+
+  return (
+    <div
+      ref={containerRef}
+      style={{ width: '100%', height: '100%', overflow: 'hidden', cursor: 'grab', userSelect: 'none', background: '#fff' }}
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseUp}
+      onWheel={onWheel}
+    >
+      <svg width={size.w} height={size.h} style={{ display: 'block' }}>
+        <g transform={`translate(${transform.x},${transform.y}) scale(${transform.scale})`}>
+          {/* Lines from center to each node */}
+          {nodes.map(n => (
+            <line
+              key={`line-${n.id}`}
+              x1={cx} y1={cy}
+              x2={n.x} y2={n.y}
+              stroke="#d0d0d0"
+              strokeWidth={0.8 / transform.scale}
+            />
+          ))}
+          {/* Center dot */}
+          <circle cx={cx} cy={cy} r={5} fill="#222" />
+          {/* Image nodes */}
+          {nodes.map(n => (
+            <foreignObject
+              key={`node-${n.id}`}
+              x={n.x - n.size / 2}
+              y={n.y - n.size / 2}
+              width={n.size}
+              height={n.size}
+              style={{ overflow: 'visible', cursor: 'pointer' }}
+              onClick={(e) => { e.stopPropagation(); onOpenImage(n.id) }}
+            >
+              <img
+                src={n.image.thumbSrc || n.image.src}
+                alt=""
+                draggable={false}
+                style={{
+                  width: `${n.size}px`,
+                  height: `${n.size}px`,
+                  objectFit: 'cover',
+                  display: 'block',
+                  borderRadius: '2px',
+                  boxShadow: '0 1px 6px rgba(0,0,0,0.18)',
+                  pointerEvents: 'none',
+                }}
+              />
+            </foreignObject>
+          ))}
+        </g>
+      </svg>
+    </div>
+  )
+}
+
 function ExhibitionLightbox({ image, onNext, onClose }) {
   useEffect(() => {
     if (typeof document === 'undefined') return undefined
@@ -3647,7 +3814,6 @@ function AboutFolderContent({
   }
 
   if (folder.id === 'open-collective-archive') {
-    const archivePageHeight = Math.max(680, Math.ceil(OPEN_ARCHIVE_IMAGES.length / archiveColumns) * archiveRowHeight + 190)
     const activeArchiveImage = activeFolderImageIndex != null && OPEN_ARCHIVE_IMAGES.length > 0
       ? OPEN_ARCHIVE_IMAGES[activeFolderImageIndex % OPEN_ARCHIVE_IMAGES.length]
       : null
@@ -3660,77 +3826,15 @@ function AboutFolderContent({
       <div
         style={{
           ...plainPageStyle,
-          overflowY: 'auto',
-          overflowX: 'hidden',
+          overflow: 'hidden',
           padding: 0,
           background: '#fff',
         }}
       >
-        <div
-          ref={archiveDesktopRef}
-          style={{
-            position: 'relative',
-            minHeight: `${archivePageHeight}px`,
-            width: '100%',
-          }}
-        >
-          {OPEN_ARCHIVE_IMAGES.map((image, imageIndex) => {
-            const imageKey = getArchiveImageKey(image)
-            const layout = archiveImagePositions.get(imageKey) ?? archiveBaseLayout[imageIndex]
-            const layoutLeft = layout.isPx ? `${layout.left}px` : layout.left
-            const layoutTop = layout.isPx ? `${layout.top}px` : layout.top
-
-            return (
-              <button
-                key={imageKey}
-                type="button"
-                onMouseDown={(event) => startArchiveImageDrag(imageKey, event)}
-                onClick={(event) => {
-                  if (draggedArchiveRef.current === imageKey) {
-                    event.preventDefault()
-                    event.stopPropagation()
-                    draggedArchiveRef.current = null
-                    return
-                  }
-                  onOpenFolderRoute?.(folder.id, 'view', imageIndex)
-                }}
-                title={image.filename}
-                className="cursor-grab"
-                style={{
-                  position: 'absolute',
-                  left: layoutLeft,
-                  top: layoutTop,
-                  zIndex: layout.zIndex,
-                  width: `${layout.width}px`,
-                  transform: `translate(-50%, -50%) rotate(${layout.rotation}deg)`,
-                  border: 'none',
-                  background: 'transparent',
-                  padding: 0,
-                  display: 'block',
-                  lineHeight: 0,
-                  cursor: 'inherit',
-                  userSelect: 'none',
-                }}
-              >
-                <img
-                  src={image.thumbSrc}
-                  alt={image.alt}
-                  loading="lazy"
-                  decoding="async"
-                  draggable={false}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    height: 'auto',
-                    maxHeight: '96px',
-                    objectFit: 'contain',
-                    boxShadow: '0 2px 7px rgba(0,0,0,0.16)',
-                  }}
-                />
-              </button>
-            )
-          })}
-        </div>
+        <NodeGraph
+          images={OPEN_ARCHIVE_IMAGES}
+          onOpenImage={(imageIndex) => onOpenFolderRoute?.(folder.id, 'view', imageIndex)}
+        />
 
         {activeArchiveImage && createPortal(
           <ExhibitionLightbox
