@@ -162,6 +162,7 @@ const EXHIBITIONS = [
       'The 10th edition of the PhotoVogue Festival.',
       'Girlhood: Fantasy and the Inner Life — A panel talk between Anastasiia Pischanska, Laura Pelissier, and Lean Lui, moderated by Francesca Faccani.',
       'The PhotoVogue Women by Women global open call shortlist features 150 photographers, selected from nearly 100,000 submissions across 149 countries, the festival showcasing contemporary female gaze.',
+      'This panel explores girlhood as an inner, emotional landscape where identity is imagined, tested, and continuously reshaped. Moving between fiction, collaboration, performance, and projection, the artists treat girlhood not simply as an age or phase, but as a space of thought, desire, and imagination. Through images that move between reality and construction, intimacy and performance, the works reflect on how young women negotiate visibility, authorship, and self-definition from the inside out.',
       'March 1st to 4th, 2026 at Biblioteca Nazionale Braidense, Milan.',
     ],
     links: [
