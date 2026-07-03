@@ -159,7 +159,9 @@ const EXHIBITIONS = [
     venue: 'PhotoVogue',
     location: 'Biblioteca Nazionale Braidense',
     description: [
-      'The 10th edition of the PhotoVogue Festival. The PhotoVogue Women by Women global open call shortlist features 150 photographers, selected from nearly 100,000 submissions across 149 countries, the festival showcasing contemporary female gaze.',
+      'The 10th edition of the PhotoVogue Festival.',
+      'Girlhood: Fantasy and the Inner Life — A panel talk between Anastasiia Pischanska, Laura Pelissier, and Lean Lui, moderated by Francesca Faccani.',
+      'The PhotoVogue Women by Women global open call shortlist features 150 photographers, selected from nearly 100,000 submissions across 149 countries, the festival showcasing contemporary female gaze.',
       'March 1st to 4th, 2026 at Biblioteca Nazionale Braidense, Milan.',
     ],
     links: [
