@@ -3602,7 +3602,6 @@ function AboutFolderContent({
 
           {DIARY_PHOTOS.map((photo, index) => (
             <section key={photo.src} style={{ margin: '0 0 34px' }}>
-              <p style={{ margin: '0 0 10px' }}>{photo.label}</p>
               <img
                 src={photo.src}
                 alt={photo.alt}
