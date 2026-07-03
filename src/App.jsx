@@ -461,8 +461,8 @@ const FOLDER_DEFINITIONS = [
   },
   {
     id: 'filmmaking',
-    label: 'filmmaking',
-    title: 'Filmmaking',
+    label: 'curation',
+    title: 'Curation',
     sections: [
 
       {
