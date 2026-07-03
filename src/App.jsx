@@ -266,7 +266,11 @@ const EXHIBITIONS = [
     venue: 'Tama Art University',
     location: 'Tokyo, Japan',
     description: [
-      'Multimedia interactive installation presented at Tama Art University.',
+      'Choreography and Direction: Anastasiia Pishchanska',
+      'Technical Direction and Programming: Naoto Hieda',
+      'Performance Artists: Ako Suzuki, Rei Hatsuna, Fuku Naoto, Mame',
+      'This multimedia installative performance explores a symbiotic interaction between human bodies and technology. Through a synthesis of the virtual and the real, the performers\' movements and choreography are captured live via a Kinect camera, then processed using TouchDesigner to generate 3D animations and programmed movement recognition. These elements are converted into dynamic visual reflections projected onto the stage, creating a collaborative duo that bridges the physical and digital realms.',
+      'The performance references the internet culture phenomenon of the NPC (Non-Player Character)—entities typically overseen by a gamemaster in tabletop role-playing games rather than controlled by a live player. Within this piece, each character symbolizes an imaginary post-internet culture, reflecting its distinct philosophical, political, and ontological values.',
     ],
     links: [],
     videoFolder: 'Tama Art University 2023',
