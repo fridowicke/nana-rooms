@@ -219,7 +219,8 @@ const EXHIBITIONS = [
     location: 'Athens, Greece',
     description: [
       'NOISTRUCT, CÁRPATOS, ZORKKKKKA, GAARA collective, LEO ADEF, CHRIS ECHO, SHELESTVETROVKI, P0BREDIABLA',
-      '"MOM, post-internet is not a phase ;(" is a group exhibition exploring the shifting relationship between humans and our digital landscapes amidst visceral cry against the erasure of lives, bombed-out cities and abandoned homes in a global apathy that watches wars unfold, as entire populations are reduced to digital fragments, while the cries for justice are drowned by the endless cycle of "click, scroll, refresh." Curated by Yan Tashtoush.',
+      'Curated by Yan Tashtoush.',
+      '"MOM, post-internet is not a phase ;(" is a group exhibition exploring the shifting relationship between humans and our digital landscapes amidst visceral cry against the erasure of lives, bombed-out cities and abandoned homes in a global apathy that watches wars unfold, as entire populations are reduced to digital fragments, while the cries for justice are drowned by the endless cycle of "click, scroll, refresh."',
     ],
     links: [
       { url: 'https://www.kubaparis.com/submission/469655', label: 'Kuba Paris: MOM, POST-INTERNET IS NOT A PHASE ;(' },
