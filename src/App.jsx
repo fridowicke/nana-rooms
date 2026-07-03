@@ -427,7 +427,7 @@ const FOLDER_DEFINITIONS = [
 
           { url: 'https://www.kubaparis.com/submission/469655', label: 'Kuba Paris: MOM, POST-INTERNET IS NOT A PHASE ;(' },
           { url: 'https://becoming.press/dialogues-on-corecore', label: 'Becoming Press: Dialogues on CoreCore' },
-          { url: 'https://www.instagram.com/p/DDmLc2Th1PV/', label: 'SABUKARU JAPAN: 3D scanned messes' },
+          { url: 'https://www.instagram.com/p/DDmLc2Th1PV/', label: 'SABUKARU JAPAN' },
         ],
       },
 
