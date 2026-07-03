@@ -509,8 +509,8 @@ const FOLDER_DEFINITIONS = [
   },
   {
     id: 'open-collective-archive',
-    label: 'open collective archive',
-    title: 'Open Collective Archive',
+    label: '3D bedrooms wikipedia',
+    title: '3D Bedrooms Wikipedia',
     sections: [],
   },
 ]
