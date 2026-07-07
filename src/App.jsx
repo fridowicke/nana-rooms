@@ -77,6 +77,7 @@ const CV_URL = 'https://docs.google.com/document/d/1VH0PZsOzxVn9IuuzZgf_y74OQ4W5
 const HOME_TITLE = 'shelestvetrovki'
 const PREVIEW_FILENAME = 'shelestvetrovki.mp4'
 const HOME_HASH = '#home'
+const HOUSE_HASH = '#house'
 const HOME_EDITOR_HASH = '#home-editor'
 const HOME_EDITOR_ENABLED = false
 const ABOUT_HASH = '#about'
@@ -697,6 +698,8 @@ const DEFAULT_RESPONSIVE_STATE = {
   isTouch: false,
   prefersReducedMotion: false,
 }
+const MOBILE_VIEWPORT_WIDTH = 700
+const TOUCH_MOBILE_VIEWPORT_WIDTH = 900
 const ROOM_PRELOAD_STAGGER_MS = 2500
 const preloadedRoomAssets = new Set()
 const preloadedVideoAssets = new Map()
@@ -730,6 +733,10 @@ function readResponsiveState() {
     isTouch: coarsePointerQuery.matches,
     prefersReducedMotion: reducedMotionQuery.matches,
   }
+}
+
+function shouldUseMobileLayout({ viewportWidth, isTouch }) {
+  return viewportWidth <= MOBILE_VIEWPORT_WIDTH || (isTouch && viewportWidth < TOUCH_MOBILE_VIEWPORT_WIDTH)
 }
 
 function readRoomRenderVariantFromUrl() {
@@ -1112,6 +1119,10 @@ function parseRouteFromHash(hashValue) {
     if (Number.isInteger(roomNumber) && roomNumber >= 1 && roomNumber <= ROOM_FILES.length) {
       return { type: 'room', roomIndex: roomNumber - 1 }
     }
+  }
+
+  if (normalized === 'house') {
+    return { type: 'home', showHouse: true }
   }
 
   return { type: 'home' }
@@ -1538,16 +1549,22 @@ function NodeGraph({ images, onOpenImage }) {
   }, [nodes.length, size.w, size.h])
 
   // Pan handlers
-  const onMouseDown = (e) => {
-    if (e.button !== 0) return
+  const onPointerDown = (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return
     isPanningRef.current = true
     panStartRef.current = { x: e.clientX, y: e.clientY, tx: transform.x, ty: transform.y }
+    e.currentTarget.setPointerCapture?.(e.pointerId)
   }
-  const onMouseMove = (e) => {
+  const onPointerMove = (e) => {
     if (!isPanningRef.current) return
     setTransform(t => ({ ...t, x: panStartRef.current.tx + e.clientX - panStartRef.current.x, y: panStartRef.current.ty + e.clientY - panStartRef.current.y }))
   }
-  const onMouseUp = () => { isPanningRef.current = false }
+  const onPointerUp = (e) => {
+    isPanningRef.current = false
+    if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+      e.currentTarget.releasePointerCapture?.(e.pointerId)
+    }
+  }
   const onWheel = (e) => {
     e.preventDefault()
     const factor = e.deltaY < 0 ? 1.1 : 0.91
@@ -1560,11 +1577,12 @@ function NodeGraph({ images, onOpenImage }) {
   return (
     <div
       ref={containerRef}
-      style={{ width: '100%', height: '100%', overflow: 'hidden', cursor: 'grab', userSelect: 'none', background: '#fff' }}
-      onMouseDown={onMouseDown}
-      onMouseMove={onMouseMove}
-      onMouseUp={onMouseUp}
-      onMouseLeave={onMouseUp}
+      style={{ width: '100%', height: '100%', overflow: 'hidden', cursor: 'grab', userSelect: 'none', touchAction: 'none', background: '#fff' }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      onPointerLeave={onPointerUp}
       onWheel={onWheel}
     >
       <svg width={size.w} height={size.h} style={{ display: 'block' }}>
@@ -1948,7 +1966,7 @@ function EditorControls() {
   )
 }
 
-function HomeScene({ onModelLoaded, onOpenRoom, onReady }) {
+function HomeScene({ onModelLoaded, onOpenRoom, onReady, isMobileLayout = false }) {
   const [homeOccluderRoot, setHomeOccluderRoot] = useState(null)
   const prepareHomeScene = useCallback((scene) => {
     applyRoomMaterialOverrides(scene, DEFAULT_ROOM_RENDER_SETTINGS)
@@ -1963,7 +1981,11 @@ function HomeScene({ onModelLoaded, onOpenRoom, onReady }) {
 
   return (
     <KeyboardControls map={keyboardMap}>
-      <Canvas gl={CANVAS_GL_OPTIONS} camera={{ position: LANDING_CAMERA_POSITION, fov: 47.5 }} style={{ cursor: 'inherit', touchAction: 'auto' }}>
+      <Canvas
+        gl={CANVAS_GL_OPTIONS}
+        camera={{ position: LANDING_CAMERA_POSITION, fov: isMobileLayout ? 42 : 47.5 }}
+        style={{ cursor: 'inherit', touchAction: isMobileLayout ? 'none' : 'auto' }}
+      >
         <color attach="background" args={['#fff']} />
         <Suspense fallback={<LoadingCanvasFallback />}>
           <RendererSettings toneMapping={DEFAULT_ROOM_RENDER_SETTINGS.toneMapping} exposure={DEFAULT_ROOM_RENDER_SETTINGS.exposure} />
@@ -1972,8 +1994,15 @@ function HomeScene({ onModelLoaded, onOpenRoom, onReady }) {
               <DoorLinks doors={DOOR_LINKS} onOpenRoom={onOpenRoom} occluderRoot={homeOccluderRoot} />
             </Model>
           </Stage>
-          <Controls />
-          <CameraReset position={LANDING_CAMERA_POSITION} />
+          <Controls
+            enablePan={!isMobileLayout}
+            zoomSpeed={isMobileLayout ? 0.8 : DEFAULT_CAMERA_ZOOM_SPEED}
+            rotateSpeed={isMobileLayout ? 0.32 : 0.4}
+            dampingFactor={isMobileLayout ? 0.08 : 0.05}
+          />
+          {isMobileLayout
+            ? <FitCameraToScene scene={homeOccluderRoot} enabled margin={1.06} targetYOffset={-0.08} />
+            : <CameraReset position={LANDING_CAMERA_POSITION} />}
           <FirstFrameSignal onReady={handleHomeReady} />
         </Suspense>
       </Canvas>
@@ -2088,6 +2117,44 @@ function CameraReset({ position, target = DEFAULT_CAMERA_TARGET }) {
       camera.lookAt(...target)
     }
   }, [camera, controls, position, target])
+
+  return null
+}
+
+function FitCameraToScene({ scene, enabled, basePosition = LANDING_CAMERA_POSITION, margin = 1.16, targetYOffset = 0 }) {
+  const camera = useThree((state) => state.camera)
+  const controls = useThree((state) => state.controls)
+
+  useLayoutEffect(() => {
+    if (!enabled || !scene) return
+
+    scene.updateMatrixWorld(true)
+    const box = new THREE.Box3().setFromObject(scene)
+    if (box.isEmpty()) return
+
+    const center = box.getCenter(new THREE.Vector3())
+    const size = box.getSize(new THREE.Vector3())
+    const target = center.clone().add(new THREE.Vector3(0, size.y * targetYOffset, 0))
+    const fov = THREE.MathUtils.degToRad(camera.fov)
+    const aspect = Math.max(camera.aspect || 1, 0.01)
+    const fitHeightDistance = size.y / (2 * Math.tan(fov / 2))
+    const fitWidthDistance = size.x / (2 * Math.tan(fov / 2) * aspect)
+    const distance = Math.max(fitHeightDistance, fitWidthDistance, size.z) * margin
+    const direction = new THREE.Vector3(...basePosition)
+      .sub(new THREE.Vector3(...DEFAULT_CAMERA_TARGET))
+      .normalize()
+
+    camera.position.copy(target).add(direction.multiplyScalar(distance))
+    camera.near = Math.max(distance / 100, 0.001)
+    camera.far = Math.max(distance * 100, 100)
+    camera.lookAt(target)
+    camera.updateProjectionMatrix()
+
+    if (controls?.target) {
+      controls.target.copy(target)
+      controls.update()
+    }
+  }, [basePosition, camera, controls, enabled, margin, scene, targetYOffset])
 
   return null
 }
@@ -2362,7 +2429,7 @@ function RoomRenderVariantControls({ selectedVariantId, onSelectVariant }) {
   )
 }
 
-function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenNextRoom, onOpenSubmit, canGoBack, onReady }) {
+function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenNextRoom, onOpenSubmit, canGoBack, onReady, isMobileLayout = false }) {
   const positionControlsApiRef = useRef(null)
   const roomRenderVariantState = useMemo(readRoomRenderVariantFromUrl, [])
   const [roomRenderVariantId, setRoomRenderVariantId] = useState(roomRenderVariantState.variant.id)
@@ -2388,8 +2455,8 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
   return (
     <div
       style={{
-        width: '100vw',
-        height: '100dvh',
+        width: '100%',
+        height: '100%',
         backgroundColor: '#fff',
         color: '#000',
         display: 'flex',
@@ -2400,7 +2467,11 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
     >
       <RoomTickerBar onOpenSubmit={onOpenSubmit} />
       <KeyboardControls map={keyboardMap}>
-        <Canvas gl={CANVAS_GL_OPTIONS} camera={{ position: cameraDefault.position, fov: 47.5 }} style={{ cursor: 'inherit', touchAction: 'auto' }}>
+        <Canvas
+          gl={CANVAS_GL_OPTIONS}
+          camera={{ position: cameraDefault.position, fov: isMobileLayout ? 54 : 47.5 }}
+          style={{ cursor: 'inherit', touchAction: isMobileLayout ? 'none' : 'auto' }}
+        >
           <color attach="background" args={['#fff']} />
           <Suspense fallback={<LoadingCanvasFallback />}>
             <RendererSettings toneMapping={roomRenderSettings.toneMapping} exposure={roomRenderSettings.exposure} />
@@ -2410,10 +2481,10 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
             </Stage>
             <Controls
               moveSpeed={roomRenderVariant.controls.moveSpeed ?? ROOM_CAMERA_MOVE_SPEED}
-              zoomSpeed={roomRenderVariant.controls.zoomSpeed ?? ROOM_CAMERA_ZOOM_SPEED}
-              rotateSpeed={roomRenderVariant.controls.rotateSpeed ?? 0.4}
+              zoomSpeed={isMobileLayout ? 0.8 : (roomRenderVariant.controls.zoomSpeed ?? ROOM_CAMERA_ZOOM_SPEED)}
+              rotateSpeed={isMobileLayout ? 0.34 : (roomRenderVariant.controls.rotateSpeed ?? 0.4)}
               panSpeed={roomRenderVariant.controls.panSpeed ?? 0.4}
-              enablePan={roomRenderVariant.controls.enablePan ?? true}
+              enablePan={isMobileLayout ? false : (roomRenderVariant.controls.enablePan ?? true)}
               enableZoom={roomRenderVariant.controls.enableZoom ?? true}
               enableRotate={roomRenderVariant.controls.enableRotate ?? true}
               dampingFactor={roomRenderVariant.controls.dampingFactor ?? 0.05}
@@ -2442,8 +2513,8 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
         disabled={!canGoBack}
         style={{
           position: 'absolute',
-          bottom: '48px',
-          left: '24px',
+          bottom: isMobileLayout ? 'max(18px, env(safe-area-inset-bottom))' : '48px',
+          left: isMobileLayout ? '16px' : '24px',
           border: 'none',
           background: 'transparent',
           padding: 0,
@@ -2455,7 +2526,7 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
         <img
           src={GO_BACK_GIF}
           alt="Go back"
-          style={{ width: 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: canGoBack ? HOVER_KEY_CURSOR : 'default' }}
+          style={{ width: isMobileLayout ? '48px' : 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: canGoBack ? HOVER_KEY_CURSOR : 'default' }}
         />
       </button>
 
@@ -2465,8 +2536,8 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
         aria-label="Go home"
         style={{
           position: 'absolute',
-          top: '24px',
-          right: '24px',
+          top: isMobileLayout ? 'max(16px, env(safe-area-inset-top))' : '24px',
+          right: isMobileLayout ? '16px' : '24px',
           zIndex: 20,
           border: 'none',
           background: 'transparent',
@@ -2478,7 +2549,7 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
           src={ABOUT_HOME_GIF}
           alt="home"
           draggable={false}
-          style={{ width: 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
+          style={{ width: isMobileLayout ? '48px' : 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
         />
       </button>
 
@@ -2488,8 +2559,8 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
         aria-label={`Go to room ${roomNumber === ROOM_FILES.length ? 1 : roomNumber + 1}`}
         style={{
           position: 'absolute',
-          bottom: '48px',
-          right: '24px',
+          bottom: isMobileLayout ? 'max(18px, env(safe-area-inset-bottom))' : '48px',
+          right: isMobileLayout ? '16px' : '24px',
           zIndex: 20,
           border: 'none',
           background: 'transparent',
@@ -2500,7 +2571,7 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
         <img
           src={NEXT_DOOR_GIF}
           alt={`Go to room ${roomNumber === ROOM_FILES.length ? 1 : roomNumber + 1}`}
-          style={{ width: 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
+          style={{ width: isMobileLayout ? '48px' : 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
         />
       </button>
     </div>
@@ -2927,46 +2998,70 @@ function AboutPage({
   openedFolderIds = [],
   onRememberFolderOpen,
   isTouch = false,
+  viewportOverride = null,
 }) {
   const editorContentRef = useRef(null)
   const [editorScrollbar, setEditorScrollbar] = useState({ top: 0, height: 100, enabled: false })
   const rightStageRef = useRef(null)
   const draggedFolderRef = useRef(null)
   const [viewport, setViewport] = useState(() => ({
-    width: typeof window !== 'undefined' ? window.innerWidth : 1440,
-    height: typeof window !== 'undefined' ? window.innerHeight : 900,
+    width: viewportOverride?.width ?? (typeof window !== 'undefined' ? window.innerWidth : 1440),
+    height: viewportOverride?.height ?? (typeof window !== 'undefined' ? window.innerHeight : 900),
   }))
   const [activeBrowserTab, setActiveBrowserTab] = useState(getAboutTabId(activeFolderId))
   const [browserAddress, setBrowserAddress] = useState(() => getAboutAddress(activeFolderId, getAboutTabId(activeFolderId), activeFolderDetailId, activeFolderImageIndex))
+  const isMobileLayout = shouldUseMobileLayout({ viewportWidth: viewport.width, isTouch })
 
-  const folderArcLayout = [
-    { id: 'press', left: '25%', top: '36%' },
-    { id: 'writing', left: '37%', top: '34%' },
-    { id: 'exhibitions', left: '47%', top: '56%' },
-    { id: 'filmmaking', left: '73%', top: '42%' },
-    { id: 'cv', left: '84%', top: '65%' },
-    { id: 'submit-room', left: '94%', top: '43%' },
-    { id: 'open-collective-archive', left: '93%', top: '57%' },
-  ]
+  const folderArcLayout = isMobileLayout
+    ? [
+        { id: 'press', left: '24%', top: '37%' },
+        { id: 'writing', left: '56%', top: '35%' },
+        { id: 'exhibitions', left: '30%', top: '54%' },
+        { id: 'filmmaking', left: '67%', top: '54%' },
+        { id: 'cv', left: '28%', top: '72%' },
+        { id: 'submit-room', left: '70%', top: '72%' },
+        { id: 'open-collective-archive', left: '52%', top: '88%' },
+      ]
+    : [
+        { id: 'press', left: '25%', top: '36%' },
+        { id: 'writing', left: '37%', top: '34%' },
+        { id: 'exhibitions', left: '47%', top: '56%' },
+        { id: 'filmmaking', left: '73%', top: '42%' },
+        { id: 'cv', left: '84%', top: '65%' },
+        { id: 'submit-room', left: '94%', top: '43%' },
+        { id: 'open-collective-archive', left: '93%', top: '57%' },
+      ]
   const [folderPositions, setFolderPositions] = useState(
     () => new Map(folderArcLayout.map((p) => [p.id, { left: p.left, top: p.top }]))
   )
-  const rightStageWidth = '100vw'
+  const rightStageWidth = `${viewport.width}px`
 
-  const leftColumnWidth = Math.max(188, Math.min(viewport.width * 0.15, 218))
+  useEffect(() => {
+    setFolderPositions(new Map(folderArcLayout.map((p) => [p.id, { left: p.left, top: p.top }])))
+  }, [isMobileLayout]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const leftColumnWidth = isMobileLayout
+    ? Math.max(230, Math.min(viewport.width - 28, 340))
+    : Math.max(188, Math.min(viewport.width * 0.15, 218))
   const aboutWindowWidth = leftColumnWidth + 34
   const welcomeWidth = 126
   const welcomeHeight = Math.round(welcomeWidth * (55 / 135))
-  const leftColumnX = 24
-  const aboutWindowTop = 148
-  const aboutWindowHeight = 181
+  const leftColumnX = isMobileLayout ? 14 : 24
+  const aboutWindowTop = isMobileLayout ? 92 : 148
+  const aboutWindowHeight = isMobileLayout ? 170 : 181
   const BROWSER_CHROME_HEIGHT = 62
   const welcomeTop = Math.round(BROWSER_CHROME_HEIGHT + ((aboutWindowTop - BROWSER_CHROME_HEIGHT - welcomeHeight) / 2))
   const playerWindowHeight = Math.round(132 * (leftColumnWidth / 290))
-  const playerWindowTop = Math.max(aboutWindowTop + aboutWindowHeight + 430, viewport.height - playerWindowHeight - 28)
-  const diaryHeight = Math.max(154, Math.min(playerWindowTop - aboutWindowTop - aboutWindowHeight - 96, 220))
-  const diaryTop = Math.max(aboutWindowTop + aboutWindowHeight + 96, playerWindowTop - diaryHeight - 260)
-  const diaryWidth = Math.max(Math.min(leftColumnWidth - 34, 132), 106)
+  const playerWindowTop = isMobileLayout
+    ? Math.max(aboutWindowTop + aboutWindowHeight + 24, viewport.height - playerWindowHeight - 18)
+    : Math.max(aboutWindowTop + aboutWindowHeight + 430, viewport.height - playerWindowHeight - 28)
+  const diaryHeight = isMobileLayout
+    ? Math.max(128, Math.min(playerWindowTop - aboutWindowTop - aboutWindowHeight - 28, 180))
+    : Math.max(154, Math.min(playerWindowTop - aboutWindowTop - aboutWindowHeight - 96, 220))
+  const diaryTop = isMobileLayout
+    ? aboutWindowTop + aboutWindowHeight + 18
+    : Math.max(aboutWindowTop + aboutWindowHeight + 96, playerWindowTop - diaryHeight - 260)
+  const diaryWidth = isMobileLayout ? Math.min(150, leftColumnWidth - 24) : Math.max(Math.min(leftColumnWidth - 34, 132), 106)
 
   const startFolderDrag = useCallback((folderId, e) => {
     if (isTouch) return
@@ -3046,13 +3141,20 @@ function AboutPage({
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
+
+    if (viewportOverride) {
+      setViewport({ width: viewportOverride.width, height: viewportOverride.height })
+      const frame = window.requestAnimationFrame(updateEditorScrollbar)
+      return () => window.cancelAnimationFrame(frame)
+    }
+
     const onResize = () => {
       setViewport({ width: window.innerWidth, height: window.innerHeight })
       updateEditorScrollbar()
     }
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
-  }, [updateEditorScrollbar])
+  }, [updateEditorScrollbar, viewportOverride?.height, viewportOverride?.width])
 
   useEffect(() => {
     const nextTab = getAboutTabId(activeFolderId)
@@ -3134,8 +3236,8 @@ function AboutPage({
   return (
     <div
       style={{
-        width: '100vw',
-        height: '100dvh',
+        width: '100%',
+        height: '100%',
         backgroundColor: '#fff',
         color: '#000',
         position: 'relative',
@@ -3248,7 +3350,7 @@ function AboutPage({
         </div>
       )}
 
-      {!isFolderView && (
+      {!isFolderView && !isMobileLayout && (
         <DiaryDeck
           left={leftColumnX + (leftColumnWidth - diaryWidth) / 2}
           top={diaryTop}
@@ -3259,7 +3361,7 @@ function AboutPage({
       )}
 
       {/* ── Safety pin (between left col and right stage) ── */}
-      {!isFolderView && (
+      {!isFolderView && !isMobileLayout && (
         <div style={{ position: 'absolute', left: `${leftColumnX + aboutWindowWidth + 24}px`, top: '48%', zIndex: 20, pointerEvents: 'none' }}>
           <img
             src="assets/safety-pin.gif"
@@ -3271,7 +3373,7 @@ function AboutPage({
       )}
 
       {/* ── Radio gif (static) ── */}
-      {!isFolderView && (
+      {!isFolderView && !isMobileLayout && (
         <div
           style={{
             position: 'fixed',
@@ -3289,7 +3391,7 @@ function AboutPage({
       )}
 
       {/* ── Player (draggable) ── */}
-      {!isFolderView && (
+      {!isFolderView && !isMobileLayout && (
         <div
           style={{
             position: 'fixed',
@@ -3453,6 +3555,7 @@ function AboutPage({
               activeFolderDetailId={activeFolderDetailId}
               activeFolderImageIndex={activeFolderImageIndex}
               onOpenFolderRoute={handleFolderRouteOpen}
+              isMobileLayout={isMobileLayout}
             />
           </div>
         )}
@@ -3481,12 +3584,12 @@ function AboutPage({
                 border: '1px solid transparent',
                 background: 'transparent',
                 borderRadius: '3px',
-                padding: '6px 8px',
+                padding: isMobileLayout ? '8px 6px' : '6px 8px',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                gap: '6px',
-                width: '92px',
+                gap: isMobileLayout ? '5px' : '6px',
+                width: isMobileLayout ? '96px' : '92px',
                 cursor: 'inherit',
                 userSelect: 'none',
               }}
@@ -3494,12 +3597,12 @@ function AboutPage({
               <img
                 src="assets/folder-icon-macos.webp"
                 alt={`${folder.label} folder`}
-                style={{ width: '68px', height: '56px', objectFit: 'contain' }}
+                style={{ width: isMobileLayout ? '64px' : '68px', height: isMobileLayout ? '52px' : '56px', objectFit: 'contain' }}
               />
               <span
                 style={{
                   fontFamily: MAC_LIGHT_FONT_STACK,
-                  fontSize: '13px',
+                  fontSize: isMobileLayout ? '12px' : '13px',
                   fontWeight: 300,
                   color: '#111',
                   textAlign: 'center',
@@ -3521,18 +3624,19 @@ function AboutFolderContent({
   activeFolderDetailId = null,
   activeFolderImageIndex = null,
   onOpenFolderRoute,
+  isMobileLayout = false,
 }) {
   const plainPageStyle = {
     width: '100%',
     height: '100%',
     overflowY: 'auto',
     fontFamily: ARIAL_FONT_STACK,
-    fontSize: '13px',
-    lineHeight: 1.45,
+    fontSize: isMobileLayout ? '15px' : '13px',
+    lineHeight: isMobileLayout ? 1.5 : 1.45,
     color: '#000',
     background: '#fff',
     boxSizing: 'border-box',
-    padding: '14px 16px 48px',
+    padding: isMobileLayout ? '18px 16px 64px' : '14px 16px 48px',
   }
   const plainLinkStyle = {
     color: '#00e',
@@ -3541,7 +3645,7 @@ function AboutFolderContent({
   const pressLinkStyle = {
     ...plainLinkStyle,
     color: '#000',
-    fontSize: '18px',
+    fontSize: isMobileLayout ? '16px' : '18px',
     lineHeight: 1.25,
   }
   const filmmakingLinkStyle = {
@@ -3550,7 +3654,7 @@ function AboutFolderContent({
   }
   const filmmakingHeadingStyle = {
     margin: '0 0 18px',
-    fontSize: '18px',
+    fontSize: isMobileLayout ? '16px' : '18px',
     fontWeight: 700,
     lineHeight: 1.25,
     textTransform: 'uppercase',
@@ -3563,7 +3667,7 @@ function AboutFolderContent({
   }
   const pressHeadingStyle = {
     ...plainHeadingStyle,
-    fontSize: '18px',
+    fontSize: isMobileLayout ? '16px' : '18px',
     lineHeight: 1.25,
   }
   const writingDesktopRef = useRef(null)
@@ -3586,15 +3690,15 @@ function AboutFolderContent({
     gap: '6px',
     color: '#000',
     textDecoration: 'none',
-    position: 'absolute',
-    width: '220px',
+    position: isMobileLayout ? 'relative' : 'absolute',
+    width: isMobileLayout ? 'min(100%, 210px)' : '220px',
     justifyItems: 'center',
     padding: '4px',
     userSelect: 'none',
   }
   const writingIconMediaStyle = {
-    width: '200px',
-    height: '240px',
+    width: isMobileLayout ? '180px' : '200px',
+    height: isMobileLayout ? '216px' : '240px',
     border: 'none',
     background: 'transparent',
     objectFit: 'contain',
@@ -3679,6 +3783,7 @@ function AboutFolderContent({
     })
   }, [folder.id, writingLinks, writingScatterLayout])
   const startWritingIconDrag = useCallback((linkUrl, e) => {
+    if (isMobileLayout) return
     if (e.button !== 0) return
     e.preventDefault()
     const container = writingDesktopRef.current
@@ -3711,8 +3816,9 @@ function AboutFolderContent({
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-  }, [])
+  }, [isMobileLayout])
   const startArchiveImageDrag = useCallback((imageKey, e) => {
+    if (isMobileLayout) return
     if (e.button !== 0) return
     e.preventDefault()
     const container = archiveDesktopRef.current
@@ -3746,7 +3852,7 @@ function AboutFolderContent({
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-  }, [])
+  }, [isMobileLayout])
   const isExhibitionOverview = activeFolderDetailId === 'overview'
   const selectedExhibition = !isExhibitionOverview
     ? EXHIBITIONS.find((exhibition) => exhibition.id === activeFolderDetailId) ?? EXHIBITIONS[0] ?? null
@@ -3850,11 +3956,11 @@ function AboutFolderContent({
 
   if (folder.id === 'exhibitions') {
     const navButtonBaseStyle = {
-      display: 'block',
-      width: '100%',
+      display: isMobileLayout ? 'inline-flex' : 'block',
+      width: isMobileLayout ? 'auto' : '100%',
       border: 'none',
       background: 'transparent',
-      padding: '0 0 8px',
+      padding: isMobileLayout ? '0 12px 10px 0' : '0 0 8px',
       font: 'inherit',
       fontSize: '13px',
       lineHeight: 1.25,
@@ -3864,27 +3970,32 @@ function AboutFolderContent({
       whiteSpace: 'nowrap',
       overflow: 'hidden',
       textOverflow: 'ellipsis',
+      flex: isMobileLayout ? '0 0 auto' : undefined,
     }
     const exhibitionShellStyle = {
       ...plainPageStyle,
       display: 'grid',
-      gridTemplateColumns: '220px minmax(0, 1fr)',
-      gap: '30px',
+      gridTemplateColumns: isMobileLayout ? '1fr' : '220px minmax(0, 1fr)',
+      gap: isMobileLayout ? '22px' : '30px',
       alignItems: 'start',
-      padding: '40px 32px 64px',
-      fontSize: '16px',
+      padding: isMobileLayout ? '20px 16px 70px' : '40px 32px 64px',
+      fontSize: isMobileLayout ? '15px' : '16px',
       lineHeight: 1.45,
     }
     const renderExhibitionNav = () => (
       <nav
         aria-label="Exhibitions"
         style={{
-          position: 'sticky',
+          position: isMobileLayout ? 'relative' : 'sticky',
           top: 0,
           alignSelf: 'start',
-          maxHeight: 'calc(100vh - 44px)',
-          overflowY: 'auto',
-          padding: '0 0 18px',
+          maxHeight: isMobileLayout ? 'none' : 'calc(100vh - 44px)',
+          overflowX: isMobileLayout ? 'auto' : 'hidden',
+          overflowY: isMobileLayout ? 'hidden' : 'auto',
+          padding: isMobileLayout ? '0 0 4px' : '0 0 18px',
+          display: isMobileLayout ? 'flex' : 'block',
+          gap: isMobileLayout ? '0' : undefined,
+          scrollbarWidth: isMobileLayout ? 'none' : undefined,
         }}
       >
         <button
@@ -3949,19 +4060,19 @@ function AboutFolderContent({
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: '24px',
+                gridTemplateColumns: isMobileLayout ? '1fr' : '1fr 1fr',
+                gap: isMobileLayout ? '12px' : '24px',
                 alignItems: 'start',
-                margin: '0 0 48px',
+                margin: isMobileLayout ? '0 0 28px' : '0 0 48px',
               }}
             >
               <div>
-                <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 700, lineHeight: 1.3, whiteSpace: 'pre-line' }}>
+                <h1 style={{ margin: 0, fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 700, lineHeight: 1.3, whiteSpace: 'pre-line' }}>
                   {institutionText}
                 </h1>
               </div>
               <div>
-                <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 700, lineHeight: 1.3 }}>
+                <h1 style={{ margin: 0, fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 700, lineHeight: 1.3 }}>
                   {selectedExhibition.title}
                   <br />
                   {selectedExhibition.dates ?? selectedExhibition.year}
@@ -3973,7 +4084,7 @@ function AboutFolderContent({
             {selectedExhibition.description?.length > 0 && (
               <div style={{ marginBottom: '36px' }}>
                 {selectedExhibition.description.map((paragraph) => (
-                  <p key={paragraph} style={{ margin: '0 0 18px', fontSize: '18px', lineHeight: 1.5 }}>
+                  <p key={paragraph} style={{ margin: '0 0 18px', fontSize: isMobileLayout ? '16px' : '18px', lineHeight: 1.5 }}>
                     {paragraph}
                   </p>
                 ))}
@@ -3992,7 +4103,7 @@ function AboutFolderContent({
                     background: 'transparent',
                     padding: '0 0 10px',
                     cursor: 'pointer',
-                    fontSize: '18px',
+                    fontSize: isMobileLayout ? '16px' : '18px',
                     textDecoration: 'underline',
                     color: 'inherit',
                     fontFamily: 'inherit',
@@ -4067,7 +4178,7 @@ function AboutFolderContent({
                       style={{
                         display: 'block',
                         width: '100%',
-                        maxHeight: '58vh',
+                      maxHeight: isMobileLayout ? '52vh' : '58vh',
                         background: '#000',
                       }}
                     />
@@ -4224,6 +4335,10 @@ function AboutFolderContent({
             position: 'relative',
             minHeight: '440px',
             width: '100%',
+            display: isMobileLayout ? 'grid' : 'block',
+            gridTemplateColumns: isMobileLayout ? 'repeat(auto-fit, minmax(160px, 1fr))' : undefined,
+            gap: isMobileLayout ? '28px 16px' : undefined,
+            justifyItems: isMobileLayout ? 'center' : undefined,
           }}
         >
           {writingLinks.map((link, index) => {
@@ -4244,9 +4359,9 @@ function AboutFolderContent({
                 }}
                 style={{
                   ...writingIconLinkStyle,
-                  left: pos.isPx ? `${pos.left}px` : pos.left,
-                  top: pos.isPx ? `${pos.top}px` : pos.top,
-                  transform: 'translate(-50%, -50%)',
+                  left: isMobileLayout ? undefined : (pos.isPx ? `${pos.left}px` : pos.left),
+                  top: isMobileLayout ? undefined : (pos.isPx ? `${pos.top}px` : pos.top),
+                  transform: isMobileLayout ? 'none' : 'translate(-50%, -50%)',
                 }}
                 title={link.label}
               >
@@ -4308,13 +4423,15 @@ function AboutFolderContent({
   )
 }
 
-function ProjectPreviewWindow({ onClose, onPreviewStarted, isTouch = false }) {
+function ProjectPreviewWindow({ onClose, onPreviewStarted, isTouch = false, isMobileLayout = false }) {
   const videoRef = useRef(null)
   const [animateIn, setAnimateIn] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
+  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1440
+  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 900
   const [windowPos, setWindowPos] = useState(() => ({
-    x: typeof window !== 'undefined' ? window.innerWidth / 2 - 492 : 120,
-    y: PREVIEW_WINDOW_TOP,
+    x: isMobileLayout ? 8 : viewportWidth / 2 - 492,
+    y: isMobileLayout ? 72 : PREVIEW_WINDOW_TOP,
   }))
   const windowPosRef = useRef(windowPos)
   windowPosRef.current = windowPos
@@ -4374,10 +4491,10 @@ function ProjectPreviewWindow({ onClose, onPreviewStarted, isTouch = false }) {
         top: windowPos.y,
         transform: animateIn ? 'scale(1)' : 'scale(0.94)',
         transformOrigin: 'top left',
-        width: 'min(76.8vw, 984px)',
+        width: isMobileLayout ? `${Math.max(280, viewportWidth - 16)}px` : `${Math.min(viewportWidth * 0.768, 984)}px`,
         aspectRatio: '16 / 10',
-        maxHeight: '86.4vh',
-        borderRadius: '28px',
+        maxHeight: isMobileLayout ? `${Math.max(220, viewportHeight - 108)}px` : `${viewportHeight * 0.864}px`,
+        borderRadius: isMobileLayout ? '16px' : '28px',
         overflow: 'hidden',
         background: 'linear-gradient(180deg, #f5f5f5 0%, #dddddd 100%)',
         border: '1px solid rgba(0,0,0,0.08)',
@@ -4392,7 +4509,7 @@ function ProjectPreviewWindow({ onClose, onPreviewStarted, isTouch = false }) {
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          padding: '12px 16px',
+          padding: isMobileLayout ? '10px 12px' : '12px 16px',
           borderBottom: '1px solid rgba(0,0,0,0.08)',
           background: 'linear-gradient(180deg, #efefef 0%, #dbdbdb 100%)',
           userSelect: 'none',
@@ -4455,7 +4572,7 @@ function ProjectPreviewWindow({ onClose, onPreviewStarted, isTouch = false }) {
             background: 'rgba(15,15,15,0.45)',
             backdropFilter: 'blur(8px)',
             color: 'rgba(255,255,255,0.92)',
-            padding: '9px 14px',
+            padding: isMobileLayout ? '8px 12px' : '9px 14px',
             fontFamily: ARIAL_FONT_STACK,
             fontSize: '12px',
             fontWeight: 400,
@@ -4470,10 +4587,12 @@ function ProjectPreviewWindow({ onClose, onPreviewStarted, isTouch = false }) {
   )
 }
 
-function PreviewLauncher({ onOpen, isTouch = false }) {
+function PreviewLauncher({ onOpen, isTouch = false, isMobileLayout = false }) {
+  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1440
+  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 900
   const [iconPos, setIconPos] = useState(() => ({
-    x: typeof window !== 'undefined' ? window.innerWidth / 2 - 220 : 180,
-    y: typeof window !== 'undefined' ? window.innerHeight / 2 - 10 : 320,
+    x: isMobileLayout ? viewportWidth / 2 - 60 : viewportWidth / 2 - 220,
+    y: isMobileLayout ? Math.min(viewportHeight * 0.54, viewportHeight - 148) : viewportHeight / 2 - 10,
   }))
   const iconPosRef = useRef(iconPos)
   iconPosRef.current = iconPos
@@ -4688,7 +4807,7 @@ function CursorSparkles() {
   )
 }
 
-function LoadingGlitterOverlay({ active, reducedMotion = false }) {
+function LoadingGlitterOverlay({ active, reducedMotion = false, viewportOverride = null }) {
   const [sparkles, setSparkles] = useState([])
   const nextSparkleId = useRef(0)
   const nextGifIndex = useRef(0)
@@ -4702,8 +4821,10 @@ function LoadingGlitterOverlay({ active, reducedMotion = false }) {
       const src = CURSOR_TRAIL_GIFS[nextGifIndex.current % CURSOR_TRAIL_GIFS.length]
       nextGifIndex.current += 1
       const edgePadding = 24
-      const availableWidth = Math.max(window.innerWidth - edgePadding * 2, 1)
-      const availableHeight = Math.max(window.innerHeight - edgePadding * 2, 1)
+      const viewportWidth = viewportOverride?.width ?? window.innerWidth
+      const viewportHeight = viewportOverride?.height ?? window.innerHeight
+      const availableWidth = Math.max(viewportWidth - edgePadding * 2, 1)
+      const availableHeight = Math.max(viewportHeight - edgePadding * 2, 1)
       const bandWidth = availableWidth / Math.max(bandCount, 1)
       const x = edgePadding + bandWidth * bandIndex + Math.random() * bandWidth
       const y = edgePadding + Math.random() * availableHeight
@@ -4737,7 +4858,7 @@ function LoadingGlitterOverlay({ active, reducedMotion = false }) {
       sparkleTimeouts.current = []
       setSparkles([])
     }
-  }, [active, reducedMotion])
+  }, [active, reducedMotion, viewportOverride?.height, viewportOverride?.width])
 
   if (!active) return null
 
@@ -4780,7 +4901,7 @@ export default function App() {
     viewportWidth,
     prefersReducedMotion,
   } = responsive
-  const shouldShowMobileNotice = isTouch || viewportWidth <= 700
+  const isMobileLayout = shouldUseMobileLayout({ viewportWidth, isTouch })
   const [route, setRoute] = useState(() =>
     parseRouteFromHash(typeof window !== 'undefined' ? window.location.hash : ''),
   )
@@ -4991,8 +5112,8 @@ export default function App() {
     setHasOpenedPreview(true)
     setVisitedRoomHistory([])
     beginSceneTransition()
-    navigateWithHash(HOME_HASH)
-  }, [beginSceneTransition])
+    navigateWithHash(isMobileLayout ? HOUSE_HASH : HOME_HASH)
+  }, [beginSceneTransition, isMobileLayout])
 
   const openAbout = useCallback(() => {
     setAboutBrowserHistory((current) => {
@@ -5007,8 +5128,8 @@ export default function App() {
   const closeAbout = useCallback(() => {
     setIsPreviewOpen(false)
     setHasOpenedPreview(true)
-    navigateWithHash(HOME_HASH)
-  }, [])
+    navigateWithHash(isMobileLayout ? HOUSE_HASH : HOME_HASH)
+  }, [isMobileLayout])
 
   const openFolder = useCallback((folderId, folderDetailId = null, folderImageIndex = null) => {
     setAboutBrowserHistory((current) => {
@@ -5047,8 +5168,8 @@ export default function App() {
   const closePreview = useCallback(() => {
     setIsPreviewOpen(false)
     setHasOpenedPreview(true)
-    navigateWithHash(HOME_HASH)
-  }, [])
+    navigateWithHash(isMobileLayout ? HOUSE_HASH : HOME_HASH)
+  }, [isMobileLayout])
 
   const openPreview = useCallback(() => {
     setHasOpenedPreview(true)
@@ -5126,10 +5247,6 @@ export default function App() {
     </>
   )
 
-  if (shouldShowMobileNotice) {
-    return <MobileDesktopNotice />
-  }
-
   if (route.type === 'room') {
     const roomNumber = route.roomIndex + 1
     const roomFile = ROOM_FILES[route.roomIndex]
@@ -5146,6 +5263,7 @@ export default function App() {
           onOpenSubmit={openSubmitRoom}
           canGoBack={visitedRoomHistory.length > 0}
           onReady={clearTransitionCover}
+          isMobileLayout={isMobileLayout}
         />
         {sceneTransitionLayer}
       </>
@@ -5170,7 +5288,7 @@ export default function App() {
           isTouch={isTouch}
         />
         {sceneTransitionLayer}
-        {!isTouch && !prefersReducedMotion && <CursorSparkles />}
+        {!isMobileLayout && !isTouch && !prefersReducedMotion && <CursorSparkles />}
       </>
     )
   }
@@ -5196,7 +5314,7 @@ export default function App() {
           isTouch={isTouch}
         />
         {sceneTransitionLayer}
-        {!isTouch && !prefersReducedMotion && <CursorSparkles />}
+        {!isMobileLayout && !isTouch && !prefersReducedMotion && <CursorSparkles />}
       </>
     )
   }
@@ -5441,6 +5559,9 @@ export default function App() {
     )
   }
 
+  const shouldShowHouse = Boolean(route.showHouse) || (hasOpenedPreview && !isPreviewOpen)
+  const shouldShowHomeHeader = !isMobileLayout || !shouldShowHouse
+
   return (
     <div
       style={{
@@ -5456,78 +5577,88 @@ export default function App() {
         style={{
           position: 'absolute',
           inset: 0,
-          opacity: hasOpenedPreview && !isPreviewOpen ? 1 : 0,
-          pointerEvents: hasOpenedPreview && !isPreviewOpen ? 'auto' : 'none',
+          opacity: shouldShowHouse ? 1 : 0,
+          pointerEvents: shouldShowHouse ? 'auto' : 'none',
           transition: 'opacity 180ms ease',
         }}
-        aria-hidden={!(hasOpenedPreview && !isPreviewOpen)}
+        aria-hidden={!shouldShowHouse}
       >
-        {hasOpenedPreview && !isPreviewOpen && (
+        {shouldShowHouse && (
           <HomeScene
             onModelLoaded={undefined}
             onOpenRoom={openRoom}
             onReady={handleHomeReady}
+            isMobileLayout={isMobileLayout}
           />
         )}
       </div>
 
-      <div
-        style={{
-          position: 'absolute',
-          left: '50%',
-          top: `${HOME_HEADER_TOP}px`,
-          transform: 'translateX(-50%)',
-          zIndex: 40,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '6px',
-        }}
-      >
-        {hasOpenedPreview && !isPreviewOpen && (
-          <img
-            src={HOME_WELCOME_GIF}
-            alt=""
-            aria-hidden="true"
-            style={{ width: 'min(124px, 18vw)', height: 'auto', display: 'block' }}
-          />
-        )}
-        {(!hasOpenedPreview || isPreviewOpen) && (
-          <img
-            src={HOME_WELCOME_GIF}
-            alt=""
-            aria-hidden="true"
-            style={{ width: 'min(124px, 18vw)', height: 'auto', display: 'block', visibility: 'hidden' }}
-          />
-        )}
-
-        <button
-          type="button"
-          onClick={openAbout}
+      {shouldShowHomeHeader && (
+        <div
           style={{
-            border: 'none',
-            background: 'transparent',
-            color: '#000',
-            padding: 0,
-            width: 'min(220px, 32vw)',
-            fontFamily: ARIAL_FONT_STACK,
-            fontSize: '25px',
-            fontWeight: 400,
-            letterSpacing: '0.01em',
-            lineHeight: 1,
-            textAlign: 'center',
-            textTransform: 'lowercase',
-            cursor: 'inherit',
+            position: 'absolute',
+            left: '50%',
+            top: isMobileLayout ? 'max(20px, env(safe-area-inset-top))' : `${HOME_HEADER_TOP}px`,
+            transform: 'translateX(-50%)',
+            zIndex: 40,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '6px',
           }}
         >
-          {HOME_TITLE}
-        </button>
-      </div>
+          {shouldShowHouse && (
+            <img
+              src={HOME_WELCOME_GIF}
+              alt=""
+              aria-hidden="true"
+              style={{ width: isMobileLayout ? '104px' : '124px', height: 'auto', display: 'block' }}
+            />
+          )}
+          {(!shouldShowHouse || isPreviewOpen) && (
+            <img
+              src={HOME_WELCOME_GIF}
+              alt=""
+              aria-hidden="true"
+              style={{ width: isMobileLayout ? '104px' : '124px', height: 'auto', display: 'block', visibility: 'hidden' }}
+            />
+          )}
 
-      {!hasOpenedPreview && !isPreviewOpen && (
-        <PreviewLauncher onOpen={openPreview} isTouch={isTouch} />
+          <button
+            type="button"
+            onClick={openAbout}
+            style={{
+              border: 'none',
+              background: 'transparent',
+              color: '#000',
+              padding: 0,
+              width: isMobileLayout ? '190px' : '220px',
+              fontFamily: ARIAL_FONT_STACK,
+              fontSize: isMobileLayout ? '22px' : '25px',
+              fontWeight: 400,
+              letterSpacing: '0.01em',
+              lineHeight: 1,
+              textAlign: 'center',
+              textTransform: 'lowercase',
+              cursor: 'inherit',
+            }}
+          >
+            {HOME_TITLE}
+          </button>
+        </div>
       )}
-      {isPreviewOpen && <ProjectPreviewWindow onClose={closePreview} onPreviewStarted={preloadHome} isTouch={isTouch} />}
+
+      {!shouldShowHouse && !isPreviewOpen && (
+        <PreviewLauncher onOpen={openPreview} isTouch={isTouch} isMobileLayout={isMobileLayout} />
+      )}
+      {isPreviewOpen && (
+        <ProjectPreviewWindow
+          onClose={closePreview}
+          onPreviewStarted={preloadHome}
+          isTouch={isTouch}
+          isMobileLayout={isMobileLayout}
+        />
+      )}
       {sceneTransitionLayer}
     </div>
   )
