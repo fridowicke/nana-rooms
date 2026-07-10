@@ -11,6 +11,8 @@ const keyboardMap = [
   { name: 'right', keys: ['ArrowRight', 'd', 'D'] },
 ]
 
+const clampValue = (value, min, max) => Math.min(Math.max(value, min), max)
+
 const LANDING_CAMERA_POSITION = [-0.55, 0.24, 0.48]
 const DEFAULT_CAMERA_TARGET = [0, 0, 0]
 const ROOM_CAMERA_DEFAULTS = [
@@ -3010,6 +3012,9 @@ function AboutPage({
   }))
   const [activeBrowserTab, setActiveBrowserTab] = useState(getAboutTabId(activeFolderId))
   const [browserAddress, setBrowserAddress] = useState(() => getAboutAddress(activeFolderId, getAboutTabId(activeFolderId), activeFolderDetailId, activeFolderImageIndex))
+  const [isMobileAboutWindowOpen, setIsMobileAboutWindowOpen] = useState(true)
+  const [mobileAboutWindowPosition, setMobileAboutWindowPosition] = useState(null)
+  const mobileAboutWindowPositionRef = useRef(null)
   const isMobileLayout = shouldUseMobileLayout({ viewportWidth: viewport.width, isTouch })
 
   const folderArcLayout = isMobileLayout
@@ -3050,6 +3055,8 @@ function AboutPage({
   const aboutWindowTop = isMobileLayout ? 92 : 148
   const aboutWindowHeight = isMobileLayout ? 170 : 181
   const BROWSER_CHROME_HEIGHT = 62
+  const aboutWindowLeft = isMobileLayout && mobileAboutWindowPosition ? mobileAboutWindowPosition.x : leftColumnX
+  const aboutWindowTopPosition = isMobileLayout && mobileAboutWindowPosition ? mobileAboutWindowPosition.y : aboutWindowTop
   const welcomeTop = Math.round(BROWSER_CHROME_HEIGHT + ((aboutWindowTop - BROWSER_CHROME_HEIGHT - welcomeHeight) / 2))
   const playerWindowHeight = Math.round(132 * (leftColumnWidth / 290))
   const playerWindowTop = isMobileLayout
@@ -3062,6 +3069,35 @@ function AboutPage({
     ? aboutWindowTop + aboutWindowHeight + 18
     : Math.max(aboutWindowTop + aboutWindowHeight + 96, playerWindowTop - diaryHeight - 260)
   const diaryWidth = isMobileLayout ? Math.min(150, leftColumnWidth - 24) : Math.max(Math.min(leftColumnWidth - 34, 132), 106)
+  const mobileAboutMinY = BROWSER_CHROME_HEIGHT + 8
+
+  const clampMobileAboutPosition = useCallback((position) => {
+    const minX = 8
+    const maxX = Math.max(minX, viewport.width - aboutWindowWidth - 8)
+    const maxY = Math.max(mobileAboutMinY, viewport.height - aboutWindowHeight - 8)
+
+    return {
+      x: clampValue(position.x, minX, maxX),
+      y: clampValue(position.y, mobileAboutMinY, maxY),
+    }
+  }, [aboutWindowHeight, aboutWindowWidth, mobileAboutMinY, viewport.height, viewport.width])
+
+  useEffect(() => {
+    mobileAboutWindowPositionRef.current = mobileAboutWindowPosition
+  }, [mobileAboutWindowPosition])
+
+  useEffect(() => {
+    if (!isMobileLayout || !mobileAboutWindowPositionRef.current) return
+
+    setMobileAboutWindowPosition((position) => {
+      if (!position) return position
+      const next = clampMobileAboutPosition(position)
+      mobileAboutWindowPositionRef.current = next
+
+      if (next.x === position.x && next.y === position.y) return position
+      return next
+    })
+  }, [clampMobileAboutPosition, isMobileLayout])
 
   const startFolderDrag = useCallback((folderId, e) => {
     if (isTouch) return
@@ -3101,6 +3137,42 @@ function AboutPage({
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
   }, [isTouch])
+
+  const startMobileAboutWindowDrag = useCallback((event) => {
+    if (!isMobileLayout) return
+    if (event.button !== undefined && event.button !== 0) return
+
+    event.preventDefault()
+    event.stopPropagation()
+
+    const startX = event.clientX
+    const startY = event.clientY
+    const startPosition = mobileAboutWindowPositionRef.current ?? {
+      x: leftColumnX,
+      y: aboutWindowTop,
+    }
+
+    const onMove = (moveEvent) => {
+      moveEvent.preventDefault()
+      const next = clampMobileAboutPosition({
+        x: startPosition.x + moveEvent.clientX - startX,
+        y: startPosition.y + moveEvent.clientY - startY,
+      })
+
+      mobileAboutWindowPositionRef.current = next
+      setMobileAboutWindowPosition(next)
+    }
+
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+  }, [aboutWindowTop, clampMobileAboutPosition, isMobileLayout, leftColumnX])
 
   const updateEditorScrollbar = useCallback(() => {
     const editorContent = editorContentRef.current
@@ -3189,6 +3261,7 @@ function AboutPage({
     setBrowserAddress(tab.address)
 
     if (tab.kind === 'about') {
+      if (isMobileLayout) setIsMobileAboutWindowOpen(true)
       onShowAbout()
       return
     }
@@ -3196,7 +3269,7 @@ function AboutPage({
     if (tab.kind === 'folder' && tab.folderId) {
       onOpenFolder(tab.folderId)
     }
-  }, [onOpenFolder, onShowAbout])
+  }, [isMobileLayout, onOpenFolder, onShowAbout])
 
   const handleFolderOpen = useCallback((folderId) => {
     const folder = FOLDER_MAP.get(folderId)
@@ -3233,6 +3306,8 @@ function AboutPage({
     handleFolderOpen('diary')
   }, [handleFolderOpen])
 
+  const shouldShowAboutWindow = !isFolderView && (!isMobileLayout || isMobileAboutWindowOpen)
+
   return (
     <div
       style={{
@@ -3256,12 +3331,12 @@ function AboutPage({
       )}
 
       {/* ── About window (draggable) ── */}
-      {!isFolderView && (
+      {shouldShowAboutWindow && (
         <div
           style={{
             position: 'fixed',
-            left: leftColumnX,
-            top: aboutWindowTop,
+            left: aboutWindowLeft,
+            top: aboutWindowTopPosition,
             zIndex: 21,
             width: `${aboutWindowWidth}px`,
           }}
@@ -3278,9 +3353,24 @@ function AboutPage({
           >
             {/* Title bar */}
             <div
-              style={{ background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid #b0b0b0', userSelect: 'none' }}
+              onPointerDown={startMobileAboutWindowDrag}
+              style={{ background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid #b0b0b0', userSelect: 'none', cursor: isMobileLayout ? 'grab' : 'default', touchAction: isMobileLayout ? 'none' : 'auto' }}
             >
-              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-block' }} />
+              {isMobileLayout ? (
+                <button
+                  type="button"
+                  aria-label="Close about window"
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    setIsMobileAboutWindowOpen(false)
+                  }}
+                  style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-block', flexShrink: 0, padding: 0, appearance: 'none', WebkitAppearance: 'none', cursor: HOVER_KEY_CURSOR }}
+                />
+              ) : (
+                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-block' }} />
+              )}
               <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d4a017', display: 'inline-block' }} />
               <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'inline-block' }} />
               <span style={{ flex: 1, textAlign: 'center', fontSize: '11px', fontWeight: 500, color: '#333', marginRight: '30px' }}>About</span>
