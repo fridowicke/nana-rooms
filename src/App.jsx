@@ -2431,6 +2431,126 @@ function RoomRenderVariantControls({ selectedVariantId, onSelectVariant }) {
   )
 }
 
+// ─── Hotspot Picker (dev tool — activate with ?hotspotPicker=1) ───────────────
+
+const hotspotPickerBus = { listeners: [], emit(data) { this.listeners.forEach(fn => fn(data)) }, on(fn) { this.listeners.push(fn); return () => { this.listeners = this.listeners.filter(l => l !== fn) } } }
+
+function HotspotPickerScene({ roomNumber }) {
+  const { gl, camera, scene } = useThree()
+  const raycaster = useMemo(() => new THREE.Raycaster(), [])
+
+  useEffect(() => {
+    const canvas = gl.domElement
+
+    const handleClick = (e) => {
+      const rect = canvas.getBoundingClientRect()
+      const x = ((e.clientX - rect.left) / rect.width) * 2 - 1
+      const y = -((e.clientY - rect.top) / rect.height) * 2 + 1
+      raycaster.setFromCamera({ x, y }, camera)
+      const hits = raycaster.intersectObjects(scene.children, true)
+      // filter out invisible/picker helper meshes
+      const realHit = hits.find(h => h.object?.visible && !(h.object?.userData?.isPickerHelper))
+      if (realHit) {
+        const pt = realHit.point
+        const coords = [
+          parseFloat(pt.x.toFixed(4)),
+          parseFloat(pt.y.toFixed(4)),
+          parseFloat(pt.z.toFixed(4)),
+        ]
+        hotspotPickerBus.emit({ coords, roomNumber })
+      }
+    }
+
+    canvas.addEventListener('click', handleClick)
+    return () => canvas.removeEventListener('click', handleClick)
+  }, [gl, camera, scene, raycaster, roomNumber])
+
+  return null
+}
+
+function HotspotPickerOverlay({ roomNumber, roomFile }) {
+  const [picks, setPicks] = useState([])
+  const [flash, setFlash] = useState(false)
+
+  useEffect(() => {
+    return hotspotPickerBus.on(({ coords, roomNumber: rn }) => {
+      if (rn !== roomNumber) return
+      setPicks(prev => [...prev, coords])
+      setFlash(true)
+      setTimeout(() => setFlash(false), 300)
+    })
+  }, [roomNumber])
+
+  const copyAll = () => {
+    const text = picks.map(c => `position={[${c.join(', ')}]}`).join('\n')
+    navigator.clipboard.writeText(text).catch(() => {})
+  }
+
+  const clearAll = () => setPicks([])
+
+  const overlayStyle = {
+    position: 'absolute',
+    top: '16px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    zIndex: 9999,
+    background: flash ? 'rgba(255,100,200,0.97)' : 'rgba(20,10,30,0.92)',
+    color: '#fff',
+    padding: '14px 20px',
+    borderRadius: '12px',
+    fontFamily: 'monospace',
+    fontSize: '13px',
+    maxWidth: '420px',
+    width: '90vw',
+    boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+    transition: 'background 0.15s',
+    pointerEvents: 'auto',
+    userSelect: 'text',
+  }
+
+  return (
+    <div style={overlayStyle}>
+      <div style={{ fontWeight: 'bold', marginBottom: '6px', fontSize: '14px' }}>
+        🎯 hotspot picker — room {roomNumber} ({roomFile.replace(' WEB.glb', '')})
+      </div>
+      <div style={{ marginBottom: '10px', opacity: 0.75, fontSize: '12px' }}>
+        click anywhere on an object to grab its 3D coordinates!
+      </div>
+      {picks.length === 0 && (
+        <div style={{ opacity: 0.5 }}>no clicks yet — click on something in the room ✨</div>
+      )}
+      {picks.map((c, i) => (
+        <div
+          key={i}
+          style={{ marginBottom: '4px', cursor: 'pointer', padding: '4px 6px', borderRadius: '6px', background: 'rgba(255,255,255,0.08)' }}
+          onClick={() => navigator.clipboard.writeText(`[${c.join(', ')}]`).catch(() => {})}
+          title="click to copy this one"
+        >
+          #{i + 1}: [{c.join(', ')}]
+        </div>
+      ))}
+      {picks.length > 0 && (
+        <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+          <button
+            onClick={copyAll}
+            style={{ flex: 1, padding: '6px', borderRadius: '6px', border: 'none', background: '#ff69b4', color: '#fff', cursor: 'pointer', fontFamily: 'monospace', fontSize: '12px' }}
+          >
+            copy all
+          </button>
+          <button
+            onClick={clearAll}
+            style={{ flex: 1, padding: '6px', borderRadius: '6px', border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', cursor: 'pointer', fontFamily: 'monospace', fontSize: '12px' }}
+          >
+            clear
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenNextRoom, onOpenSubmit, canGoBack, onReady, isMobileLayout = false }) {
   const positionControlsApiRef = useRef(null)
   const roomRenderVariantState = useMemo(readRoomRenderVariantFromUrl, [])
@@ -2452,6 +2572,12 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
       params.get('cameraControls') === '1' ||
       params.get('controls') === 'position'
     )
+  }, [])
+
+  const showHotspotPicker = useMemo(() => {
+    if (typeof window === 'undefined') return false
+    const params = new URLSearchParams(window.location.search)
+    return params.get('hotspotPicker') === '1'
   }, [])
 
   return (
@@ -2498,10 +2624,12 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
             />
             <CameraReset position={cameraDefault.position} target={cameraDefault.target} />
             <FirstFrameSignal onReady={onReady} />
+            {showHotspotPicker && <HotspotPickerScene roomNumber={roomNumber} />}
           </Suspense>
         </Canvas>
       </KeyboardControls>
       {showPositionControls && <CameraPositionControlsOverlay controlsApiRef={positionControlsApiRef} />}
+      {showHotspotPicker && <HotspotPickerOverlay roomNumber={roomNumber} roomFile={roomFile} />}
       {roomRenderVariantState.enabled && (
         <RoomRenderVariantControls
           selectedVariantId={roomRenderVariant.id}
