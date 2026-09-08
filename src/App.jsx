@@ -2609,19 +2609,42 @@ function HiddenObjectScene({ roomNumber, hotspots, onFound, editMode, onEditPick
 
       if (editMode) {
         const p = hit.point
-        onEditPick?.([parseFloat(p.x.toFixed(4)), parseFloat(p.y.toFixed(4)), parseFloat(p.z.toFixed(4))])
+        // Collect clicked mesh and all its parents up the hierarchy
+        const meshNames = []
+        let obj = hit.object
+        while (obj) {
+          if (obj.name) meshNames.push(obj.name)
+          obj = obj.parent
+        }
+        onEditPick?.({
+          meshNames,
+          position: [parseFloat(p.x.toFixed(4)), parseFloat(p.y.toFixed(4)), parseFloat(p.z.toFixed(4))],
+        })
         return
       }
 
-      // Check against hotspots
+      // Check against hotspots — mesh-based first, fallback to radius
       for (const spot of hotspots) {
-        const dx = hit.point.x - spot.position[0]
-        const dy = hit.point.y - spot.position[1]
-        const dz = hit.point.z - spot.position[2]
-        const dist = Math.sqrt(dx*dx + dy*dy + dz*dz)
-        if (dist <= (spot.radius ?? 0.15)) {
-          onFound?.(spot.id)
-          return
+        if (spot.meshNames && spot.meshNames.length > 0) {
+          // Collect all names in the hit object hierarchy
+          let obj = hit.object
+          while (obj) {
+            if (obj.name && spot.meshNames.includes(obj.name)) {
+              onFound?.(spot.id)
+              return
+            }
+            obj = obj.parent
+          }
+        } else if (spot.position) {
+          // legacy radius fallback
+          const dx = hit.point.x - spot.position[0]
+          const dy = hit.point.y - spot.position[1]
+          const dz = hit.point.z - spot.position[2]
+          const dist = Math.sqrt(dx*dx + dy*dy + dz*dz)
+          if (dist <= (spot.radius ?? 0.15)) {
+            onFound?.(spot.id)
+            return
+          }
         }
       }
     }
@@ -2647,28 +2670,43 @@ function HintSphere({ position }) {
 }
 
 // ─── Edit Mode UI ─────────────────────────────────────────────────────────────
-function HiddenObjectEditor({ roomNumber, hotspots, setHotspots, pendingPos, setPendingPos }) {
+function HiddenObjectEditor({ roomNumber, hotspots, setHotspots, pendingPick, setPendingPick }) {
   const [name, setName] = useState('')
-  const [radius, setRadius] = useState('0.15')
   const [editingId, setEditingId] = useState(null)
+  // accumulatedMeshNames: set of mesh names selected by clicking
+  const [accumulatedMeshNames, setAccumulatedMeshNames] = useState([])
+
+  // When a new click comes in (pendingPick), merge its mesh names into the accumulated set
+  useEffect(() => {
+    if (!pendingPick) return
+    setAccumulatedMeshNames(prev => {
+      const merged = [...new Set([...prev, ...pendingPick.meshNames])]
+      return merged
+    })
+  }, [pendingPick])
 
   const addSpot = () => {
-    if (!pendingPos || !name.trim()) return
+    if (accumulatedMeshNames.length === 0 || !name.trim()) return
     const spot = {
-      id: `${roomNumber}-${Date.now()}`,
+      id: editingId ?? `${roomNumber}-${Date.now()}`,
       name: name.trim(),
-      position: pendingPos,
-      radius: parseFloat(radius) || 0.15,
+      meshNames: accumulatedMeshNames,
       interaction: null,
     }
     const next = editingId
-      ? hotspots.map(s => s.id === editingId ? { ...s, ...spot, id: s.id } : s)
+      ? hotspots.map(s => s.id === editingId ? spot : s)
       : [...hotspots, spot]
     setHotspots(next)
     saveHotspots(roomNumber, next)
     setName('')
-    setPendingPos(null)
+    setPendingPick(null)
+    setAccumulatedMeshNames([])
     setEditingId(null)
+  }
+
+  const clearSelection = () => {
+    setAccumulatedMeshNames([])
+    setPendingPick(null)
   }
 
   const deleteSpot = (id) => {
@@ -2680,14 +2718,14 @@ function HiddenObjectEditor({ roomNumber, hotspots, setHotspots, pendingPos, set
   const startEdit = (spot) => {
     setEditingId(spot.id)
     setName(spot.name)
-    setRadius(String(spot.radius ?? 0.15))
-    setPendingPos(spot.position)
+    setAccumulatedMeshNames(spot.meshNames ?? [])
+    setPendingPick(null)
   }
 
   const panelStyle = {
     position: 'absolute', top: '50px', right: '12px', zIndex: 9000,
     background: 'rgba(15,8,30,0.96)', color: '#fff',
-    padding: '14px', borderRadius: '10px', width: '240px',
+    padding: '14px', borderRadius: '10px', width: '260px',
     fontFamily: 'monospace', fontSize: '12px',
     boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
     maxHeight: 'calc(100vh - 80px)', overflowY: 'auto',
@@ -2698,29 +2736,34 @@ function HiddenObjectEditor({ roomNumber, hotspots, setHotspots, pendingPos, set
       <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '10px', color: '#ff69b4' }}>
         ✏️ edit mode — room {roomNumber}
       </div>
-      <div style={{ marginBottom: '6px', opacity: 0.7 }}>
-        {pendingPos ? `📍 [${pendingPos.map(v => v.toFixed(2)).join(', ')}]` : 'click object in room →'}
+      <div style={{ marginBottom: '6px', opacity: 0.7, fontSize: '11px' }}>
+        кликай по объектам в комнате, можно несколько раз ✨
       </div>
+      {accumulatedMeshNames.length > 0 ? (
+        <div style={{ marginBottom: '8px', background: 'rgba(255,105,180,0.12)', border: '1px solid rgba(255,105,180,0.3)', borderRadius: '6px', padding: '6px 8px' }}>
+          <div style={{ opacity: 0.6, fontSize: '10px', marginBottom: '4px' }}>выбрано мешей: {accumulatedMeshNames.length}</div>
+          <div style={{ fontSize: '10px', opacity: 0.8, wordBreak: 'break-all', maxHeight: '60px', overflowY: 'auto' }}>
+            {accumulatedMeshNames.join(', ')}
+          </div>
+          <button onClick={clearSelection} style={{ marginTop: '4px', background: 'none', border: 'none', color: '#f88', cursor: 'pointer', fontSize: '10px', padding: 0 }}>
+            ✕ сбросить выбор
+          </button>
+        </div>
+      ) : (
+        <div style={{ marginBottom: '8px', opacity: 0.5, fontSize: '11px' }}>↑ кликни объект выше</div>
+      )}
       <input
         value={name}
         onChange={e => setName(e.target.value)}
-        placeholder="object name e.g. mirror"
-        style={{ width: '100%', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', padding: '5px 8px', borderRadius: '4px', fontSize: '12px', fontFamily: 'monospace', boxSizing: 'border-box', marginBottom: '6px' }}
+        placeholder="название объекта, напр. зеркало"
+        style={{ width: '100%', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', padding: '5px 8px', borderRadius: '4px', fontSize: '12px', fontFamily: 'monospace', boxSizing: 'border-box', marginBottom: '8px' }}
       />
-      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '8px' }}>
-        <span style={{ opacity: 0.7 }}>radius:</span>
-        <input
-          value={radius}
-          onChange={e => setRadius(e.target.value)}
-          style={{ width: '60px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', padding: '4px 6px', borderRadius: '4px', fontSize: '12px', fontFamily: 'monospace' }}
-        />
-      </div>
       <button
         onClick={addSpot}
-        disabled={!pendingPos || !name.trim()}
-        style={{ width: '100%', padding: '6px', borderRadius: '6px', border: 'none', background: pendingPos && name.trim() ? '#ff69b4' : '#555', color: '#fff', cursor: pendingPos && name.trim() ? 'pointer' : 'default', fontFamily: 'monospace', fontSize: '12px', marginBottom: '10px' }}
+        disabled={accumulatedMeshNames.length === 0 || !name.trim()}
+        style={{ width: '100%', padding: '6px', borderRadius: '6px', border: 'none', background: accumulatedMeshNames.length > 0 && name.trim() ? '#ff69b4' : '#555', color: '#fff', cursor: accumulatedMeshNames.length > 0 && name.trim() ? 'pointer' : 'default', fontFamily: 'monospace', fontSize: '12px', marginBottom: '10px' }}
       >
-        {editingId ? 'update hotspot' : 'add hotspot'}
+        {editingId ? 'обновить хотспот' : 'добавить хотспот'}
       </button>
 
       {hotspots.length > 0 && (
@@ -2866,7 +2909,7 @@ function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
   const [found, setFound] = useState(() => loadFound(roomNumber))
   const [hintId, setHintId] = useState(null)
   const [hintUsed, setHintUsed] = useState(false)
-  const [pendingPos, setPendingPos] = useState(null)
+  const [pendingPick, setPendingPick] = useState(null)
   const [editMode, setEditMode] = useState(false)
 
   // Toggle edit mode with E key
@@ -2924,7 +2967,7 @@ function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
           hotspots,
           found,
           onFound: handleFound,
-          onEditPick: setPendingPos,
+          onEditPick: setPendingPick,
           hintSpot,
         })}
       </div>
@@ -2974,8 +3017,8 @@ function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
           roomNumber={roomNumber}
           hotspots={hotspots}
           setHotspots={setHotspots}
-          pendingPos={pendingPos}
-          setPendingPos={setPendingPos}
+          pendingPick={pendingPick}
+          setPendingPick={setPendingPick}
         />
       )}
     </div>
