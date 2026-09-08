@@ -4660,19 +4660,23 @@ function AboutFolderContent({
           {CURATION_PROJECTS.map((project) => {
             const images = EXHIBITION_IMAGES_BY_FOLDER.get(project.imageFolder) ?? []
             const venueLocation = [project.venue, project.location].filter(Boolean).join(', ')
+            const previewImage = images[0] ?? null
             return (
-              <section key={project.id} style={{ margin: '0 0 48px' }}>
+              <section key={project.id} style={{ margin: '0 0 56px' }}>
+                <p style={{ margin: '0 0 2px', fontSize: '15px', fontStyle: 'normal', fontWeight: 400 }}>{venueLocation}</p>
+                <h2 style={{ margin: '0 0 18px', fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 300, fontStyle: 'normal', lineHeight: 1.3 }}>
+                  {project.title}
+                </h2>
+                {previewImage && (
+                  <button type="button" onClick={() => onOpenFolderRoute?.(folder.id, project.id)}
+                    style={{ border: 'none', background: 'transparent', padding: 0, display: 'block', margin: '0 0 14px', cursor: 'pointer' }}>
+                    <img src={previewImage.src} alt="" loading="lazy" decoding="async"
+                      style={{ display: 'block', width: 'min(100%, 800px)', height: 'auto', objectFit: 'contain' }} />
+                  </button>
+                )}
                 <button type="button" onClick={() => onOpenFolderRoute?.(folder.id, project.id)}
-                  style={{ border: 'none', background: 'transparent', padding: 0, font: 'inherit', textAlign: 'left', cursor: 'pointer', display: 'block', width: '100%' }}>
-                  <h2 style={{ margin: '0 0 4px', fontSize: isMobileLayout ? '18px' : '20px', fontWeight: 400, fontStyle: 'normal', lineHeight: 1.3 }}>
-                    {project.title}{project.year ? `, ${project.year}` : ''}
-                  </h2>
-                  <p style={{ margin: '0 0 4px', fontSize: '14px', fontStyle: 'normal', fontWeight: 300 }}>{venueLocation}</p>
-                  {images.length > 0 && (
-                    <p style={{ margin: '4px 0 0', fontSize: '13px', textDecoration: 'underline', fontStyle: 'normal' }}>
-                      Installation Images ({images.length}) →
-                    </p>
-                  )}
+                  style={{ border: 'none', background: 'transparent', padding: 0, font: 'inherit', color: '#000', textDecoration: 'underline', fontStyle: 'normal', cursor: 'pointer' }}>
+                  {images.length > 0 ? `Installation Images (${images.length}) →` : 'more info →'}
                 </button>
               </section>
             )
@@ -4862,19 +4866,19 @@ function AboutFolderContent({
                     ⋆ ˚｡⋆୨୧˚ ✿ ˚୨୧⋆｡˚ ⋆
                   </div>
                 )}
-                <h2 style={{ margin: '0 0 6px', fontSize: '22px', fontStyle: 'normal', fontWeight: 400, lineHeight: 1.3 }}>
-                  {exhibition.title}{(exhibition.dates ?? exhibition.year) ? `, ${exhibition.dates ?? exhibition.year}` : ''}
-                </h2>
-                <p style={{ margin: '0 0 14px', fontSize: '15px', fontStyle: 'normal', fontWeight: 300 }}>
+                <p style={{ margin: '0 0 2px', fontSize: '15px', fontStyle: 'normal', fontWeight: 400 }}>
                   {[exhibition.venue, exhibition.location].filter(Boolean).join(', ')}
                 </p>
+                <h2 style={{ margin: '0 0 18px', fontSize: '22px', fontStyle: 'normal', fontWeight: 300, lineHeight: 1.3 }}>
+                  {exhibition.title}
+                </h2>
 
                 {previewImage && (
                   <button type="button" onClick={() => onOpenFolderRoute?.(folder.id, exhibition.id)}
                     style={{ border: 'none', background: 'transparent', padding: 0, display: 'block', margin: '0 auto 14px', textAlign: 'center' }}>
-                    <figure style={{ margin: '0 0 8px' }}>
+                    <figure style={{ margin: 0 }}>
                       <img src={previewImage.src} alt={previewImage.alt} loading="lazy" decoding="async"
-                        style={{ display: 'block', width: 'min(100%, 260px)', maxHeight: '220px', height: 'auto', margin: '0 auto', objectFit: 'contain' }} />
+                        style={{ display: 'block', width: 'min(100%, 800px)', height: 'auto', margin: '0 auto', objectFit: 'contain' }} />
                     </figure>
                   </button>
                 )}

@@ -1,3 +1,5 @@
 node_modules
 dist
 .DS_Store
+ignored
+.github/workflows/fetch-tumblr.yml
