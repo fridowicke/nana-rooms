@@ -3926,6 +3926,97 @@ function AboutPage({
   )
 }
 
+function DiaryTumblrFeed({ plainPageStyle }) {
+  const [posts, setPosts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    fetch('/tumblr-feed.json')
+      .then((r) => {
+        if (!r.ok) throw new Error('feed not found')
+        return r.json()
+      })
+      .then((data) => {
+        setPosts(data.posts ?? [])
+        setLoading(false)
+      })
+      .catch((err) => {
+        setError(err.message)
+        setLoading(false)
+      })
+  }, [])
+
+  if (loading) {
+    return (
+      <div style={{ ...plainPageStyle, padding: '40px 18px', fontFamily: 'inherit', color: '#888', fontSize: '13px' }}>
+        loading diary...
+      </div>
+    )
+  }
+
+  if (error || posts.length === 0) {
+    return (
+      <div style={{ ...plainPageStyle, padding: '40px 18px', fontFamily: 'inherit', color: '#888', fontSize: '13px' }}>
+        diary is empty
+      </div>
+    )
+  }
+
+  return (
+    <div
+      style={{
+        ...plainPageStyle,
+        padding: '26px 18px 80px',
+        fontSize: '14px',
+        lineHeight: 1.55,
+      }}
+    >
+      <div style={{ maxWidth: '680px', margin: '0 auto' }}>
+        {posts.map((post, postIndex) => (
+          <section
+            key={post.link || postIndex}
+            style={{ margin: '0 0 52px' }}
+          >
+            {post.images.map((src, imgIndex) => (
+              <img
+                key={src}
+                src={src}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  maxWidth: '100%',
+                  height: 'auto',
+                  objectFit: 'contain',
+                  marginBottom: imgIndex < post.images.length - 1 ? '4px' : '0',
+                }}
+              />
+            ))}
+            {post.text && (
+              <p
+                style={{
+                  margin: post.images.length > 0 ? '14px 0 0' : '0',
+                  fontSize: '13px',
+                  fontWeight: 300,
+                  lineHeight: 1.6,
+                  color: '#222',
+                  whiteSpace: 'pre-wrap',
+                  fontFamily: 'inherit',
+                }}
+              >
+                {post.text}
+              </p>
+            )}
+          </section>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function AboutFolderContent({
   folder,
   activeFolderDetailId = null,
@@ -4171,48 +4262,7 @@ function AboutFolderContent({
   }
 
   if (folder.id === 'diary') {
-    return (
-      <div
-        style={{
-          ...plainPageStyle,
-          padding: '26px 18px 80px',
-          fontSize: '15px',
-          lineHeight: 1.55,
-        }}
-      >
-        <div style={{ maxWidth: '760px', margin: '0 auto' }}>
-          <h1
-            style={{
-              margin: '0 0 26px',
-              fontSize: '18px',
-              fontWeight: 400,
-              lineHeight: 1.2,
-            }}
-          >
-            diary
-          </h1>
-
-          {DIARY_PHOTOS.map((photo, index) => (
-            <section key={photo.src} style={{ margin: '0 0 34px' }}>
-              <img
-                src={photo.src}
-                alt={photo.alt}
-                loading="lazy"
-                decoding="async"
-                style={{
-                  display: 'block',
-                  width: 'auto',
-                  maxWidth: index % 5 === 0 ? 'min(100%, 620px)' : 'min(100%, 470px)',
-                  maxHeight: index % 4 === 0 ? '560px' : '430px',
-                  height: 'auto',
-                  objectFit: 'contain',
-                }}
-              />
-            </section>
-          ))}
-        </div>
-      </div>
-    )
+    return <DiaryTumblrFeed plainPageStyle={plainPageStyle} />
   }
 
   if (folder.id === 'submit-room') {
