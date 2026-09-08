@@ -191,18 +191,7 @@ const EXHIBITIONS = [
     ],
     imageFolder: 'Bed Doesn_t Ask Questions - Panoramic Photo Festival Barcelona',
   },
-  {
-    id: 'spilkaparis-local-group',
-    title: 'SpilkaParis x Local Group',
-    year: '2025',
-    venue: 'Kolektiv Radieuse',
-    location: "Le Corbusier's Cite Radieuse, Marseille, France",
-    description: [
-      'Group project with Local Group at Kolektiv Radieuse.',
-    ],
-    links: [],
-    imageFolder: '2025   SpilkaParis x Local Group, Kolektiv Radieuse, Le Corbusier’s Cité Radieuse, Marseille, France',
-  },
+
   {
     id: 'localstickerbook-domicile',
     title: 'Localstickerbook, Films fundraiser',
@@ -365,6 +354,24 @@ const OPEN_ARCHIVE_IMAGES = Object.entries(OPEN_ARCHIVE_IMAGE_MODULES)
     }
   })
 
+const CURATION_PROJECTS = [
+  {
+    id: 'spilkaparis-local-group',
+    title: 'SpilkaParis × Local Group',
+    year: '2025',
+    role: 'Curator',
+    venue: 'Kolektiv Cité Radieuse',
+    location: "Le Corbusier's Cité Radieuse, Marseille, France",
+    description: [
+      'Two-day screening programme of Ukrainian moving image, curated by Anastasiia Pishchanska / LOCAL GROUP and presented at Kolektiv Cité Radieuse alongside Yelena Yemchuk\'s exhibition. The programme brought together works by Ukrainian filmmakers and media artists, focusing on contemporary moving-image practices emerging from Ukraine and its diaspora.',
+    ],
+    links: [
+      { url: 'https://www.instagram.com/p/DLiPmNXoxwA/', label: 'Instagram' },
+    ],
+    imageFolder: '2025   SpilkaParis x Local Group, Kolektiv Radieuse, Le Corbusier\'s Cité Radieuse, Marseille, France',
+  },
+]
+
 const FOLDER_DEFINITIONS = [
   {
     id: 'cv',
@@ -397,7 +404,7 @@ const FOLDER_DEFINITIONS = [
           { year: '2026', item: 'Women by Women, PhotoVogue, Biblioteca Nazionale Braidense, Milan, Italy' },
           { year: '2025', item: "Bed doesn't ask questions, PanoramicFestival, Barcelona, Spain" },
           { year: '', item: 'Localstickerbook, Tokyo Art Book Fair, Tokyo, Japan' },
-          { year: '', item: "Spilka Paris x Local Group, Kolektiv Radieuse, Le Corbusier's Cité Radieuse, Marseille, France" },
+          { year: '', item: "SpilkaParis × Local Group (Curator), Kolektiv Cité Radieuse, Marseille, France" },
           { year: '2024', item: 'MOM, POST-INTERNET IS NOT A PHASE ;(, Okay Space Gallery, Athens, Greece' },
           { year: '', item: 'Book Exhibition, UNTITLED SPACE, Tokyo, Japan' },
           { year: '2023', item: 'bezzvuchnodohlukhoty, National Academy of Fine Arts, Kyiv, Ukraine' },
@@ -484,7 +491,6 @@ const FOLDER_DEFINITIONS = [
       {
         heading: 'CURATING',
         entries: [
-          { year: '2025', item: "SpilkaParis x Local Group, Kolektiv Radieuse, Le Corbusier's Cité Radieuse, Marseille, France", url: 'https://www.instagram.com/p/DLiPmNXoxwA/' },
           { year: '2025', item: 'Localstickerbook, Films fundraiser, Domicile Gallery, Tokyo, Japan', url: 'https://www.instagram.com/p/DF5DwVPiRwL/' },
           { year: '2025', item: 'OpenSecret x Localstickerbook, Internet Cinema, Untitled Space Gallery, Tokyo, Japan', url: 'https://www.ultra.art/p/the-fourth-secret-of-internet-cinema' },
           { year: '2024', item: 'Localstickerbook, Films Fundraiser, Datsuijo Gallery, Tokyo, Japan', url: 'https://datsuijo.com/' },
@@ -4468,6 +4474,183 @@ function AboutFolderContent({
           />,
           document.body,
         )}
+      </div>
+    )
+  }
+
+  if (folder.id === 'filmmaking') {
+    const isCurationOverview = activeFolderDetailId === 'overview' || !activeFolderDetailId
+    const selectedCuration = !isCurationOverview
+      ? CURATION_PROJECTS.find((p) => p.id === activeFolderDetailId) ?? null
+      : null
+    const navButtonBaseStyle = {
+      display: isMobileLayout ? 'inline-flex' : 'block',
+      width: isMobileLayout ? 'auto' : '100%',
+      border: 'none',
+      background: 'transparent',
+      padding: isMobileLayout ? '0 12px 10px 0' : '0 0 8px',
+      font: 'inherit',
+      fontSize: '13px',
+      lineHeight: 1.25,
+      color: '#000',
+      textAlign: 'left',
+      textDecoration: 'underline',
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      flex: isMobileLayout ? '0 0 auto' : undefined,
+      cursor: 'pointer',
+    }
+    const shellStyle = {
+      ...plainPageStyle,
+      display: 'grid',
+      gridTemplateColumns: isMobileLayout ? '1fr' : '220px minmax(0, 1fr)',
+      gap: isMobileLayout ? '22px' : '30px',
+      alignItems: 'start',
+      padding: isMobileLayout ? '20px 16px 70px' : '40px 32px 64px',
+    }
+    const renderCurationNav = () => (
+      <nav aria-label="Curation" style={{
+        position: isMobileLayout ? 'relative' : 'sticky',
+        top: 0,
+        alignSelf: 'start',
+        maxHeight: isMobileLayout ? 'none' : 'calc(100vh - 44px)',
+        overflowX: isMobileLayout ? 'auto' : 'hidden',
+        overflowY: isMobileLayout ? 'hidden' : 'auto',
+        padding: isMobileLayout ? '0 0 4px' : '0 0 18px',
+        display: isMobileLayout ? 'flex' : 'block',
+      }}>
+        <button type="button" onClick={() => onOpenFolderRoute?.(folder.id, 'overview')}
+          style={{ ...navButtonBaseStyle, margin: '0 0 14px', fontWeight: isCurationOverview ? 700 : 400, textDecoration: isCurationOverview ? 'none' : 'underline' }}>
+          overview
+        </button>
+        {CURATION_PROJECTS.map((project) => {
+          const isActive = selectedCuration?.id === project.id
+          return (
+            <button key={project.id} type="button" onClick={() => onOpenFolderRoute?.(folder.id, project.id)}
+              style={{ ...navButtonBaseStyle, fontWeight: isActive ? 700 : 400, textDecoration: isActive ? 'none' : 'underline' }}>
+              {project.title}
+            </button>
+          )
+        })}
+      </nav>
+    )
+
+    if (selectedCuration) {
+      const images = EXHIBITION_IMAGES_BY_FOLDER.get(selectedCuration.imageFolder) ?? []
+      const openLightbox = (imageIndex) => onOpenFolderRoute?.(folder.id, selectedCuration.id, imageIndex)
+      const activeLightboxImage = activeFolderImageIndex != null && images.length > 0
+        ? images[activeFolderImageIndex % images.length]
+        : null
+      const showNextLightboxImage = () => {
+        if (images.length === 0) return
+        onOpenFolderRoute?.(folder.id, selectedCuration.id, ((activeFolderImageIndex ?? 0) + 1) % images.length)
+      }
+      const institutionText = [selectedCuration.venue, selectedCuration.location].filter(Boolean).join('\n')
+
+      return (
+        <div style={shellStyle}>
+          {renderCurationNav()}
+          <main style={{ minWidth: 0, maxWidth: '860px', margin: '0 auto', padding: '0 0 80px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobileLayout ? '1fr' : '1fr 1fr', gap: isMobileLayout ? '12px' : '24px', alignItems: 'start', margin: isMobileLayout ? '0 0 28px' : '0 0 48px' }}>
+              <div>
+                <h1 style={{ margin: 0, fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 700, lineHeight: 1.3, whiteSpace: 'pre-line' }}>
+                  {institutionText}
+                </h1>
+              </div>
+              <div>
+                <h1 style={{ margin: 0, fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 700, lineHeight: 1.3 }}>
+                  {selectedCuration.title}
+                  <br />
+                  {selectedCuration.year}
+                </h1>
+                {selectedCuration.role && (
+                  <p style={{ margin: '8px 0 0', fontSize: '14px', color: '#555' }}>Role: {selectedCuration.role}</p>
+                )}
+              </div>
+            </div>
+
+            {selectedCuration.description?.length > 0 && (
+              <div style={{ marginBottom: '36px' }}>
+                {selectedCuration.description.map((paragraph) => (
+                  <p key={paragraph} style={{ margin: '0 0 18px', fontSize: isMobileLayout ? '16px' : '18px', lineHeight: 1.5 }}>
+                    {paragraph}
+                  </p>
+                ))}
+              </div>
+            )}
+
+            {images.length > 0 && (
+              <div style={{ marginBottom: '28px' }}>
+                <button type="button" onClick={() => openLightbox(0)}
+                  style={{ border: 'none', background: 'transparent', padding: '0 0 10px', cursor: 'pointer', fontSize: isMobileLayout ? '16px' : '18px', textDecoration: 'underline', color: 'inherit', fontFamily: 'inherit', display: 'block' }}>
+                  {`Installation Images (${images.length}) →`}
+                </button>
+                <button type="button" onClick={() => openLightbox(0)}
+                  style={{ border: 'none', background: 'transparent', padding: 0, display: 'block', width: '100%', lineHeight: 0, cursor: 'pointer' }}>
+                  <img src={images[0].src} alt="" loading="lazy" decoding="async"
+                    style={{ width: '100%', height: 'auto', display: 'block' }} />
+                </button>
+              </div>
+            )}
+
+            {selectedCuration.links?.length > 0 && (
+              <div style={{ marginTop: '24px' }}>
+                {selectedCuration.links.map((link) => (
+                  <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer"
+                    style={{ display: 'block', marginBottom: '8px', fontSize: '15px', color: '#000' }}>
+                    {link.label} →
+                  </a>
+                ))}
+              </div>
+            )}
+
+            {activeLightboxImage && createPortal(
+              <ExhibitionLightbox image={activeLightboxImage} onNext={showNextLightboxImage} onClose={() => onOpenFolderRoute?.(folder.id, selectedCuration.id)} />,
+              document.body,
+            )}
+          </main>
+        </div>
+      )
+    }
+
+    // Overview — list all curation projects + existing text entries
+    return (
+      <div style={shellStyle}>
+        {renderCurationNav()}
+        <main style={{ minWidth: 0, maxWidth: '860px', margin: '0 auto', padding: '0 0 80px' }}>
+          {CURATION_PROJECTS.map((project) => {
+            const images = EXHIBITION_IMAGES_BY_FOLDER.get(project.imageFolder) ?? []
+            return (
+              <section key={project.id} style={{ margin: '0 0 56px' }}>
+                <button type="button" onClick={() => onOpenFolderRoute?.(folder.id, project.id)}
+                  style={{ border: 'none', background: 'transparent', padding: 0, font: 'inherit', textAlign: 'left', cursor: 'pointer', display: 'block', width: '100%', marginBottom: '12px' }}>
+                  <h2 style={{ margin: 0, fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 700, fontStyle: 'italic', lineHeight: 1.55 }}>{project.title}</h2>
+                  <p style={{ margin: '4px 0 0', fontSize: '15px' }}>{project.year} — {[project.venue, project.location].filter(Boolean).join(', ')}</p>
+                  {project.role && <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#555' }}>Role: {project.role}</p>}
+                  {images.length > 0 && (
+                    <p style={{ margin: '8px 0 0', fontSize: '14px', textDecoration: 'underline' }}>
+                      Installation Images ({images.length}) →
+                    </p>
+                  )}
+                </button>
+              </section>
+            )
+          })}
+          {folder.sections?.map((section) => (
+            <section key={section.heading} style={{ margin: '0 0 56px' }}>
+              <h2 style={{ margin: '0 0 18px', fontSize: isMobileLayout ? '16px' : '18px', fontWeight: 700, letterSpacing: '0.04em' }}>{section.heading}</h2>
+              {section.entries?.map((entry, i) => (
+                <div key={i} style={{ marginBottom: '12px', fontSize: '18px', lineHeight: 1.25 }}>
+                  {entry.year && <span style={{ marginRight: '12px', color: '#888', fontSize: '14px' }}>{entry.year}</span>}
+                  {entry.url
+                    ? <a href={entry.url} target="_blank" rel="noopener noreferrer" style={{ color: '#000' }}>{entry.item}</a>
+                    : <span>{entry.item}</span>}
+                </div>
+              ))}
+            </section>
+          ))}
+        </main>
       </div>
     )
   }
