@@ -4363,6 +4363,19 @@ function AboutFolderContent({
   }
 
 
+  if (folder.id === 'local-group') {
+    return (
+      <div style={{ ...plainPageStyle, padding: 0, overflow: 'hidden' }}>
+        <iframe
+          src="/local-group-mirror.html"
+          title="local group"
+          style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+          sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-top-navigation-by-user-activation"
+        />
+      </div>
+    )
+  }
+
   if (folder.id === 'diary') {
     return <DiaryTumblrFeed plainPageStyle={plainPageStyle} />
   }
