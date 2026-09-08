@@ -5777,7 +5777,7 @@ export default function App() {
     )
   }
 
-  const shouldShowHouse = Boolean(route.showHouse) || (hasOpenedPreview && !isPreviewOpen)
+  const shouldShowHouse = true
   const shouldShowHomeHeader = !isMobileLayout || !shouldShowHouse
 
   return (
@@ -5866,17 +5866,7 @@ export default function App() {
         </div>
       )}
 
-      {!shouldShowHouse && !isPreviewOpen && (
-        <PreviewLauncher onOpen={openPreview} isTouch={isTouch} isMobileLayout={isMobileLayout} />
-      )}
-      {isPreviewOpen && (
-        <ProjectPreviewWindow
-          onClose={closePreview}
-          onPreviewStarted={preloadHome}
-          isTouch={isTouch}
-          isMobileLayout={isMobileLayout}
-        />
-      )}
+      {/* Video preview launcher removed */}
       {sceneTransitionLayer}
     </div>
   )
