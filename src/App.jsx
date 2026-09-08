@@ -192,17 +192,7 @@ const EXHIBITIONS = [
     imageFolder: 'Bed Doesn_t Ask Questions - Panoramic Photo Festival Barcelona',
   },
 
-  {
-    id: 'book-exhibition-untitled-space',
-    title: 'Book Exhibition',
-    year: '2024',
-    venue: 'UNTITLED SPACE',
-    location: 'Tokyo, Japan',
-    description: [
-      'Book exhibition in Tokyo.',
-    ],
-    links: [],
-  },
+
   {
     id: 'bezzvuchnodohlukhoty',
     title: 'bezzvuchnodohlukhoty',
