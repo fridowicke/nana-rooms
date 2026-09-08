@@ -4100,19 +4100,21 @@ function DiaryTumblrFeed({ plainPageStyle }) {
     <div
       style={{
         ...plainPageStyle,
-        background: '#36465d',
+        background: '#b3b7b7',
         overflowY: 'auto',
-        padding: '20px 0 60px',
+        padding: '20px 0 80px',
+        height: '100%',
+        boxSizing: 'border-box',
       }}
     >
       <div style={{ maxWidth: '540px', margin: '0 auto', padding: '0 12px' }}>
         {loading && (
-          <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px', textAlign: 'center', paddingTop: '40px', fontFamily: 'Helvetica Neue, Helvetica, Arial, sans-serif' }}>
+          <div style={{ color: 'rgba(0,0,0,0.4)', fontSize: '13px', textAlign: 'center', paddingTop: '40px', fontFamily: 'Helvetica Neue, Helvetica, Arial, sans-serif' }}>
             loading...
           </div>
         )}
         {!loading && posts.length === 0 && (
-          <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px', textAlign: 'center', paddingTop: '40px', fontFamily: 'Helvetica Neue, Helvetica, Arial, sans-serif' }}>
+          <div style={{ color: 'rgba(0,0,0,0.4)', fontSize: '13px', textAlign: 'center', paddingTop: '40px', fontFamily: 'Helvetica Neue, Helvetica, Arial, sans-serif' }}>
             no posts
           </div>
         )}
@@ -4125,10 +4127,10 @@ function DiaryTumblrFeed({ plainPageStyle }) {
               type="button"
               onClick={() => setVisible((v) => v + DIARY_PAGE_SIZE)}
               style={{
-                background: 'rgba(255,255,255,0.12)',
-                border: '1px solid rgba(255,255,255,0.2)',
+                background: 'rgba(255,255,255,0.5)',
+                border: '1px solid rgba(0,0,0,0.15)',
                 borderRadius: '3px',
-                color: 'rgba(255,255,255,0.75)',
+                color: 'rgba(0,0,0,0.6)',
                 fontFamily: 'Helvetica Neue, Helvetica, Arial, sans-serif',
                 fontSize: '13px',
                 padding: '10px 28px',
@@ -4146,7 +4148,7 @@ function DiaryTumblrFeed({ plainPageStyle }) {
               target="_blank"
               rel="noopener noreferrer"
               style={{
-                color: 'rgba(255,255,255,0.4)',
+                color: 'rgba(0,0,0,0.35)',
                 fontFamily: 'Helvetica Neue, Helvetica, Arial, sans-serif',
                 fontSize: '12px',
                 textDecoration: 'none',
