@@ -516,6 +516,31 @@ const FOLDER_DEFINITIONS = [
     title: '3D Bedrooms Wikipedia',
     sections: [],
   },
+  // — new desktop structure —
+  {
+    id: 'work',
+    label: 'work',
+    title: 'Work',
+    sections: [],
+  },
+  {
+    id: 'research',
+    label: 'research',
+    title: 'Research',
+    sections: [],
+  },
+  {
+    id: 'local-group',
+    label: 'local group',
+    title: 'Local Group',
+    sections: [],
+  },
+  {
+    id: 'about-page',
+    label: 'about',
+    title: 'About',
+    sections: [],
+  },
 ]
 const FOLDER_MAP = new Map(FOLDER_DEFINITIONS.map((folder) => [folder.id, folder]))
 const TONE_MAPPING_OPTIONS = [
@@ -3147,22 +3172,18 @@ function AboutPage({
 
   const folderArcLayout = isMobileLayout
     ? [
-        { id: 'press', left: '24%', top: '37%' },
-        { id: 'writing', left: '56%', top: '35%' },
-        { id: 'exhibitions', left: '30%', top: '54%' },
-        { id: 'filmmaking', left: '67%', top: '54%' },
-        { id: 'cv', left: '28%', top: '72%' },
-        { id: 'submit-room', left: '70%', top: '72%' },
-        { id: 'open-collective-archive', left: '52%', top: '88%' },
+        { id: 'work', left: '28%', top: '37%' },
+        { id: 'research', left: '62%', top: '37%' },
+        { id: 'local-group', left: '28%', top: '56%' },
+        { id: 'about-page', left: '67%', top: '56%' },
+        { id: 'cv', left: '48%', top: '74%' },
       ]
     : [
-        { id: 'press', left: '25%', top: '36%' },
-        { id: 'writing', left: '37%', top: '34%' },
-        { id: 'exhibitions', left: '47%', top: '56%' },
-        { id: 'filmmaking', left: '73%', top: '42%' },
-        { id: 'cv', left: '84%', top: '65%' },
-        { id: 'submit-room', left: '94%', top: '43%' },
-        { id: 'open-collective-archive', left: '93%', top: '57%' },
+        { id: 'work', left: '25%', top: '36%' },
+        { id: 'research', left: '40%', top: '38%' },
+        { id: 'local-group', left: '56%', top: '42%' },
+        { id: 'about-page', left: '71%', top: '50%' },
+        { id: 'cv', left: '84%', top: '62%' },
       ]
   const [folderPositions, setFolderPositions] = useState(
     () => new Map(folderArcLayout.map((p) => [p.id, { left: p.left, top: p.top }]))
