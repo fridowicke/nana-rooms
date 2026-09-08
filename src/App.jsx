@@ -4261,6 +4261,24 @@ function AboutFolderContent({
     return [descriptionText, placeText].filter(Boolean).join(' ')
   }
 
+  if (folder.id === 'local-group') {
+    return (
+      <div style={{ ...plainPageStyle, padding: 0, overflow: 'hidden' }}>
+        <iframe
+          src="/local-group-mirror.html"
+          title="local group"
+          style={{
+            width: '100%',
+            height: '100%',
+            border: 'none',
+            display: 'block',
+          }}
+          sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+        />
+      </div>
+    )
+  }
+
   if (folder.id === 'diary') {
     return <DiaryTumblrFeed plainPageStyle={plainPageStyle} />
   }
