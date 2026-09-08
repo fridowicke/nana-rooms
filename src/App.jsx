@@ -516,13 +516,7 @@ const FOLDER_DEFINITIONS = [
     title: '3D Bedrooms Wikipedia',
     sections: [],
   },
-  // — new desktop structure —
-  {
-    id: 'work',
-    label: 'work',
-    title: 'Work',
-    sections: [],
-  },
+  // — new folders —
   {
     id: 'research',
     label: 'research',
@@ -533,12 +527,6 @@ const FOLDER_DEFINITIONS = [
     id: 'local-group',
     label: 'local group',
     title: 'Local Group',
-    sections: [],
-  },
-  {
-    id: 'about-page',
-    label: 'about',
-    title: 'About',
     sections: [],
   },
 ]
@@ -3173,18 +3161,22 @@ function AboutPage({
 
   const folderArcLayout = isMobileLayout
     ? [
-        { id: 'work', left: '28%', top: '37%' },
-        { id: 'research', left: '62%', top: '37%' },
-        { id: 'local-group', left: '28%', top: '56%' },
-        { id: 'about-page', left: '67%', top: '56%' },
-        { id: 'cv', left: '48%', top: '74%' },
+        { id: 'press', left: '24%', top: '30%' },
+        { id: 'writing', left: '60%', top: '30%' },
+        { id: 'exhibitions', left: '24%', top: '47%' },
+        { id: 'filmmaking', left: '60%', top: '47%' },
+        { id: 'research', left: '24%', top: '64%' },
+        { id: 'local-group', left: '60%', top: '64%' },
+        { id: 'cv', left: '42%', top: '80%' },
       ]
     : [
-        { id: 'work', left: '25%', top: '36%' },
-        { id: 'research', left: '40%', top: '38%' },
-        { id: 'local-group', left: '56%', top: '42%' },
-        { id: 'about-page', left: '71%', top: '50%' },
-        { id: 'cv', left: '84%', top: '62%' },
+        { id: 'press', left: '25%', top: '36%' },
+        { id: 'writing', left: '37%', top: '34%' },
+        { id: 'exhibitions', left: '50%', top: '38%' },
+        { id: 'filmmaking', left: '63%', top: '42%' },
+        { id: 'research', left: '73%', top: '34%' },
+        { id: 'local-group', left: '84%', top: '48%' },
+        { id: 'cv', left: '84%', top: '65%' },
       ]
   const [folderPositions, setFolderPositions] = useState(
     () => new Map(folderArcLayout.map((p) => [p.id, { left: p.left, top: p.top }]))
