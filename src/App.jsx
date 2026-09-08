@@ -2620,6 +2620,23 @@ function HiddenObjectScene({ roomNumber, hotspots, onFound, editMode, onEditPick
           meshNames,
           position: [parseFloat(p.x.toFixed(4)), parseFloat(p.y.toFixed(4)), parseFloat(p.z.toFixed(4))],
         })
+        // Flash highlight: temporarily tint the clicked mesh pink
+        const mesh = hit.object
+        if (mesh.material) {
+          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+          const origColors = mats.map(m => m.color ? m.color.getHex() : null)
+          const origEmissives = mats.map(m => m.emissive ? m.emissive.getHex() : null)
+          mats.forEach(m => {
+            if (m.color) m.color.setHex(0xff69b4)
+            if (m.emissive) m.emissive.setHex(0xff69b4)
+          })
+          setTimeout(() => {
+            mats.forEach((m, i) => {
+              if (m.color && origColors[i] !== null) m.color.setHex(origColors[i])
+              if (m.emissive && origEmissives[i] !== null) m.emissive.setHex(origEmissives[i])
+            })
+          }, 600)
+        }
         return
       }
 
