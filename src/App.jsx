@@ -4079,9 +4079,12 @@ function TumblrPostCard({ post }) {
   )
 }
 
+const DIARY_PAGE_SIZE = 10
+
 function DiaryTumblrFeed({ plainPageStyle }) {
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [visible, setVisible] = useState(DIARY_PAGE_SIZE)
 
   useEffect(() => {
     fetch('/tumblr-feed.json')
@@ -4089,6 +4092,9 @@ function DiaryTumblrFeed({ plainPageStyle }) {
       .then((data) => { setPosts(data.posts ?? []); setLoading(false) })
       .catch(() => setLoading(false))
   }, [])
+
+  const visiblePosts = posts.slice(0, visible)
+  const hasMore = visible < posts.length
 
   return (
     <div
@@ -4110,9 +4116,46 @@ function DiaryTumblrFeed({ plainPageStyle }) {
             no posts
           </div>
         )}
-        {posts.map((post) => (
+        {visiblePosts.map((post) => (
           <TumblrPostCard key={post.id || post.link} post={post} />
         ))}
+        {!loading && hasMore && (
+          <div style={{ textAlign: 'center', paddingTop: '8px' }}>
+            <button
+              type="button"
+              onClick={() => setVisible((v) => v + DIARY_PAGE_SIZE)}
+              style={{
+                background: 'rgba(255,255,255,0.12)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                borderRadius: '3px',
+                color: 'rgba(255,255,255,0.75)',
+                fontFamily: 'Helvetica Neue, Helvetica, Arial, sans-serif',
+                fontSize: '13px',
+                padding: '10px 28px',
+                cursor: 'pointer',
+              }}
+            >
+              load more
+            </button>
+          </div>
+        )}
+        {!loading && !hasMore && posts.length > 0 && (
+          <div style={{ textAlign: 'center', paddingTop: '16px' }}>
+            <a
+              href="https://www.tumblr.com/shelestvetrovki"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: 'rgba(255,255,255,0.4)',
+                fontFamily: 'Helvetica Neue, Helvetica, Arial, sans-serif',
+                fontSize: '12px',
+                textDecoration: 'none',
+              }}
+            >
+              view on tumblr →
+            </a>
+          </div>
+        )}
       </div>
     </div>
   )
