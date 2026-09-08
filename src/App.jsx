@@ -321,7 +321,7 @@ const CURATION_PROJECTS = [
     id: 'spilkaparis-local-group',
     title: 'SpilkaParis × Local Group',
     year: '2025',
-    role: 'Curator',
+    curatedBy: 'Anastasiia Pishchanska and Maxime Forest',
     venue: 'Kolektiv Cité Radieuse',
     location: "Le Corbusier's Cité Radieuse, Marseille, France",
     description: [
@@ -4548,28 +4548,26 @@ function AboutFolderContent({
         if (images.length === 0) return
         onOpenFolderRoute?.(folder.id, selectedCuration.id, ((activeFolderImageIndex ?? 0) + 1) % images.length)
       }
-      const institutionText = [selectedCuration.venue, selectedCuration.location].filter(Boolean).join('\n')
+      const venueLocation = [selectedCuration.venue, selectedCuration.location].filter(Boolean).join(', ')
 
       return (
         <div style={shellStyle}>
           {renderCurationNav()}
-          <main style={{ minWidth: 0, maxWidth: '860px', margin: '0 auto', padding: '0 0 80px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: isMobileLayout ? '1fr' : '1fr 1fr', gap: isMobileLayout ? '12px' : '24px', alignItems: 'start', margin: isMobileLayout ? '0 0 28px' : '0 0 48px' }}>
-              <div>
-                <h1 style={{ margin: 0, fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 400, lineHeight: 1.3, whiteSpace: 'pre-line' }}>
-                  {institutionText}
-                </h1>
-              </div>
-              <div>
-                <h1 style={{ margin: 0, fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 400, lineHeight: 1.3 }}>
-                  {selectedCuration.title}
-                  <br />
-                  {selectedCuration.year}
-                </h1>
-                {selectedCuration.role && (
-                  <p style={{ margin: '8px 0 0', fontSize: '14px', color: '#555' }}>Role: {selectedCuration.role}</p>
-                )}
-              </div>
+          <main style={{ minWidth: 0, padding: '0 0 80px' }}>
+            <div style={{ margin: isMobileLayout ? '0 0 28px' : '0 0 48px' }}>
+              <h1 style={{ margin: '0 0 6px', fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 400, lineHeight: 1.3, fontStyle: 'normal' }}>
+                {selectedCuration.title}{selectedCuration.year ? `, ${selectedCuration.year}` : ''}
+              </h1>
+              {venueLocation && (
+                <p style={{ margin: '0 0 6px', fontSize: isMobileLayout ? '15px' : '16px', fontWeight: 300, fontStyle: 'normal' }}>
+                  {venueLocation}
+                </p>
+              )}
+              {selectedCuration.curatedBy && (
+                <p style={{ margin: '0', fontSize: isMobileLayout ? '14px' : '15px', fontWeight: 300, fontStyle: 'normal' }}>
+                  Curated by {selectedCuration.curatedBy}
+                </p>
+              )}
             </div>
 
             {selectedCuration.description?.length > 0 && (
@@ -4627,11 +4625,10 @@ function AboutFolderContent({
               <section key={project.id} style={{ margin: '0 0 56px' }}>
                 <button type="button" onClick={() => onOpenFolderRoute?.(folder.id, project.id)}
                   style={{ border: 'none', background: 'transparent', padding: 0, font: 'inherit', textAlign: 'left', cursor: 'pointer', display: 'block', width: '100%', marginBottom: '12px' }}>
-                  <h2 style={{ margin: 0, fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 400, fontStyle: 'italic', lineHeight: 1.55 }}>{project.title}</h2>
-                  <p style={{ margin: '4px 0 0', fontSize: '15px' }}>{project.year} — {[project.venue, project.location].filter(Boolean).join(', ')}</p>
-                  {project.role && <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#555' }}>Role: {project.role}</p>}
+                  <h2 style={{ margin: '0 0 4px', fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 400, fontStyle: 'normal', lineHeight: 1.3 }}>{project.title}{project.year ? `, ${project.year}` : ''}</h2>
+                  <p style={{ margin: '0 0 2px', fontSize: '15px', fontStyle: 'normal', fontWeight: 300 }}>{[project.venue, project.location].filter(Boolean).join(', ')}</p>
                   {images.length > 0 && (
-                    <p style={{ margin: '8px 0 0', fontSize: '14px', textDecoration: 'underline' }}>
+                    <p style={{ margin: '6px 0 0', fontSize: '14px', textDecoration: 'underline' }}>
                       Installation Images ({images.length}) →
                     </p>
                   )}
@@ -4746,10 +4743,9 @@ function AboutFolderContent({
         if (images.length === 0) return
         onOpenFolderRoute?.(folder.id, selectedExhibition.id, ((activeFolderImageIndex ?? 0) + 1) % images.length)
       }
-      const institutionText = [selectedExhibition.venue, selectedExhibition.location].filter(Boolean).join('\n')
+      const venueLocation = [selectedExhibition.venue, selectedExhibition.location].filter(Boolean).join(', ')
       const detailContentStyle = {
         margin: '0 0 34px',
-        maxWidth: '700px',
         fontSize: '18px',
         lineHeight: 1.42,
       }
@@ -4758,29 +4754,17 @@ function AboutFolderContent({
         <div style={exhibitionShellStyle}>
           {renderExhibitionNav()}
 
-          <main style={{ minWidth: 0, maxWidth: '860px', margin: '0 auto', padding: '0 0 80px' }}>
-            {/* Title block — two equal columns */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: isMobileLayout ? '1fr' : '1fr 1fr',
-                gap: isMobileLayout ? '12px' : '24px',
-                alignItems: 'start',
-                margin: isMobileLayout ? '0 0 28px' : '0 0 48px',
-              }}
-            >
-              <div>
-                <h1 style={{ margin: 0, fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 400, lineHeight: 1.3, whiteSpace: 'pre-line' }}>
-                  {institutionText}
-                </h1>
-              </div>
-              <div>
-                <h1 style={{ margin: 0, fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 400, lineHeight: 1.3 }}>
-                  {selectedExhibition.title}
-                  <br />
-                  {selectedExhibition.dates ?? selectedExhibition.year}
-                </h1>
-              </div>
+          <main style={{ minWidth: 0, padding: '0 0 80px' }}>
+            {/* Title block */}
+            <div style={{ margin: isMobileLayout ? '0 0 28px' : '0 0 48px' }}>
+              <h1 style={{ margin: '0 0 6px', fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 400, lineHeight: 1.3, fontStyle: 'normal' }}>
+                {selectedExhibition.title}{(selectedExhibition.dates ?? selectedExhibition.year) ? `, ${selectedExhibition.dates ?? selectedExhibition.year}` : ''}
+              </h1>
+              {venueLocation && (
+                <p style={{ margin: 0, fontSize: isMobileLayout ? '15px' : '16px', fontWeight: 300, fontStyle: 'normal' }}>
+                  {venueLocation}
+                </p>
+              )}
             </div>
 
             {/* Description */}
@@ -4924,7 +4908,7 @@ function AboutFolderContent({
                     ⋆ ˚｡⋆୨୧˚ ✿ ˚୨୧⋆｡˚ ⋆
                   </div>
                 )}
-                <h2 style={{ ...plainHeadingStyle, margin: '0 0 14px', fontSize: '22px', fontStyle: 'italic', lineHeight: 1.55, textTransform: 'none' }}>{exhibition.title}</h2>
+                <h2 style={{ ...plainHeadingStyle, margin: '0 0 14px', fontSize: '22px', fontStyle: 'normal', lineHeight: 1.3, textTransform: 'none' }}>{exhibition.title}</h2>
                 <p style={{ margin: '0 0 8px' }}>{exhibition.year}</p>
 
                 {previewImage && (
