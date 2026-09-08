@@ -193,33 +193,6 @@ const EXHIBITIONS = [
   },
 
   {
-    id: 'localstickerbook-domicile',
-    title: 'Localstickerbook, Films fundraiser',
-    year: '2024',
-    venue: 'Domicile Gallery',
-    location: 'Tokyo, Japan',
-    description: [
-      'Films fundraiser and screening with Localstickerbook.',
-    ],
-    links: [],
-  },
-  {
-    id: 'mom-post-internet-is-not-a-phase',
-    title: 'MOM, POST-INTERNET IS NOT A PHASE ;(',
-    year: '2024',
-    venue: 'Okay Initiative Space',
-    location: 'Athens, Greece',
-    description: [
-      'NOISTRUCT, CÁRPATOS, ZORKKKKKA, GAARA collective, LEO ADEF, CHRIS ECHO, SHELESTVETROVKI, P0BREDIABLA',
-      'Curated by Yan Tashtoush.',
-      '"MOM, post-internet is not a phase ;(" is a group exhibition exploring the shifting relationship between humans and our digital landscapes amidst visceral cry against the erasure of lives, bombed-out cities and abandoned homes in a global apathy that watches wars unfold, as entire populations are reduced to digital fragments, while the cries for justice are drowned by the endless cycle of "click, scroll, refresh."',
-    ],
-    links: [
-      { url: 'https://www.kubaparis.com/submission/469655', label: 'Kuba Paris: MOM, POST-INTERNET IS NOT A PHASE ;(' },
-    ],
-    imageFolder: 'MOM, POST-INTERNET IS NOT A PHASE _(',
-  },
-  {
     id: 'book-exhibition-untitled-space',
     title: 'Book Exhibition',
     year: '2024',
@@ -227,17 +200,6 @@ const EXHIBITIONS = [
     location: 'Tokyo, Japan',
     description: [
       'Book exhibition in Tokyo.',
-    ],
-    links: [],
-  },
-  {
-    id: 'localstickerbook-datsuijo',
-    title: 'Localstickerbook, Films Fundraiser',
-    year: '2024',
-    venue: 'Datsuijo Gallery',
-    location: 'Tokyo, Japan',
-    description: [
-      'Films fundraiser with Localstickerbook.',
     ],
     links: [],
   },
@@ -369,6 +331,44 @@ const CURATION_PROJECTS = [
       { url: 'https://www.instagram.com/p/DLiPmNXoxwA/', label: 'Instagram' },
     ],
     imageFolder: '2025   SpilkaParis x Local Group, Kolektiv Radieuse, Le Corbusier\'s Cité Radieuse, Marseille, France',
+  },
+  {
+    id: 'localstickerbook-domicile',
+    title: 'Localstickerbook, Films fundraiser',
+    year: '2024',
+    venue: 'Domicile Gallery',
+    location: 'Tokyo, Japan',
+    description: [
+      'Films fundraiser and screening with Localstickerbook.',
+    ],
+    links: [],
+  },
+  {
+    id: 'mom-post-internet-is-not-a-phase',
+    title: 'MOM, POST-INTERNET IS NOT A PHASE ;(',
+    year: '2024',
+    venue: 'Okay Initiative Space',
+    location: 'Athens, Greece',
+    description: [
+      'NOISTRUCT, CÁRPATOS, ZORKKKKKA, GAARA collective, LEO ADEF, CHRIS ECHO, SHELESTVETROVKI, P0BREDIABLA',
+      'Curated by Yan Tashtoush.',
+      '"MOM, post-internet is not a phase ;(" is a group exhibition exploring the shifting relationship between humans and our digital landscapes amidst visceral cry against the erasure of lives, bombed-out cities and abandoned homes in a global apathy that watches wars unfold, as entire populations are reduced to digital fragments, while the cries for justice are drowned by the endless cycle of "click, scroll, refresh."',
+    ],
+    links: [
+      { url: 'https://www.kubaparis.com/submission/469655', label: 'Kuba Paris: MOM, POST-INTERNET IS NOT A PHASE ;(' },
+    ],
+    imageFolder: 'MOM, POST-INTERNET IS NOT A PHASE _(',
+  },
+  {
+    id: 'localstickerbook-datsuijo',
+    title: 'Localstickerbook, Films Fundraiser',
+    year: '2024',
+    venue: 'Datsuijo Gallery',
+    location: 'Tokyo, Japan',
+    description: [
+      'Films fundraiser with Localstickerbook.',
+    ],
+    links: [],
   },
 ]
 
