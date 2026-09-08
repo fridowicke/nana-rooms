@@ -8,7 +8,7 @@ body {
 
 body {
   overflow: hidden;
-  font-family: 'Helvetica', Arial, sans-serif;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-weight: 300;
   background-color: #fff;
   cursor: var(--app-cursor, auto);
@@ -54,7 +54,7 @@ a, button, [role="button"], .cursor-pointer {
   box-sizing: border-box;
   background: #fff;
   color: #111;
-  font-family: 'Helvetica', Arial, sans-serif;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   text-align: center;
 }
 

@@ -86,8 +86,8 @@ const ABOUT_HASH = '#about'
 const ROOM_HASH_PREFIX = 'room-'
 const FOLDER_HASH_PREFIX = 'folder-'
 const FOLDER_LIGHTBOX_HASH_SEGMENT = 'image'
-const MAC_LIGHT_FONT_STACK = "'Helvetica', Arial, sans-serif"
-const ARIAL_FONT_STACK = 'Arial, Helvetica, sans-serif'
+const MAC_LIGHT_FONT_STACK = '"Helvetica Neue", Helvetica, Arial, sans-serif'
+const ARIAL_FONT_STACK = '"Helvetica Neue", Helvetica, Arial, sans-serif'
 const HOME_PREVIEW_VIDEO = 'assets/shelestvetrovki-scan-web.mp4'
 const HOME_WELCOME_GIF = 'assets/home-welcome.gif'
 const NEXT_DOOR_GIF = 'assets/next-door.gif'
@@ -3968,12 +3968,12 @@ function TumblrPostCard({ post }) {
             href={postUrl}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ fontWeight: 700, fontSize: '13px', color: '#001935', textDecoration: 'none', fontFamily: 'Helvetica Neue, Helvetica, Arial, sans-serif' }}
+            style={{ fontWeight: 400, fontSize: '13px', color: '#001935', textDecoration: 'none', fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}
           >
             {post.is_reblog && post.reblog_from ? post.reblog_from : 'shelestvetrovki'}
           </a>
           {post.is_reblog && (
-            <div style={{ fontSize: '11px', color: '#9299a1', fontFamily: 'Helvetica Neue, Helvetica, Arial, sans-serif' }}>
+            <div style={{ fontSize: '11px', color: '#9299a1', fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}>
               via <a href={post.reblog_url || postUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#9299a1' }}>shelestvetrovki</a>
             </div>
           )}
@@ -4206,14 +4206,14 @@ function AboutFolderContent({
   const filmmakingHeadingStyle = {
     margin: '0 0 18px',
     fontSize: isMobileLayout ? '16px' : '18px',
-    fontWeight: 700,
+    fontWeight: 400,
     lineHeight: 1.25,
     textTransform: 'uppercase',
   }
   const plainHeadingStyle = {
     margin: '18px 0 8px',
     fontSize: '13px',
-    fontWeight: 700,
+    fontWeight: 400,
     textTransform: 'uppercase',
   }
   const pressHeadingStyle = {
@@ -4261,7 +4261,7 @@ function AboutFolderContent({
     placeItems: 'center',
     padding: '10px',
     fontSize: '12px',
-    fontWeight: 700,
+    fontWeight: 300,
     lineHeight: 1.12,
     textAlign: 'center',
     textTransform: 'uppercase',
@@ -4437,7 +4437,7 @@ function AboutFolderContent({
       <div
         style={plainPageStyle}
       >
-        <h1 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: 700 }}>{folder.title}</h1>
+        <h1 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: 400 }}>{folder.title}</h1>
         <TallyEmbed />
       </div>
     )
@@ -4521,14 +4521,14 @@ function AboutFolderContent({
         display: isMobileLayout ? 'flex' : 'block',
       }}>
         <button type="button" onClick={() => onOpenFolderRoute?.(folder.id, 'overview')}
-          style={{ ...navButtonBaseStyle, margin: '0 0 14px', fontWeight: isCurationOverview ? 700 : 400, textDecoration: isCurationOverview ? 'none' : 'underline' }}>
+          style={{ ...navButtonBaseStyle, margin: '0 0 14px', fontWeight: isCurationOverview ? 400 : 300, textDecoration: isCurationOverview ? 'none' : 'underline' }}>
           overview
         </button>
         {CURATION_PROJECTS.map((project) => {
           const isActive = selectedCuration?.id === project.id
           return (
             <button key={project.id} type="button" onClick={() => onOpenFolderRoute?.(folder.id, project.id)}
-              style={{ ...navButtonBaseStyle, fontWeight: isActive ? 700 : 400, textDecoration: isActive ? 'none' : 'underline' }}>
+              style={{ ...navButtonBaseStyle, fontWeight: isActive ? 400 : 300, textDecoration: isActive ? 'none' : 'underline' }}>
               {project.title}
             </button>
           )
@@ -4554,12 +4554,12 @@ function AboutFolderContent({
           <main style={{ minWidth: 0, maxWidth: '860px', margin: '0 auto', padding: '0 0 80px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: isMobileLayout ? '1fr' : '1fr 1fr', gap: isMobileLayout ? '12px' : '24px', alignItems: 'start', margin: isMobileLayout ? '0 0 28px' : '0 0 48px' }}>
               <div>
-                <h1 style={{ margin: 0, fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 700, lineHeight: 1.3, whiteSpace: 'pre-line' }}>
+                <h1 style={{ margin: 0, fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 400, lineHeight: 1.3, whiteSpace: 'pre-line' }}>
                   {institutionText}
                 </h1>
               </div>
               <div>
-                <h1 style={{ margin: 0, fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 700, lineHeight: 1.3 }}>
+                <h1 style={{ margin: 0, fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 400, lineHeight: 1.3 }}>
                   {selectedCuration.title}
                   <br />
                   {selectedCuration.year}
@@ -4625,7 +4625,7 @@ function AboutFolderContent({
               <section key={project.id} style={{ margin: '0 0 56px' }}>
                 <button type="button" onClick={() => onOpenFolderRoute?.(folder.id, project.id)}
                   style={{ border: 'none', background: 'transparent', padding: 0, font: 'inherit', textAlign: 'left', cursor: 'pointer', display: 'block', width: '100%', marginBottom: '12px' }}>
-                  <h2 style={{ margin: 0, fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 700, fontStyle: 'italic', lineHeight: 1.55 }}>{project.title}</h2>
+                  <h2 style={{ margin: 0, fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 400, fontStyle: 'italic', lineHeight: 1.55 }}>{project.title}</h2>
                   <p style={{ margin: '4px 0 0', fontSize: '15px' }}>{project.year} — {[project.venue, project.location].filter(Boolean).join(', ')}</p>
                   {project.role && <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#555' }}>Role: {project.role}</p>}
                   {images.length > 0 && (
@@ -4639,7 +4639,7 @@ function AboutFolderContent({
           })}
           {folder.sections?.map((section) => (
             <section key={section.heading} style={{ margin: '0 0 56px' }}>
-              <h2 style={{ margin: '0 0 18px', fontSize: isMobileLayout ? '16px' : '18px', fontWeight: 700, letterSpacing: '0.04em' }}>{section.heading}</h2>
+              <h2 style={{ margin: '0 0 18px', fontSize: isMobileLayout ? '16px' : '18px', fontWeight: 400, letterSpacing: '0.04em' }}>{section.heading}</h2>
               {section.entries?.map((entry, i) => (
                 <div key={i} style={{ marginBottom: '12px', fontSize: '18px', lineHeight: 1.25 }}>
                   {entry.year && <span style={{ marginRight: '12px', color: '#888', fontSize: '14px' }}>{entry.year}</span>}
@@ -4706,7 +4706,7 @@ function AboutFolderContent({
             ...navButtonBaseStyle,
             margin: '0 0 14px',
             color: '#000',
-            fontWeight: isExhibitionOverview ? 700 : 400,
+            fontWeight: isExhibitionOverview ? 400 : 300,
             textDecoration: isExhibitionOverview ? 'none' : 'underline',
           }}
         >
@@ -4722,7 +4722,7 @@ function AboutFolderContent({
               style={{
                 ...navButtonBaseStyle,
                 color: '#000',
-                fontWeight: isActive ? 700 : 400,
+                fontWeight: isActive ? 400 : 300,
                 textDecoration: isActive ? 'none' : 'underline',
               }}
             >
@@ -4768,12 +4768,12 @@ function AboutFolderContent({
               }}
             >
               <div>
-                <h1 style={{ margin: 0, fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 700, lineHeight: 1.3, whiteSpace: 'pre-line' }}>
+                <h1 style={{ margin: 0, fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 400, lineHeight: 1.3, whiteSpace: 'pre-line' }}>
                   {institutionText}
                 </h1>
               </div>
               <div>
-                <h1 style={{ margin: 0, fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 700, lineHeight: 1.3 }}>
+                <h1 style={{ margin: 0, fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 400, lineHeight: 1.3 }}>
                   {selectedExhibition.title}
                   <br />
                   {selectedExhibition.dates ?? selectedExhibition.year}
@@ -5017,7 +5017,7 @@ function AboutFolderContent({
   return (
     <div style={plainPageStyle}>
       {folder.id !== 'press' && folder.id !== 'writing' && folder.id !== 'filmmaking' && (
-        <h1 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: 700 }}>{folder.title}</h1>
+        <h1 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: 400 }}>{folder.title}</h1>
       )}
       {folder.bio && (
         <p style={{ margin: '0 0 18px' }}>
