@@ -431,10 +431,10 @@ const FOLDER_DEFINITIONS = [
       {
         heading: '2026',
         links: [
+          { url: 'https://www.nme.com/the-cover/akriila-17-08-2026-3963059', label: 'NME Magazine: Akriila cites "She Is So Hot I Wanna Clean Her Room" as inspiration for her new album' },
           { url: 'https://www.vogue.com/article/a-project-about-gen-z-youth-in-ukraine?fbclid=PAdGRleAQpBMlleHRuA2FlbQIxMQBzcnRjBmFwcF9pZA8xMjQwMjQ1NzQyODc0MTQAAadkgc9wIQkccTcXOcbHOOxd4wWiCWSpJvO0sIrSnEJ86m0lLWdtYe7iTQ3YNQ_aem_W62CPaBczjId_yDnCjozuQ', label: 'Photo Vogue: Ukrainian Gen Z Adolescence' },
           { url: 'https://www.vogue.com/article/women-by-women-the-shortlist', label: 'PhotoVogue Global, Women by Women Shortlist' },
           { url: 'https://queerwararchive.com/2026/02/18/shelest-vetrovki-anastasiia-pischanska-gen-z/', label: 'Queer War Archive: Ukrainian Gen Z Youth' },
-          { url: 'https://www.nme.com/the-cover/akriila-17-08-2026-3963059', label: 'NME: Akriila cites "She Is So Hot I Wanna Clean Her Room" as inspiration for her new album' },
         ],
       },
       {
@@ -4177,6 +4177,8 @@ function AboutFolderContent({
   onOpenFolderRoute,
   isMobileLayout = false,
 }) {
+  const [pressArticle, setPressArticle] = useState(null)
+
   const plainPageStyle = {
     width: '100%',
     height: '100%',
@@ -5074,6 +5076,15 @@ function AboutFolderContent({
         </div>
       )}
 
+      {pressArticle && (
+        <PressArticleWindow
+          url={pressArticle.url}
+          label={pressArticle.label}
+          onClose={() => setPressArticle(null)}
+          isMobileLayout={isMobileLayout}
+        />
+      )}
+
       {folder.id !== 'writing' && folder.sections.map((section) => {
         const isFilmmaking = folder.id === 'filmmaking'
         return (
@@ -5104,15 +5115,26 @@ function AboutFolderContent({
               <ul style={{ margin: 0, paddingLeft: '22px' }}>
                 {section.links.map((link) => (
                   <li key={link.url} style={{ marginBottom: '6px' }}>
-                    <a
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`about-folder-link${folder.id === 'press' ? ' press-folder-link' : ''}`}
-                      style={folder.id === 'press' ? pressLinkStyle : plainLinkStyle}
-                    >
-                      {link.label}
-                    </a>
+                    {folder.id === 'press' ? (
+                      <button
+                        type="button"
+                        onClick={() => setPressArticle(link)}
+                        className="about-folder-link press-folder-link"
+                        style={{ ...pressLinkStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', display: 'inline' }}
+                      >
+                        {link.label}
+                      </button>
+                    ) : (
+                      <a
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="about-folder-link"
+                        style={plainLinkStyle}
+                      >
+                        {link.label}
+                      </a>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -5121,6 +5143,153 @@ function AboutFolderContent({
         )
       })}
     </div>
+  )
+}
+
+function PressArticleWindow({ url, label, onClose, isMobileLayout = false }) {
+  const [iframeBlocked, setIframeBlocked] = useState(false)
+  const [dragging, setDragging] = useState(false)
+  const dragOffset = useRef({ x: 0, y: 0 })
+  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1440
+  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 900
+  const winW = isMobileLayout ? Math.min(viewportWidth - 16, 520) : Math.min(viewportWidth - 80, 900)
+  const winH = isMobileLayout ? viewportHeight - 120 : Math.min(viewportHeight - 100, 680)
+  const [pos, setPos] = useState({
+    x: Math.max(8, (viewportWidth - winW) / 2),
+    y: Math.max(40, (viewportHeight - winH) / 2 - 20),
+  })
+  const posRef = useRef(pos)
+  posRef.current = pos
+
+  const startDrag = useCallback((e) => {
+    if (e.button !== undefined && e.button !== 0) return
+    e.preventDefault()
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+    dragOffset.current = { x: clientX - posRef.current.x, y: clientY - posRef.current.y }
+    setDragging(true)
+    const onMove = (ev) => {
+      const cx = ev.touches ? ev.touches[0].clientX : ev.clientX
+      const cy = ev.touches ? ev.touches[0].clientY : ev.clientY
+      const next = { x: cx - dragOffset.current.x, y: cy - dragOffset.current.y }
+      posRef.current = next
+      setPos(next)
+    }
+    const onUp = () => {
+      setDragging(false)
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('touchmove', onMove)
+      window.removeEventListener('touchend', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    window.addEventListener('touchmove', onMove, { passive: false })
+    window.addEventListener('touchend', onUp)
+  }, [])
+
+  // Extract a readable publication name from the label
+  const pubName = label.split(':')[0].trim()
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 200,
+          background: 'rgba(0,0,0,0.38)',
+          backdropFilter: 'blur(3px)',
+          WebkitBackdropFilter: 'blur(3px)',
+        }}
+      />
+      {/* Window */}
+      <div
+        style={{
+          position: 'fixed',
+          left: pos.x,
+          top: pos.y,
+          width: winW,
+          zIndex: 201,
+          borderRadius: '8px',
+          overflow: 'hidden',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.32)',
+          fontFamily: MAC_LIGHT_FONT_STACK,
+          cursor: dragging ? 'grabbing' : 'default',
+          userSelect: 'none',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Title bar */}
+        <div
+          onMouseDown={startDrag}
+          onTouchStart={startDrag}
+          style={{
+            background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)',
+            padding: '5px 8px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            borderBottom: '1px solid #b0b0b0',
+            cursor: 'grab',
+            touchAction: 'none',
+          }}
+        >
+          <button
+            type="button"
+            aria-label="Close press window"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onClose() }}
+            style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-block', flexShrink: 0, padding: 0, appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' }}
+          />
+          <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d4a017', display: 'inline-block', flexShrink: 0 }} />
+          <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'inline-block', flexShrink: 0 }} />
+          <span style={{ flex: 1, textAlign: 'center', fontSize: '11px', fontWeight: 400, color: '#333', marginRight: '30px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pubName}</span>
+        </div>
+        {/* Body */}
+        <div style={{ height: winH, background: '#fff', position: 'relative' }}>
+          {!iframeBlocked ? (
+            <iframe
+              src={url}
+              title={label}
+              onError={() => setIframeBlocked(true)}
+              onLoad={(e) => {
+                try {
+                  // If we can't access contentDocument it's cross-origin blocked — check for blank
+                  const doc = e.target.contentDocument
+                  if (doc && doc.body && doc.body.innerHTML === '') setIframeBlocked(true)
+                } catch {
+                  // cross-origin — iframe loaded but we can't inspect, that's fine (it may still render)
+                }
+              }}
+              style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            />
+          ) : null}
+          {iframeBlocked && (
+            <div style={{
+              position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', gap: '18px',
+              padding: '32px', boxSizing: 'border-box', background: '#f5f5f5', textAlign: 'center',
+            }}>
+              <div style={{ fontSize: '13px', color: '#555', fontWeight: 300, lineHeight: 1.5, maxWidth: '340px' }}>
+                <div style={{ fontSize: '15px', color: '#111', fontWeight: 400, marginBottom: '8px' }}>{pubName}</div>
+                <div style={{ marginBottom: '18px', color: '#333' }}>{label.includes(':') ? label.split(':').slice(1).join(':').trim() : label}</div>
+                This article cannot be embedded due to the publisher's security settings.
+              </div>
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: '#000', textDecoration: 'underline', fontSize: '13px', fontWeight: 400 }}
+              >
+                Open original article →
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
   )
 }
 
