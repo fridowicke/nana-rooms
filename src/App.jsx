@@ -128,7 +128,7 @@ const MAIN_KEY_CURSOR_HOTSPOT = '28 24'
 const HOVER_KEY_CURSOR_HOTSPOT = '13 12'
 const HOME_EDITOR_STORAGE_KEY = 'nana-home-editor-state'
 const FOLDER_DRAG_THRESHOLD_PX = 4
-const DEFAULT_ABOUT_HTML = `shelestvetrovki is a Ukrainian-born, Tokyo-based media artist and filmmaker. She is the co-founder of <a href="https://localgr0up.com/" target="_blank" rel="noreferrer">local.group</a>, a Ukrainian art collective and print publication curating exhibitions and fundraisers worldwide through a post-internet lens. In 2023, following the full-scale invasion of Ukraine, she received a research scholarship in Media Arts at Tama Art University. Her art practice intersects hyperfeminist politics, media theory, and meme culture through 3D lidar scanning. Her project "she is so hot i wanna clean her room" has been featured by PHMuseum, i-D, SABUKARU, MOX London, Festival Panoramic, and PhotoVogue. She is currently developing a feature-length desktop documentary exploring Ukrainian Gen Z, war-shaped identity, and digital spirituality.`
+const DEFAULT_ABOUT_HTML = `shelestvetrovki is a Ukrainian-born, Tokyo-based media artist and filmmaker working across art, technology, internet culture, and collective practice. Her work examines how digital culture materialises through private space, identity, intimacy, and community.\n\nShe is the co-founder of <a href="https://localgr0up.com/" target="_blank" rel="noreferrer">local.group</a>, a Ukrainian art collective and print publication working across exhibitions, publishing, and collective cultural projects through a post-internet lens. In 2023, following the full-scale invasion of Ukraine, she received a research scholarship in Media Arts at Tama Art University, where her practice developed around hyperfeminist politics, media theory, meme culture, and emerging forms of digital intimacy.\n\nHer ongoing project "she is so hot i wanna clean her room" has been exhibited and featured by PHMuseum, i-D, SABUKARU, Festival Panoràmic, and PhotoVogue. She is currently developing a feature-length desktop documentary exploring Ukrainian Gen Z, war-shaped identity, and digital spirituality.`
 const ABOUT_BASE_URL = 'http://shelestvetrovki.com/'
 const ABOUT_HOME_TAB = { id: 'about', label: 'About', address: `${ABOUT_BASE_URL}about`, kind: 'about' }
 
@@ -3166,6 +3166,7 @@ function AboutPage({
   const [activeBrowserTab, setActiveBrowserTab] = useState(getAboutTabId(activeFolderId))
   const [browserAddress, setBrowserAddress] = useState(() => getAboutAddress(activeFolderId, getAboutTabId(activeFolderId), activeFolderDetailId, activeFolderImageIndex))
   const [isMobileAboutWindowOpen, setIsMobileAboutWindowOpen] = useState(true)
+  const [isAboutExpanded, setIsAboutExpanded] = useState(false)
   const [mobileAboutWindowPosition, setMobileAboutWindowPosition] = useState(null)
   const mobileAboutWindowPositionRef = useRef(null)
   const isMobileLayout = shouldUseMobileLayout({ viewportWidth: viewport.width, isTouch })
@@ -3479,6 +3480,71 @@ function AboutPage({
         </div>
       )}
 
+      {/* ── About expanded fullscreen window ── */}
+      {isAboutExpanded && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 50,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0,0,0,0.38)',
+            backdropFilter: 'blur(2px)',
+          }}
+          onClick={() => setIsAboutExpanded(false)}
+        >
+          <div
+            style={{
+              width: 'min(680px, 92vw)',
+              maxHeight: '80vh',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              boxShadow: '0 36px 100px rgba(0,0,0,0.32), 0 12px 40px rgba(0,0,0,0.18)',
+              fontFamily: MAC_LIGHT_FONT_STACK,
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Title bar */}
+            <div style={{ background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid #b0b0b0', flexShrink: 0 }}>
+              <button
+                type="button"
+                aria-label="Close expanded about"
+                onClick={() => setIsAboutExpanded(false)}
+                style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', padding: 0, appearance: 'none', WebkitAppearance: 'none', cursor: HOVER_KEY_CURSOR, flexShrink: 0 }}
+              />
+              <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d4a017', display: 'inline-block' }} />
+              <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'inline-block' }} />
+              <span style={{ flex: 1, textAlign: 'center', fontSize: '12px', fontWeight: 500, color: '#333', marginRight: '40px' }}>About</span>
+            </div>
+            {/* Body */}
+            <div
+              style={{
+                background: '#f5f5f5',
+                padding: '28px 36px 36px',
+                overflowY: 'auto',
+                flex: 1,
+                fontSize: '13px',
+                fontWeight: 300,
+                lineHeight: 1.65,
+                color: '#1a1a1a',
+                fontFamily: MAC_LIGHT_FONT_STACK,
+              }}
+              onClick={(event) => {
+                const anchor = event.target.closest?.('a')
+                if (!anchor) return
+                event.preventDefault()
+                window.open(anchor.href, '_blank', 'noopener,noreferrer')
+              }}
+              dangerouslySetInnerHTML={{ __html: DEFAULT_ABOUT_HTML.replace(/\n\n/g, '<br /><br />') }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* ── About window (draggable) ── */}
       {shouldShowAboutWindow && (
         <div
@@ -3521,7 +3587,17 @@ function AboutPage({
                 <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-block' }} />
               )}
               <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d4a017', display: 'inline-block' }} />
-              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'inline-block' }} />
+              <button
+                type="button"
+                aria-label="Expand about window"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  setIsAboutExpanded(true)
+                }}
+                style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'inline-block', flexShrink: 0, padding: 0, appearance: 'none', WebkitAppearance: 'none', cursor: HOVER_KEY_CURSOR }}
+              />
               <span style={{ flex: 1, textAlign: 'center', fontSize: '11px', fontWeight: 500, color: '#333', marginRight: '30px' }}>About</span>
             </div>
 
