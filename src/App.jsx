@@ -2571,6 +2571,387 @@ function HotspotPickerOverlay({ roomNumber, roomFile }) {
   )
 }
 
+// ─── Hidden Object Game System ───────────────────────────────────────────────
+
+const ROOM_HOTSPOTS_KEY = (roomNumber) => `shelest-hotspots-r${roomNumber}`
+const ROOM_FOUND_KEY    = (roomNumber) => `shelest-found-r${roomNumber}`
+
+function loadHotspots(roomNumber) {
+  try { return JSON.parse(localStorage.getItem(ROOM_HOTSPOTS_KEY(roomNumber)) || '[]') } catch { return [] }
+}
+function saveHotspots(roomNumber, spots) {
+  localStorage.setItem(ROOM_HOTSPOTS_KEY(roomNumber), JSON.stringify(spots))
+}
+function loadFound(roomNumber) {
+  try { return JSON.parse(localStorage.getItem(ROOM_FOUND_KEY(roomNumber)) || '[]') } catch { return [] }
+}
+function saveFound(roomNumber, found) {
+  localStorage.setItem(ROOM_FOUND_KEY(roomNumber), JSON.stringify(found))
+}
+
+// 3D scene component: raycasts clicks, emits position to bus
+const gamePickerBus = { listeners: [], emit(d) { this.listeners.forEach(f => f(d)) }, on(f) { this.listeners.push(f); return () => { this.listeners = this.listeners.filter(l => l !== f) } } }
+
+function HiddenObjectScene({ roomNumber, hotspots, onFound, editMode, onEditPick }) {
+  const { gl, camera, scene } = useThree()
+  const raycaster = useMemo(() => new THREE.Raycaster(), [])
+
+  useEffect(() => {
+    const canvas = gl.domElement
+    const handle = (e) => {
+      const rect = canvas.getBoundingClientRect()
+      const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1
+      const ny = -((e.clientY - rect.top) / rect.height) * 2 + 1
+      raycaster.setFromCamera({ x: nx, y: ny }, camera)
+      const hits = raycaster.intersectObjects(scene.children, true)
+      const hit = hits.find(h => h.object?.visible)
+      if (!hit) return
+
+      if (editMode) {
+        const p = hit.point
+        onEditPick?.([parseFloat(p.x.toFixed(4)), parseFloat(p.y.toFixed(4)), parseFloat(p.z.toFixed(4))])
+        return
+      }
+
+      // Check against hotspots
+      for (const spot of hotspots) {
+        const dx = hit.point.x - spot.position[0]
+        const dy = hit.point.y - spot.position[1]
+        const dz = hit.point.z - spot.position[2]
+        const dist = Math.sqrt(dx*dx + dy*dy + dz*dz)
+        if (dist <= (spot.radius ?? 0.15)) {
+          onFound?.(spot.id)
+          return
+        }
+      }
+    }
+    canvas.addEventListener('click', handle)
+    return () => canvas.removeEventListener('click', handle)
+  }, [gl, camera, scene, raycaster, hotspots, editMode, onEditPick, onFound])
+
+  return null
+}
+
+// Hint sphere shown in 3D for unfound item
+function HintSphere({ position }) {
+  const meshRef = useRef()
+  useFrame((_, dt) => {
+    if (meshRef.current) meshRef.current.material.opacity = 0.5 + 0.4 * Math.sin(Date.now() / 300)
+  })
+  return (
+    <mesh ref={meshRef} position={position}>
+      <sphereGeometry args={[0.12, 12, 12]} />
+      <meshBasicMaterial color="#ffdd00" transparent opacity={0.7} depthTest={false} />
+    </mesh>
+  )
+}
+
+// ─── Edit Mode UI ─────────────────────────────────────────────────────────────
+function HiddenObjectEditor({ roomNumber, hotspots, setHotspots, pendingPos, setPendingPos }) {
+  const [name, setName] = useState('')
+  const [radius, setRadius] = useState('0.15')
+  const [editingId, setEditingId] = useState(null)
+
+  const addSpot = () => {
+    if (!pendingPos || !name.trim()) return
+    const spot = {
+      id: `${roomNumber}-${Date.now()}`,
+      name: name.trim(),
+      position: pendingPos,
+      radius: parseFloat(radius) || 0.15,
+      interaction: null,
+    }
+    const next = editingId
+      ? hotspots.map(s => s.id === editingId ? { ...s, ...spot, id: s.id } : s)
+      : [...hotspots, spot]
+    setHotspots(next)
+    saveHotspots(roomNumber, next)
+    setName('')
+    setPendingPos(null)
+    setEditingId(null)
+  }
+
+  const deleteSpot = (id) => {
+    const next = hotspots.filter(s => s.id !== id)
+    setHotspots(next)
+    saveHotspots(roomNumber, next)
+  }
+
+  const startEdit = (spot) => {
+    setEditingId(spot.id)
+    setName(spot.name)
+    setRadius(String(spot.radius ?? 0.15))
+    setPendingPos(spot.position)
+  }
+
+  const panelStyle = {
+    position: 'absolute', top: '50px', right: '12px', zIndex: 9000,
+    background: 'rgba(15,8,30,0.96)', color: '#fff',
+    padding: '14px', borderRadius: '10px', width: '240px',
+    fontFamily: 'monospace', fontSize: '12px',
+    boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
+    maxHeight: 'calc(100vh - 80px)', overflowY: 'auto',
+  }
+
+  return (
+    <div style={panelStyle}>
+      <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '10px', color: '#ff69b4' }}>
+        ✏️ edit mode — room {roomNumber}
+      </div>
+      <div style={{ marginBottom: '6px', opacity: 0.7 }}>
+        {pendingPos ? `📍 [${pendingPos.map(v => v.toFixed(2)).join(', ')}]` : 'click object in room →'}
+      </div>
+      <input
+        value={name}
+        onChange={e => setName(e.target.value)}
+        placeholder="object name e.g. mirror"
+        style={{ width: '100%', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', padding: '5px 8px', borderRadius: '4px', fontSize: '12px', fontFamily: 'monospace', boxSizing: 'border-box', marginBottom: '6px' }}
+      />
+      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '8px' }}>
+        <span style={{ opacity: 0.7 }}>radius:</span>
+        <input
+          value={radius}
+          onChange={e => setRadius(e.target.value)}
+          style={{ width: '60px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', padding: '4px 6px', borderRadius: '4px', fontSize: '12px', fontFamily: 'monospace' }}
+        />
+      </div>
+      <button
+        onClick={addSpot}
+        disabled={!pendingPos || !name.trim()}
+        style={{ width: '100%', padding: '6px', borderRadius: '6px', border: 'none', background: pendingPos && name.trim() ? '#ff69b4' : '#555', color: '#fff', cursor: pendingPos && name.trim() ? 'pointer' : 'default', fontFamily: 'monospace', fontSize: '12px', marginBottom: '10px' }}
+      >
+        {editingId ? 'update hotspot' : 'add hotspot'}
+      </button>
+
+      {hotspots.length > 0 && (
+        <>
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.15)', paddingTop: '8px', marginBottom: '6px', opacity: 0.7 }}>hotspots ({hotspots.length})</div>
+          {hotspots.map(s => (
+            <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px', background: 'rgba(255,255,255,0.06)', padding: '4px 6px', borderRadius: '4px' }}>
+              <span style={{ flex: 1 }}>{s.name}</span>
+              <button onClick={() => startEdit(s)} style={{ background: 'none', border: 'none', color: '#88f', cursor: 'pointer', padding: '0 2px', fontSize: '11px' }}>edit</button>
+              <button onClick={() => deleteSpot(s.id)} style={{ background: 'none', border: 'none', color: '#f88', cursor: 'pointer', padding: '0 2px', fontSize: '11px' }}>✕</button>
+            </div>
+          ))}
+          <button
+            onClick={() => { const j = JSON.stringify(hotspots, null, 2); navigator.clipboard.writeText(j) }}
+            style={{ width: '100%', marginTop: '8px', padding: '5px', borderRadius: '5px', border: 'none', background: 'rgba(255,255,255,0.12)', color: '#fff', cursor: 'pointer', fontFamily: 'monospace', fontSize: '11px' }}
+          >
+            copy JSON
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── Game Panel (2000s hidden-object style) ───────────────────────────────────
+function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timerEnabled, timeLeft, allFound, roomNumber, isMobileLayout }) {
+  const remaining = hotspots.filter(s => !found.includes(s.id))
+  const foundList = hotspots.filter(s => found.includes(s.id))
+
+  const panelStyle = {
+    position: 'absolute',
+    top: isMobileLayout ? 'auto' : '30px',
+    bottom: isMobileLayout ? '0' : 'auto',
+    right: isMobileLayout ? '0' : '0',
+    width: isMobileLayout ? '100%' : '200px',
+    height: isMobileLayout ? 'auto' : 'calc(100% - 30px)',
+    background: 'linear-gradient(180deg, #1a0a2e 0%, #0d0520 60%, #1a0530 100%)',
+    borderLeft: isMobileLayout ? 'none' : '2px solid #6b21a8',
+    borderTop: isMobileLayout ? '2px solid #6b21a8' : 'none',
+    zIndex: 50,
+    display: 'flex',
+    flexDirection: isMobileLayout ? 'row' : 'column',
+    padding: isMobileLayout ? '8px 12px' : '12px 10px',
+    gap: isMobileLayout ? '10px' : '8px',
+    overflowY: isMobileLayout ? 'hidden' : 'auto',
+    overflowX: isMobileLayout ? 'auto' : 'hidden',
+    boxSizing: 'border-box',
+    fontFamily: '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif',
+  }
+
+  const titleStyle = {
+    color: '#e8c96b',
+    fontSize: isMobileLayout ? '11px' : '13px',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    textShadow: '0 0 8px rgba(232,201,107,0.6)',
+    letterSpacing: '0.05em',
+    marginBottom: isMobileLayout ? 0 : '4px',
+    whiteSpace: 'nowrap',
+  }
+
+  const counterStyle = {
+    color: '#c084fc',
+    fontSize: isMobileLayout ? '10px' : '11px',
+    textAlign: 'center',
+    marginBottom: isMobileLayout ? 0 : '6px',
+    whiteSpace: 'nowrap',
+  }
+
+  const itemStyle = (isFound) => ({
+    padding: '4px 6px',
+    borderRadius: '4px',
+    background: isFound ? 'rgba(134,239,172,0.12)' : 'rgba(255,255,255,0.06)',
+    border: `1px solid ${isFound ? 'rgba(134,239,172,0.3)' : 'rgba(255,255,255,0.1)'}`,
+    color: isFound ? 'rgba(134,239,172,0.7)' : '#f0e6ff',
+    fontSize: isMobileLayout ? '10px' : '12px',
+    textDecoration: isFound ? 'line-through' : 'none',
+    opacity: isFound ? 0.6 : 1,
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
+  })
+
+  const hintBtnStyle = {
+    background: hintUsed ? 'rgba(255,255,255,0.05)' : 'linear-gradient(135deg, #7c3aed, #4c1d95)',
+    border: `1px solid ${hintUsed ? '#444' : '#a855f7'}`,
+    color: hintUsed ? '#888' : '#e8c96b',
+    padding: isMobileLayout ? '4px 10px' : '6px 8px',
+    borderRadius: '6px',
+    cursor: hintUsed ? 'default' : 'pointer',
+    fontFamily: 'inherit',
+    fontSize: isMobileLayout ? '10px' : '11px',
+    textAlign: 'center',
+    boxShadow: hintUsed ? 'none' : '0 0 8px rgba(168,85,247,0.4)',
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
+  }
+
+  if (allFound) {
+    return (
+      <div style={{ ...panelStyle, alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '28px', marginBottom: '8px' }}>✨</div>
+          <div style={{ color: '#e8c96b', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px', textShadow: '0 0 10px rgba(232,201,107,0.8)' }}>
+            all found!
+          </div>
+          <div style={{ color: '#c084fc', fontSize: '11px' }}>
+            {hotspots.length} / {hotspots.length}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={panelStyle}>
+      {!isMobileLayout && <div style={titleStyle}>✦ items to find ✦</div>}
+      <div style={counterStyle}>
+        {found.length} / {hotspots.length} found
+        {timerEnabled && timeLeft != null && (
+          <span style={{ color: timeLeft < 30 ? '#f87171' : '#c084fc', marginLeft: '8px' }}>
+            ⏱ {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
+          </span>
+        )}
+      </div>
+      {remaining.map(s => (
+        <div key={s.id} style={itemStyle(false)}>{s.name}</div>
+      ))}
+      {foundList.length > 0 && !isMobileLayout && (
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '6px', marginTop: '2px' }}>
+          {foundList.map(s => <div key={s.id} style={itemStyle(true)}>{s.name}</div>)}
+        </div>
+      )}
+      <button onClick={onHint} disabled={hintUsed} style={hintBtnStyle}>
+        {hintUsed ? 'hint used' : '💡 hint'}
+      </button>
+    </div>
+  )
+}
+
+// ─── Main Hidden Object Game wrapper ─────────────────────────────────────────
+function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
+  const [hotspots, setHotspots] = useState(() => loadHotspots(roomNumber))
+  const [found, setFound] = useState(() => loadFound(roomNumber))
+  const [hintId, setHintId] = useState(null)
+  const [hintUsed, setHintUsed] = useState(false)
+  const [pendingPos, setPendingPos] = useState(null)
+  const [timer, setTimer] = useState(null)
+  const timerRef = useRef(null)
+
+  const editMode = useMemo(() => {
+    if (typeof window === 'undefined') return false
+    return new URLSearchParams(window.location.search).get('editHotspots') === '1'
+  }, [])
+
+  const gameMode = hotspots.length > 0 && !editMode
+
+  // reload if room changes
+  useEffect(() => {
+    setHotspots(loadHotspots(roomNumber))
+    setFound(loadFound(roomNumber))
+    setHintId(null)
+    setHintUsed(false)
+  }, [roomNumber])
+
+  const handleFound = useCallback((id) => {
+    setFound(prev => {
+      if (prev.includes(id)) return prev
+      const next = [...prev, id]
+      saveFound(roomNumber, next)
+      return next
+    })
+    setHintId(null)
+  }, [roomNumber])
+
+  const handleHint = () => {
+    if (hintUsed) return
+    const unfound = hotspots.filter(s => !found.includes(s.id))
+    if (unfound.length === 0) return
+    const pick = unfound[Math.floor(Math.random() * unfound.length)]
+    setHintId(pick.id)
+    setHintUsed(true)
+  }
+
+  const hintSpot = hotspots.find(s => s.id === hintId)
+  const allFound = hotspots.length > 0 && hotspots.every(s => found.includes(s.id))
+  const panelWidth = isMobileLayout ? 0 : 200
+
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex' }}>
+      {/* Canvas area — shrink to leave room for panel */}
+      <div style={{ flex: 1, position: 'relative', marginRight: gameMode ? `${panelWidth}px` : 0 }}>
+        {/* Inject 3D click handler into existing Canvas via context — we render a child that will be placed inside Canvas by parent */}
+        {children({
+          editMode,
+          hotspots,
+          found,
+          onFound: handleFound,
+          onEditPick: setPendingPos,
+          hintSpot,
+        })}
+      </div>
+
+      {/* Game panel */}
+      {gameMode && (
+        <HiddenObjectPanel
+          hotspots={hotspots}
+          found={found}
+          onHint={handleHint}
+          hintUsed={hintUsed}
+          timerEnabled={false}
+          timeLeft={null}
+          allFound={allFound}
+          roomNumber={roomNumber}
+          isMobileLayout={isMobileLayout}
+        />
+      )}
+
+      {/* Edit panel */}
+      {editMode && (
+        <HiddenObjectEditor
+          roomNumber={roomNumber}
+          hotspots={hotspots}
+          setHotspots={setHotspots}
+          pendingPos={pendingPos}
+          setPendingPos={setPendingPos}
+        />
+      )}
+    </div>
+  )
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenNextRoom, onOpenSubmit, canGoBack, onReady, isMobileLayout = false }) {
@@ -2616,40 +2997,52 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
       }}
     >
       <RoomTickerBar onOpenSubmit={onOpenSubmit} />
-      <KeyboardControls map={keyboardMap}>
-        <Canvas
-          gl={CANVAS_GL_OPTIONS}
-          camera={{ position: cameraDefault.position, fov: isMobileLayout ? 54 : 47.5 }}
-          style={{ cursor: 'inherit', touchAction: isMobileLayout ? 'none' : 'auto' }}
-        >
-          <color attach="background" args={['#fff']} />
-          <Suspense fallback={<LoadingCanvasFallback />}>
-            <RendererSettings toneMapping={roomRenderSettings.toneMapping} exposure={roomRenderSettings.exposure} />
-            {roomRenderVariant.ambientLightIntensity > 0 && <ambientLight intensity={roomRenderVariant.ambientLightIntensity} />}
-            <Stage environment={roomRenderVariant.stageEnvironment} intensity={roomRenderSettings.environmentIntensity} shadows={false} adjustCamera={false}>
-              <Model url={`rooms/${roomFile}`} prepareScene={prepareRoomScene} />
-            </Stage>
-            <Controls
-              moveSpeed={roomRenderVariant.controls.moveSpeed ?? ROOM_CAMERA_MOVE_SPEED}
-              zoomSpeed={isMobileLayout ? 0.8 : (roomRenderVariant.controls.zoomSpeed ?? ROOM_CAMERA_ZOOM_SPEED)}
-              rotateSpeed={isMobileLayout ? 0.34 : (roomRenderVariant.controls.rotateSpeed ?? 0.4)}
-              panSpeed={roomRenderVariant.controls.panSpeed ?? 0.4}
-              enablePan={isMobileLayout ? false : (roomRenderVariant.controls.enablePan ?? true)}
-              enableZoom={roomRenderVariant.controls.enableZoom ?? true}
-              enableRotate={roomRenderVariant.controls.enableRotate ?? true}
-              dampingFactor={roomRenderVariant.controls.dampingFactor ?? 0.05}
-              keyboardAxis={roomRenderVariant.controls.keyboardAxis ?? 'flat'}
-              keyboardTargetMode={roomRenderVariant.controls.keyboardTargetMode ?? 'follow'}
-              minDistance={roomRenderVariant.controls.minDistance}
-              maxDistance={roomRenderVariant.controls.maxDistance}
-              positionControlsApiRef={showPositionControls ? positionControlsApiRef : null}
-            />
-            <CameraReset position={cameraDefault.position} target={cameraDefault.target} />
-            <FirstFrameSignal onReady={onReady} />
-            {showHotspotPicker && <HotspotPickerScene roomNumber={roomNumber} />}
-          </Suspense>
-        </Canvas>
-      </KeyboardControls>
+      <HiddenObjectGame roomNumber={roomNumber} isMobileLayout={isMobileLayout}>
+        {({ editMode, hotspots, found, onFound, onEditPick, hintSpot }) => (
+          <KeyboardControls map={keyboardMap}>
+            <Canvas
+              gl={CANVAS_GL_OPTIONS}
+              camera={{ position: cameraDefault.position, fov: isMobileLayout ? 54 : 47.5 }}
+              style={{ cursor: 'inherit', touchAction: isMobileLayout ? 'none' : 'auto', width: '100%', height: '100%' }}
+            >
+              <color attach="background" args={['#fff']} />
+              <Suspense fallback={<LoadingCanvasFallback />}>
+                <RendererSettings toneMapping={roomRenderSettings.toneMapping} exposure={roomRenderSettings.exposure} />
+                {roomRenderVariant.ambientLightIntensity > 0 && <ambientLight intensity={roomRenderVariant.ambientLightIntensity} />}
+                <Stage environment={roomRenderVariant.stageEnvironment} intensity={roomRenderSettings.environmentIntensity} shadows={false} adjustCamera={false}>
+                  <Model url={`rooms/${roomFile}`} prepareScene={prepareRoomScene} />
+                </Stage>
+                <Controls
+                  moveSpeed={roomRenderVariant.controls.moveSpeed ?? ROOM_CAMERA_MOVE_SPEED}
+                  zoomSpeed={isMobileLayout ? 0.8 : (roomRenderVariant.controls.zoomSpeed ?? ROOM_CAMERA_ZOOM_SPEED)}
+                  rotateSpeed={isMobileLayout ? 0.34 : (roomRenderVariant.controls.rotateSpeed ?? 0.4)}
+                  panSpeed={roomRenderVariant.controls.panSpeed ?? 0.4}
+                  enablePan={isMobileLayout ? false : (roomRenderVariant.controls.enablePan ?? true)}
+                  enableZoom={roomRenderVariant.controls.enableZoom ?? true}
+                  enableRotate={roomRenderVariant.controls.enableRotate ?? true}
+                  dampingFactor={roomRenderVariant.controls.dampingFactor ?? 0.05}
+                  keyboardAxis={roomRenderVariant.controls.keyboardAxis ?? 'flat'}
+                  keyboardTargetMode={roomRenderVariant.controls.keyboardTargetMode ?? 'follow'}
+                  minDistance={roomRenderVariant.controls.minDistance}
+                  maxDistance={roomRenderVariant.controls.maxDistance}
+                  positionControlsApiRef={showPositionControls ? positionControlsApiRef : null}
+                />
+                <CameraReset position={cameraDefault.position} target={cameraDefault.target} />
+                <FirstFrameSignal onReady={onReady} />
+                {showHotspotPicker && <HotspotPickerScene roomNumber={roomNumber} />}
+                <HiddenObjectScene
+                  roomNumber={roomNumber}
+                  hotspots={hotspots}
+                  onFound={onFound}
+                  editMode={editMode}
+                  onEditPick={onEditPick}
+                />
+                {hintSpot && <HintSphere position={hintSpot.position} />}
+              </Suspense>
+            </Canvas>
+          </KeyboardControls>
+        )}
+      </HiddenObjectGame>
       {showPositionControls && <CameraPositionControlsOverlay controlsApiRef={positionControlsApiRef} />}
       {showHotspotPicker && <HotspotPickerOverlay roomNumber={roomNumber} roomFile={roomFile} />}
       {roomRenderVariantState.enabled && (
