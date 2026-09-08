@@ -2867,12 +2867,18 @@ function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
   const [hintId, setHintId] = useState(null)
   const [hintUsed, setHintUsed] = useState(false)
   const [pendingPos, setPendingPos] = useState(null)
-  const [timer, setTimer] = useState(null)
-  const timerRef = useRef(null)
+  const [editMode, setEditMode] = useState(false)
 
-  const editMode = useMemo(() => {
-    if (typeof window === 'undefined') return false
-    return new URLSearchParams(window.location.search).get('editHotspots') === '1'
+  // Toggle edit mode with E key
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === 'e' || e.key === 'E') {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+        setEditMode(prev => !prev)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
   }, [])
 
   const gameMode = hotspots.length > 0 && !editMode
@@ -2937,6 +2943,30 @@ function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
           isMobileLayout={isMobileLayout}
         />
       )}
+
+      {/* Edit toggle button — small, bottom-left corner */}
+      <button
+        onClick={() => setEditMode(p => !p)}
+        title={editMode ? 'exit edit mode' : 'edit hotspots (E)'}
+        style={{
+          position: 'absolute',
+          bottom: isMobileLayout ? '72px' : '12px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 9999,
+          background: editMode ? '#ff69b4' : 'rgba(0,0,0,0.18)',
+          border: 'none',
+          color: editMode ? '#fff' : 'rgba(255,255,255,0.6)',
+          fontSize: '10px',
+          padding: '3px 8px',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          fontFamily: 'monospace',
+          letterSpacing: '0.05em',
+        }}
+      >
+        {editMode ? '✏️ editing' : '✏️'}
+      </button>
 
       {/* Edit panel */}
       {editMode && (
