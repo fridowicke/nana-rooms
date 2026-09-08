@@ -320,7 +320,7 @@ const CURATION_PROJECTS = [
     links: [
       { url: 'https://www.instagram.com/p/DLiPmNXoxwA/', label: 'Instagram' },
     ],
-    imageFolder: '2025   SpilkaParis x Local Group, Kolektiv Radieuse, Le Corbusier\'s Cité Radieuse, Marseille, France',
+    imageFolder: '2025   SpilkaParis x Local Group, Kolektiv Radieuse, Le Corbusier\u2019s Cité Radieuse, Marseille, France',
   },
   {
     id: 'localstickerbook-domicile',
