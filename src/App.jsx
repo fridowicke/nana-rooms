@@ -4694,12 +4694,40 @@ function AboutFolderContent({
 
   // ─── EXHIBITIONS ─────────────────────────────────────────────────────────────
   if (folder.id === 'exhibitions') {
-    const isOverview = activeFolderDetailId === 'overview' || !activeFolderDetailId
-    const selectedProject = !isOverview
+    const isExhibitionOverview = activeFolderDetailId === 'overview' || !activeFolderDetailId
+    const selectedExhibition = !isExhibitionOverview
       ? EXHIBITIONS.find((e) => e.id === activeFolderDetailId) ?? null
       : null
 
-    const renderNav = () => (
+    // Nav button style: no truncation, wraps naturally
+    const exhibitionNavBtnStyle = {
+      display: isMobileLayout ? 'inline-flex' : 'block',
+      width: isMobileLayout ? 'auto' : '100%',
+      border: 'none',
+      background: 'transparent',
+      padding: isMobileLayout ? '0 12px 10px 0' : '0 0 8px',
+      font: 'inherit',
+      fontSize: '13px',
+      lineHeight: 1.4,
+      color: '#000',
+      textAlign: 'left',
+      whiteSpace: 'normal',
+      overflowWrap: 'break-word',
+      fontStyle: 'normal',
+      flex: isMobileLayout ? '0 0 auto' : undefined,
+      cursor: 'pointer',
+    }
+    const exhibitionShellStyle = {
+      ...plainPageStyle,
+      display: 'grid',
+      gridTemplateColumns: isMobileLayout ? '1fr' : '220px minmax(0, 1fr)',
+      gap: isMobileLayout ? '22px' : '30px',
+      alignItems: 'start',
+      padding: isMobileLayout ? '20px 16px 70px' : '40px 32px 64px',
+      fontSize: isMobileLayout ? '15px' : '16px',
+      lineHeight: 1.45,
+    }
+    const renderExhibitionNav = () => (
       <nav aria-label="Exhibitions" style={{
         position: isMobileLayout ? 'relative' : 'sticky',
         top: 0,
@@ -4709,17 +4737,18 @@ function AboutFolderContent({
         overflowY: isMobileLayout ? 'hidden' : 'auto',
         padding: isMobileLayout ? '0 0 4px' : '0 0 18px',
         display: isMobileLayout ? 'flex' : 'block',
+        gap: isMobileLayout ? '0' : undefined,
         scrollbarWidth: isMobileLayout ? 'none' : undefined,
       }}>
         <button type="button" onClick={() => onOpenFolderRoute?.(folder.id, 'overview')}
-          style={{ ...sharedNavBtnStyle, margin: '0 0 14px', fontWeight: isOverview ? 400 : 300, textDecoration: isOverview ? 'none' : 'underline' }}>
+          style={{ ...exhibitionNavBtnStyle, margin: '0 0 14px', fontWeight: isExhibitionOverview ? 400 : 300, textDecoration: isExhibitionOverview ? 'none' : 'underline' }}>
           overview
         </button>
         {EXHIBITIONS.map((exhibition) => {
-          const isActive = selectedProject?.id === exhibition.id
+          const isActive = selectedExhibition?.id === exhibition.id
           return (
             <button key={exhibition.id} type="button" onClick={() => onOpenFolderRoute?.(folder.id, exhibition.id)}
-              style={{ ...sharedNavBtnStyle, fontWeight: isActive ? 400 : 300, textDecoration: isActive ? 'none' : 'underline' }}>
+              style={{ ...exhibitionNavBtnStyle, fontWeight: isActive ? 400 : 300, textDecoration: isActive ? 'none' : 'underline' }}>
               {projectNavLabel(exhibition)}
             </button>
           )
@@ -4727,24 +4756,115 @@ function AboutFolderContent({
       </nav>
     )
 
-    if (selectedProject) {
+    if (selectedExhibition) {
+      const images = EXHIBITION_IMAGES_BY_FOLDER.get(selectedExhibition.imageFolder) ?? []
+      const videos = EXHIBITION_VIDEOS_BY_FOLDER.get(selectedExhibition.videoFolder ?? selectedExhibition.imageFolder) ?? []
+      const openLightbox = (imageIndex) => onOpenFolderRoute?.(folder.id, selectedExhibition.id, imageIndex)
+      const activeLightboxImage = activeFolderImageIndex != null && images.length > 0
+        ? images[activeFolderImageIndex % images.length]
+        : null
+      const showNextLightboxImage = () => {
+        if (images.length === 0) return
+        onOpenFolderRoute?.(folder.id, selectedExhibition.id, ((activeFolderImageIndex ?? 0) + 1) % images.length)
+      }
+      const venueLocation = [selectedExhibition.venue, selectedExhibition.location].filter(Boolean).join(', ')
+
       return (
-        <div style={sharedShellStyle}>
-          {renderNav()}
-          {renderProjectDetail(selectedProject, () => onOpenFolderRoute?.(folder.id, selectedProject.id))}
+        <div style={exhibitionShellStyle}>
+          {renderExhibitionNav()}
+          <main style={{ minWidth: 0, padding: '0 0 80px' }}>
+            {/* Title block */}
+            <div style={{ margin: isMobileLayout ? '0 0 28px' : '0 0 48px' }}>
+              <h1 style={{ margin: '0 0 6px', fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 400, lineHeight: 1.3, fontStyle: 'normal' }}>
+                {selectedExhibition.title}{(selectedExhibition.dates ?? selectedExhibition.year) ? `, ${selectedExhibition.dates ?? selectedExhibition.year}` : ''}
+              </h1>
+              {venueLocation && (
+                <p style={{ margin: 0, fontSize: isMobileLayout ? '15px' : '16px', fontWeight: 300, fontStyle: 'normal' }}>
+                  {venueLocation}
+                </p>
+              )}
+            </div>
+
+            {/* Description */}
+            {selectedExhibition.description?.length > 0 && (
+              <div style={{ marginBottom: '36px' }}>
+                {selectedExhibition.description.map((paragraph) => (
+                  <p key={paragraph} style={{ margin: '0 0 18px', fontSize: isMobileLayout ? '16px' : '18px', lineHeight: 1.5, fontStyle: 'normal' }}>
+                    {paragraph}
+                  </p>
+                ))}
+              </div>
+            )}
+
+            {/* Images section */}
+            {images.length > 0 && (
+              <div style={{ marginBottom: '28px' }}>
+                <button type="button" onClick={() => openLightbox(0)}
+                  style={{ border: 'none', background: 'transparent', padding: '0 0 10px', cursor: 'pointer', fontSize: isMobileLayout ? '16px' : '18px', textDecoration: 'underline', color: 'inherit', fontFamily: 'inherit', fontStyle: 'normal', display: 'block' }}>
+                  {`Installation Images (${images.length}) →`}
+                </button>
+                <button type="button" onClick={() => openLightbox(0)}
+                  style={{ border: 'none', background: 'transparent', padding: 0, display: 'block', width: '100%', lineHeight: 0, cursor: 'pointer' }}>
+                  <img src={images[0].src} alt="" loading="lazy" decoding="async"
+                    style={{ display: 'block', width: '100%', height: 'auto', objectFit: 'cover' }} />
+                </button>
+                {selectedExhibition.caption && (
+                  <p style={{ margin: '10px 0 0', fontSize: '14px', color: '#555', lineHeight: 1.4, fontStyle: 'normal' }}>
+                    {selectedExhibition.caption}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Links */}
+            {selectedExhibition.links?.length > 0 && (
+              <div style={{ marginBottom: '36px' }}>
+                {selectedExhibition.links.map((link) => (
+                  <React.Fragment key={link.url}>
+                    <a href={link.url} target="_blank" rel="noopener noreferrer"
+                      style={{ fontSize: '18px', color: 'inherit', textDecoration: 'underline', fontStyle: 'normal', display: 'inline-block', marginBottom: '8px' }}>
+                      {link.label} ↓
+                    </a>
+                    <br />
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
+
+            {/* Videos */}
+            {videos.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                {videos.map((video) => (
+                  <figure key={video.src} style={{ margin: 0, width: '100%' }}>
+                    <video src={video.src} controls preload="metadata"
+                      style={{ display: 'block', width: '100%', maxHeight: isMobileLayout ? '52vh' : '58vh', background: '#000' }} />
+                    <figcaption style={{ marginTop: '7px', fontSize: '13px', lineHeight: 1.25, fontStyle: 'normal' }}>
+                      {video.title}
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            )}
+          </main>
+
+          {activeLightboxImage && createPortal(
+            <ExhibitionLightbox image={activeLightboxImage} onNext={showNextLightboxImage} onClose={() => onOpenFolderRoute?.(folder.id, selectedExhibition.id)} />,
+            document.body,
+          )}
         </div>
       )
     }
 
+    // Overview
     return (
-      <div style={sharedShellStyle}>
-        {renderNav()}
-        <main style={{ minWidth: 0, padding: '0 0 80px' }}>
+      <div style={exhibitionShellStyle}>
+        {renderExhibitionNav()}
+        <main style={{ minWidth: 0, textAlign: 'center' }}>
           {EXHIBITIONS.map((exhibition, exhibitionIndex) => {
             const images = EXHIBITION_IMAGES_BY_FOLDER.get(exhibition.imageFolder) ?? []
             const videos = EXHIBITION_VIDEOS_BY_FOLDER.get(exhibition.videoFolder ?? exhibition.imageFolder) ?? []
             const previewImage = images[0] ?? null
-            const venueLocation = [exhibition.venue, exhibition.location].filter(Boolean).join(', ')
+
             return (
               <section key={exhibition.id} style={{ margin: '0 0 56px' }}>
                 {exhibitionIndex > 0 && (
@@ -4752,21 +4872,25 @@ function AboutFolderContent({
                     ⋆ ˚｡⋆୨୧˚ ✿ ˚୨୧⋆｡˚ ⋆
                   </div>
                 )}
-                <h2 style={{ margin: '0 0 4px', fontSize: '20px', fontStyle: 'normal', fontWeight: 400, lineHeight: 1.3 }}>
+                <h2 style={{ margin: '0 0 6px', fontSize: '22px', fontStyle: 'normal', fontWeight: 400, lineHeight: 1.3 }}>
                   {exhibition.title}{(exhibition.dates ?? exhibition.year) ? `, ${exhibition.dates ?? exhibition.year}` : ''}
                 </h2>
-                <p style={{ margin: '0 0 10px', fontSize: '14px', fontStyle: 'normal', fontWeight: 300 }}>{venueLocation}</p>
+                <p style={{ margin: '0 0 14px', fontSize: '15px', fontStyle: 'normal', fontWeight: 300 }}>
+                  {[exhibition.venue, exhibition.location].filter(Boolean).join(', ')}
+                </p>
 
                 {previewImage && (
                   <button type="button" onClick={() => onOpenFolderRoute?.(folder.id, exhibition.id)}
-                    style={{ border: 'none', background: 'transparent', padding: 0, display: 'block', margin: '0 0 10px', textAlign: 'left' }}>
-                    <img src={previewImage.src} alt={previewImage.alt} loading="lazy" decoding="async"
-                      style={{ display: 'block', width: 'min(100%, 260px)', maxHeight: '220px', height: 'auto', objectFit: 'contain' }} />
+                    style={{ border: 'none', background: 'transparent', padding: 0, display: 'block', margin: '0 auto 14px', textAlign: 'center' }}>
+                    <figure style={{ margin: '0 0 8px' }}>
+                      <img src={previewImage.src} alt={previewImage.alt} loading="lazy" decoding="async"
+                        style={{ display: 'block', width: 'min(100%, 260px)', maxHeight: '220px', height: 'auto', margin: '0 auto', objectFit: 'contain' }} />
+                    </figure>
                   </button>
                 )}
                 {!previewImage && videos.length > 0 && (
                   <button type="button" onClick={() => onOpenFolderRoute?.(folder.id, exhibition.id)}
-                    style={{ border: '1px solid #111', background: '#fff', padding: '12px 18px', margin: '0 0 10px', display: 'inline-block', font: 'inherit', fontSize: '13px', color: '#000' }}>
+                    style={{ border: '1px solid #111', background: '#fff', padding: '12px 18px', margin: '0 auto 14px', display: 'inline-block', font: 'inherit', fontSize: '13px', color: '#000' }}>
                     video documentation
                   </button>
                 )}
