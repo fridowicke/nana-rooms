@@ -3926,91 +3926,192 @@ function AboutPage({
   )
 }
 
+const TUMBLR_AVATAR = 'https://api.tumblr.com/v2/blog/shelestvetrovki/avatar/64'
+
+function TumblrPostCard({ post }) {
+  const postUrl = post.link
+
+  const handleAction = (e) => {
+    e.preventDefault()
+    window.open(postUrl, '_blank', 'noopener,noreferrer')
+  }
+
+  return (
+    <article
+      style={{
+        background: '#fff',
+        borderRadius: '3px',
+        marginBottom: '20px',
+        overflow: 'hidden',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+      }}
+    >
+      {/* Header */}
+      <div style={{ padding: '12px 14px 10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <a href={postUrl} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
+          <img
+            src={TUMBLR_AVATAR}
+            alt="shelestvetrovki"
+            style={{ width: '34px', height: '34px', borderRadius: '3px', display: 'block', background: '#e0e0e0' }}
+            onError={(e) => { e.target.style.background = '#ccc' }}
+          />
+        </a>
+        <div>
+          <a
+            href={postUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontWeight: 700, fontSize: '13px', color: '#001935', textDecoration: 'none', fontFamily: 'Helvetica Neue, Helvetica, Arial, sans-serif' }}
+          >
+            {post.is_reblog && post.reblog_from ? post.reblog_from : 'shelestvetrovki'}
+          </a>
+          {post.is_reblog && (
+            <div style={{ fontSize: '11px', color: '#9299a1', fontFamily: 'Helvetica Neue, Helvetica, Arial, sans-serif' }}>
+              via <a href={post.reblog_url || postUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#9299a1' }}>shelestvetrovki</a>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Image rows */}
+      {post.rows && post.rows.length > 0 && (
+        <div>
+          {post.rows.map((row, rowIdx) => (
+            <div
+              key={rowIdx}
+              style={{
+                display: 'flex',
+                gap: '2px',
+                marginBottom: rowIdx < post.rows.length - 1 ? '2px' : '0',
+              }}
+            >
+              {row.map((src, imgIdx) => (
+                <a
+                  key={imgIdx}
+                  href={postUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ flex: 1, minWidth: 0, display: 'block' }}
+                >
+                  <img
+                    src={src}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      height: 'auto',
+                      objectFit: 'cover',
+                      maxHeight: row.length > 1 ? '280px' : '600px',
+                    }}
+                  />
+                </a>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Caption / text */}
+      {post.text && (
+        <div
+          style={{
+            padding: '12px 14px',
+            fontSize: '13px',
+            lineHeight: 1.6,
+            color: '#444',
+            fontFamily: 'Helvetica Neue, Helvetica, Arial, sans-serif',
+          }}
+        >
+          {post.text}
+        </div>
+      )}
+
+      {/* Action bar */}
+      <div
+        style={{
+          padding: '8px 14px',
+          borderTop: '1px solid #f0f0f0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '16px',
+        }}
+      >
+        {[
+          { label: '↺', title: 'Reblog' },
+          { label: '♡', title: 'Like' },
+        ].map(({ label, title }) => (
+          <button
+            key={title}
+            type="button"
+            title={title}
+            onClick={handleAction}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: '4px 0',
+              cursor: 'pointer',
+              fontSize: '15px',
+              color: '#9299a1',
+              fontFamily: 'Helvetica Neue, Helvetica, Arial, sans-serif',
+            }}
+          >
+            {label}
+          </button>
+        ))}
+        <a
+          href={postUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            marginLeft: 'auto',
+            fontSize: '11px',
+            color: '#9299a1',
+            textDecoration: 'none',
+            fontFamily: 'Helvetica Neue, Helvetica, Arial, sans-serif',
+          }}
+        >
+          {new Date(post.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+        </a>
+      </div>
+    </article>
+  )
+}
+
 function DiaryTumblrFeed({ plainPageStyle }) {
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
 
   useEffect(() => {
     fetch('/tumblr-feed.json')
-      .then((r) => {
-        if (!r.ok) throw new Error('feed not found')
-        return r.json()
-      })
-      .then((data) => {
-        setPosts(data.posts ?? [])
-        setLoading(false)
-      })
-      .catch((err) => {
-        setError(err.message)
-        setLoading(false)
-      })
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((data) => { setPosts(data.posts ?? []); setLoading(false) })
+      .catch(() => setLoading(false))
   }, [])
-
-  if (loading) {
-    return (
-      <div style={{ ...plainPageStyle, padding: '40px 18px', fontFamily: 'inherit', color: '#888', fontSize: '13px' }}>
-        loading diary...
-      </div>
-    )
-  }
-
-  if (error || posts.length === 0) {
-    return (
-      <div style={{ ...plainPageStyle, padding: '40px 18px', fontFamily: 'inherit', color: '#888', fontSize: '13px' }}>
-        diary is empty
-      </div>
-    )
-  }
 
   return (
     <div
       style={{
         ...plainPageStyle,
-        padding: '26px 18px 80px',
-        fontSize: '14px',
-        lineHeight: 1.55,
+        background: '#36465d',
+        overflowY: 'auto',
+        padding: '20px 0 60px',
       }}
     >
-      <div style={{ maxWidth: '680px', margin: '0 auto' }}>
-        {posts.map((post, postIndex) => (
-          <section
-            key={post.link || postIndex}
-            style={{ margin: '0 0 52px' }}
-          >
-            {post.images.map((src, imgIndex) => (
-              <img
-                key={src}
-                src={src}
-                alt=""
-                loading="lazy"
-                decoding="async"
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  maxWidth: '100%',
-                  height: 'auto',
-                  objectFit: 'contain',
-                  marginBottom: imgIndex < post.images.length - 1 ? '4px' : '0',
-                }}
-              />
-            ))}
-            {post.text && (
-              <p
-                style={{
-                  margin: post.images.length > 0 ? '14px 0 0' : '0',
-                  fontSize: '13px',
-                  fontWeight: 300,
-                  lineHeight: 1.6,
-                  color: '#222',
-                  whiteSpace: 'pre-wrap',
-                  fontFamily: 'inherit',
-                }}
-              >
-                {post.text}
-              </p>
-            )}
-          </section>
+      <div style={{ maxWidth: '540px', margin: '0 auto', padding: '0 12px' }}>
+        {loading && (
+          <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px', textAlign: 'center', paddingTop: '40px', fontFamily: 'Helvetica Neue, Helvetica, Arial, sans-serif' }}>
+            loading...
+          </div>
+        )}
+        {!loading && posts.length === 0 && (
+          <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px', textAlign: 'center', paddingTop: '40px', fontFamily: 'Helvetica Neue, Helvetica, Arial, sans-serif' }}>
+            no posts
+          </div>
+        )}
+        {posts.map((post) => (
+          <TumblrPostCard key={post.id || post.link} post={post} />
         ))}
       </div>
     </div>
