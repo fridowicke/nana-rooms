@@ -2671,8 +2671,8 @@ function HiddenObjectScene({ roomNumber, hotspots, onFound, editMode, onEditPick
         }
       }
     }
-    canvas.addEventListener('click', handle)
-    return () => canvas.removeEventListener('click', handle)
+    canvas.addEventListener('pointerup', handle)
+    return () => canvas.removeEventListener('pointerup', handle)
   }, [gl, camera, scene, raycaster, hotspots, editMode, onEditPick, onFound])
 
   return null
@@ -3113,9 +3113,9 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
                   zoomSpeed={isMobileLayout ? 0.8 : (roomRenderVariant.controls.zoomSpeed ?? ROOM_CAMERA_ZOOM_SPEED)}
                   rotateSpeed={isMobileLayout ? 0.34 : (roomRenderVariant.controls.rotateSpeed ?? 0.4)}
                   panSpeed={roomRenderVariant.controls.panSpeed ?? 0.4}
-                  enablePan={isMobileLayout ? false : (roomRenderVariant.controls.enablePan ?? true)}
-                  enableZoom={roomRenderVariant.controls.enableZoom ?? true}
-                  enableRotate={roomRenderVariant.controls.enableRotate ?? true}
+                  enablePan={editMode ? false : (isMobileLayout ? false : (roomRenderVariant.controls.enablePan ?? true))}
+                  enableZoom={editMode ? false : (roomRenderVariant.controls.enableZoom ?? true)}
+                  enableRotate={editMode ? false : (roomRenderVariant.controls.enableRotate ?? true)}
                   dampingFactor={roomRenderVariant.controls.dampingFactor ?? 0.05}
                   keyboardAxis={roomRenderVariant.controls.keyboardAxis ?? 'flat'}
                   keyboardTargetMode={roomRenderVariant.controls.keyboardTargetMode ?? 'follow'}
