@@ -2609,33 +2609,37 @@ function HiddenObjectScene({ roomNumber, hotspots, onFound, editMode, onEditPick
 
       if (editMode) {
         const p = hit.point
-        // Collect clicked mesh and all its parents up the hierarchy
+        // Collect ONLY the direct mesh + its immediate named parent (skip generic Scene/Group roots)
+        // This prevents "Scene" / root group names from matching every object
+        const SKIP_NAMES = new Set(['Scene', 'RootNode', '', 'Group'])
         const meshNames = []
         let obj = hit.object
-        while (obj) {
-          if (obj.name) meshNames.push(obj.name)
+        let depth = 0
+        while (obj && depth < 4) {
+          if (obj.name && !SKIP_NAMES.has(obj.name)) meshNames.push(obj.name)
           obj = obj.parent
+          depth++
         }
+        // Always include the direct mesh name even if it was skipped
+        if (hit.object.name && meshNames.length === 0) meshNames.push(hit.object.name)
+
         onEditPick?.({
           meshNames,
           position: [parseFloat(p.x.toFixed(4)), parseFloat(p.y.toFixed(4)), parseFloat(p.z.toFixed(4))],
         })
-        // Flash highlight: temporarily tint the clicked mesh pink
+
+        // Wireframe edge highlight on the clicked mesh — shows exact shape, not whole-screen flash
         const mesh = hit.object
-        if (mesh.material) {
-          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-          const origColors = mats.map(m => m.color ? m.color.getHex() : null)
-          const origEmissives = mats.map(m => m.emissive ? m.emissive.getHex() : null)
-          mats.forEach(m => {
-            if (m.color) m.color.setHex(0xff69b4)
-            if (m.emissive) m.emissive.setHex(0xff69b4)
-          })
-          setTimeout(() => {
-            mats.forEach((m, i) => {
-              if (m.color && origColors[i] !== null) m.color.setHex(origColors[i])
-              if (m.emissive && origEmissives[i] !== null) m.emissive.setHex(origEmissives[i])
-            })
-          }, 600)
+        if (mesh.geometry) {
+          try {
+            const edges = new THREE.EdgesGeometry(mesh.geometry, 30)
+            const mat = new THREE.LineBasicMaterial({ color: 0xff69b4, depthTest: false, linewidth: 2 })
+            const wireframe = new THREE.LineSegments(edges, mat)
+            wireframe.name = '__editHighlight__'
+            wireframe.raycast = () => {} // don't interfere with future clicks
+            mesh.add(wireframe)
+            setTimeout(() => { mesh.remove(wireframe); wireframe.geometry.dispose(); mat.dispose() }, 1200)
+          } catch (_) {}
         }
         return
       }
@@ -2643,14 +2647,16 @@ function HiddenObjectScene({ roomNumber, hotspots, onFound, editMode, onEditPick
       // Check against hotspots — mesh-based first, fallback to radius
       for (const spot of hotspots) {
         if (spot.meshNames && spot.meshNames.length > 0) {
-          // Collect all names in the hit object hierarchy
+          // Check hit mesh and nearby parents (same depth limit as edit mode)
           let obj = hit.object
-          while (obj) {
+          let depth = 0
+          while (obj && depth < 4) {
             if (obj.name && spot.meshNames.includes(obj.name)) {
               onFound?.(spot.id)
               return
             }
             obj = obj.parent
+            depth++
           }
         } else if (spot.position) {
           // legacy radius fallback
