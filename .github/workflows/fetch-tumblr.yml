@@ -1,0 +1,130 @@
+name: Fetch Tumblr Feed
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Fetch Tumblr posts via API
+        run: |
+          python3 << 'EOF'
+          import urllib.request, json, re, html, time
+
+          API_KEY = "fuiKNFp9vQFvjLNvx4sUwti4Yb5yGutBN4Xh10LXZhhRKjWlV4"
+          BLOG = "shelestvetrovki"
+
+          def best_img(alt_sizes):
+              if not alt_sizes:
+                  return ""
+              return max(alt_sizes, key=lambda x: x.get("width", 0)).get("url", "")
+
+          def parse_post(post):
+              post_id = str(post.get("id", ""))
+              link = post.get("post_url", "")
+              pub_date = post.get("date", "")
+              post_type = post.get("type", "")
+              is_reblog = bool(post.get("reblogged_from_name"))
+              reblog_from = post.get("reblogged_from_name")
+              reblog_url = post.get("reblogged_from_url")
+              rows = []
+              text = ""
+
+              if post_type == "photo":
+                  photos = post.get("photos", [])
+                  layout = post.get("photoset_layout", "")
+                  if layout and len(photos) > 1:
+                      idx = 0
+                      for ch in layout:
+                          count = int(ch)
+                          row = [best_img(photos[idx+i].get("alt_sizes", [])) for i in range(count) if idx+i < len(photos)]
+                          row = [u for u in row if u]
+                          if row:
+                              rows.append(row)
+                          idx += count
+                  else:
+                      for photo in photos:
+                          url = best_img(photo.get("alt_sizes", []))
+                          if url:
+                              rows.append([url])
+                  caption_html = post.get("caption", "")
+                  text = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', html.unescape(caption_html))).strip()
+
+              elif post_type == "text":
+                  body_html = post.get("body", "")
+                  for m in re.finditer(r'<img[^>]+src="([^"]+)"', body_html):
+                      rows.append([m.group(1)])
+                  text = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', html.unescape(body_html))).strip()
+
+              else:
+                  text = post.get("text", "") or post.get("title", "") or post.get("description", "") or ""
+
+              if not rows and not text:
+                  return None
+
+              return {"id": post_id, "title": post.get("title", ""), "link": link, "date": pub_date,
+                      "rows": rows, "text": text if len(text) > 3 else "",
+                      "is_reblog": is_reblog, "reblog_from": reblog_from, "reblog_url": reblog_url}
+
+          all_posts = []
+          seen_ids = set()
+          offset = 0
+          limit = 20
+
+          while True:
+              url = f"https://api.tumblr.com/v2/blog/{BLOG}/posts?limit={limit}&offset={offset}&api_key={API_KEY}&reblog_info=true"
+              req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+              with urllib.request.urlopen(req, timeout=20) as resp:
+                  data = json.load(resp)
+
+              posts = data.get("response", {}).get("posts", [])
+              total = data.get("response", {}).get("total_posts", 0)
+
+              for post in posts:
+                  parsed = parse_post(post)
+                  if parsed and parsed["id"] not in seen_ids:
+                      seen_ids.add(parsed["id"])
+                      all_posts.append(parsed)
+
+              print(f"offset {offset}: {len(posts)} fetched, total={total}, collected={len(all_posts)}")
+              offset += limit
+              if offset >= total or not posts:
+                  break
+              time.sleep(1)
+
+          updated = all_posts[0]["date"] if all_posts else ""
+          with open("public/tumblr-feed.json", "w", encoding="utf-8") as f:
+              json.dump({"posts": all_posts, "updated": updated}, f, ensure_ascii=False, indent=2)
+
+          print(f"Saved {len(all_posts)} posts")
+          EOF
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/tumblr-feed.json
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            git commit -m "update tumblr diary feed"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # A push made with GITHUB_TOKEN does not fire the push-triggered deploy, so start it by hand.
+      - name: Trigger site deploy
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml --ref main
