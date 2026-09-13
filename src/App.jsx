@@ -105,14 +105,14 @@ const CURSOR_TRAIL_GIFS = [
   new URL('../target/cursor/sparkle_h.gif', import.meta.url).href,
 ]
 const CURSOR_CLICK_GIF = new URL('../target/cursor/sparkle_click.gif', import.meta.url).href
-const MAIN_KEY_CURSOR_URL = 'assets/cursors/key-main-aligned.png'
+const MAIN_KEY_CURSOR_URL = '/assets/cursors/key-main-aligned.png'
 const ROOM_KEY_CURSOR_URLS = [
   'assets/cursors/key-room-1-aligned.png',
   'assets/cursors/key-room-2-aligned.png',
   'assets/cursors/key-room-3-hover-aligned.png',
   'assets/cursors/key-room-4-hover-aligned.png',
 ]
-const HOVER_KEY_CURSOR_URL = 'assets/cursors/key-hover-aligned.png'
+const HOVER_KEY_CURSOR_URL = '/assets/cursors/key-hover-aligned.png'
 const CURSOR_TRAIL_LIFETIME_MS = 850
 const CURSOR_CLICK_LIFETIME_MS = 700
 const CURSOR_TRAIL_MIN_DISTANCE = 14
