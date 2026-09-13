@@ -531,6 +531,9 @@ const FOLDER_DEFINITIONS = [
     id: 'she-is-so-hot',
     label: 'she is so hot i wanna clean her room',
     title: 'she is so hot i wanna clean her room',
+    // Drop a GIF at public/assets/folder-she-is-so-hot.gif to replace the folder icon; until the
+    // file exists the default icon is used.
+    icon: 'assets/folder-she-is-so-hot.gif',
     sections: [],
   },
   {
@@ -540,6 +543,7 @@ const FOLDER_DEFINITIONS = [
     sections: [],
   },
 ]
+const DEFAULT_FOLDER_ICON = 'assets/folder-icon-macos.webp'
 const FOLDER_MAP = new Map(FOLDER_DEFINITIONS.map((folder) => [folder.id, folder]))
 const TONE_MAPPING_OPTIONS = [
   { value: 'none', label: 'None', threeValue: THREE.NoToneMapping },
@@ -3921,7 +3925,8 @@ function AboutPage({
               }}
             >
               <img
-                src="assets/folder-icon-macos.webp"
+                src={folder.icon ?? DEFAULT_FOLDER_ICON}
+                onError={(e) => { if (e.currentTarget.src !== DEFAULT_FOLDER_ICON) e.currentTarget.src = DEFAULT_FOLDER_ICON }}
                 alt={`${folder.label} folder`}
                 style={{ width: isMobileLayout ? '64px' : '68px', height: isMobileLayout ? '52px' : '56px', objectFit: 'contain' }}
               />
