@@ -536,12 +536,6 @@ const FOLDER_DEFINITIONS = [
     icon: 'assets/folder-she-is-so-hot.gif',
     sections: [],
   },
-  {
-    id: 'photo-archive',
-    label: 'photo archive',
-    title: 'Photo Archive',
-    sections: [],
-  },
 ]
 const DEFAULT_FOLDER_ICON = 'assets/folder-icon-macos.webp'
 const FOLDER_MAP = new Map(FOLDER_DEFINITIONS.map((folder) => [folder.id, folder]))
@@ -3187,7 +3181,6 @@ function AboutPage({
         { id: 'research', left: '24%', top: '54%' },
         { id: 'local-group', left: '60%', top: '54%' },
         { id: 'she-is-so-hot', left: '24%', top: '70%' },
-        { id: 'photo-archive', left: '60%', top: '70%' },
         { id: 'cv', left: '42%', top: '86%' },
       ]
     : [
@@ -3199,7 +3192,6 @@ function AboutPage({
         { id: 'local-group', left: '84%', top: '48%' },
         { id: 'cv', left: '84%', top: '65%' },
         { id: 'she-is-so-hot', left: '25%', top: '60%' },
-        { id: 'photo-archive', left: '37%', top: '62%' },
       ]
   const [folderPositions, setFolderPositions] = useState(
     () => new Map(folderArcLayout.map((p) => [p.id, { left: p.left, top: p.top }]))
@@ -4450,32 +4442,6 @@ function AboutFolderContent({
           she is so hot i wanna clean her room
         </h1>
         <p style={{ margin: 0, fontSize: '14px', fontWeight: 300, color: '#888' }}>coming soon</p>
-      </div>
-    )
-  }
-
-  if (folder.id === 'photo-archive') {
-    return (
-      <div style={{ ...plainPageStyle, padding: isMobileLayout ? '18px 16px 64px' : '24px 24px 64px' }}>
-        <h1 style={{ margin: '0 0 24px', fontSize: isMobileLayout ? '16px' : '18px', fontWeight: 300, fontStyle: 'normal' }}>
-          photo archive
-        </h1>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: isMobileLayout ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(220px, 1fr))',
-          gap: '8px',
-        }}>
-          {DIARY_PHOTOS.map((photo, i) => (
-            <img
-              key={i}
-              src={photo.src}
-              alt={photo.label}
-              loading="lazy"
-              decoding="async"
-              style={{ display: 'block', width: '100%', height: '220px', objectFit: 'cover' }}
-            />
-          ))}
-        </div>
       </div>
     )
   }
