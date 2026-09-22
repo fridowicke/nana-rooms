@@ -2919,12 +2919,12 @@ function TinyPlayer({ onTitleBarMouseDown, width = 290 }) {
   )
 }
 
-function DiaryDeck({ left, top, width, availableHeight, inline = false, onOpenDiary }) {
+function DiaryDeck({ left, top, width, availableHeight, inline = false, compact = false, onOpenDiary }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const photoCount = DIARY_PHOTOS.length
   const autoplayTimerRef = useRef(null)
-  const deckHeight = inline ? Math.max(280, Math.min(availableHeight ?? 360, 360)) : Math.max(154, Math.min(availableHeight, 220))
-  const cardWidth = inline ? Math.max(164, Math.min(width - 36, 240)) : Math.max(102, Math.min(width - 36, 142))
+  const deckHeight = compact ? availableHeight : inline ? Math.max(280, Math.min(availableHeight ?? 360, 360)) : Math.max(154, Math.min(availableHeight, 220))
+  const cardWidth = compact ? Math.max(48, width - 12) : inline ? Math.max(164, Math.min(width - 36, 240)) : Math.max(102, Math.min(width - 36, 142))
   const cardHeight = Math.min(deckHeight - 30, cardWidth * 1.52)
   const scale = inline ? cardWidth / 198 : cardWidth / 142
   const titleSize = Math.max(11, 14 * scale)
@@ -3181,14 +3181,14 @@ function AboutPage({
 
   const folderArcLayout = isMobileLayout
     ? [
-        { id: 'press', left: '17%', top: '43%' },
-        { id: 'writing', left: '50%', top: '41%' },
-        { id: 'exhibitions', left: '82%', top: '44%' },
-        { id: 'filmmaking', left: '30%', top: '55%' },
-        { id: 'research', left: '66%', top: '56%' },
-        { id: 'local-group', left: '16%', top: '67%' },
-        { id: 'she-is-so-hot', left: '48%', top: '68%' },
-        { id: 'cv', left: '83%', top: '67%' },
+        { id: 'press', left: '17%', top: '47%' },
+        { id: 'writing', left: '50%', top: '45%' },
+        { id: 'exhibitions', left: '82%', top: '48%' },
+        { id: 'filmmaking', left: '30%', top: '58%' },
+        { id: 'research', left: '66%', top: '59%' },
+        { id: 'local-group', left: '16%', top: '70%' },
+        { id: 'she-is-so-hot', left: '48%', top: '71%' },
+        { id: 'cv', left: '83%', top: '70%' },
       ]
     : [
         { id: 'press', left: '25%', top: '36%' },
@@ -3216,8 +3216,8 @@ function AboutPage({
   const welcomeWidth = isMobileLayout ? 96 : 126
   const welcomeHeight = Math.round(welcomeWidth * (55 / 135))
   const leftColumnX = isMobileLayout ? 14 : 24
-  const aboutWindowTop = isMobileLayout ? 132 : 148
-  const aboutWindowHeight = isMobileLayout ? 132 : 181
+  const aboutWindowTop = isMobileLayout ? 168 : 148
+  const aboutWindowHeight = isMobileLayout ? 124 : 181
   const BROWSER_CHROME_HEIGHT = 62
   const aboutWindowLeft = isMobileLayout && mobileAboutWindowPosition ? mobileAboutWindowPosition.x : leftColumnX
   const aboutWindowTopPosition = isMobileLayout && mobileAboutWindowPosition ? mobileAboutWindowPosition.y : aboutWindowTop
@@ -3228,13 +3228,13 @@ function AboutPage({
     ? Math.max(aboutWindowTop + aboutWindowHeight + 24, viewport.height - playerWindowHeight - 14)
     : Math.max(aboutWindowTop + aboutWindowHeight + 430, viewport.height - playerWindowHeight - 28)
   const diaryHeight = isMobileLayout
-    ? 64
+    ? 92
     : Math.max(154, Math.min(playerWindowTop - aboutWindowTop - aboutWindowHeight - 96, 220))
   const diaryTop = isMobileLayout
-    ? BROWSER_CHROME_HEIGHT + 4
+    ? BROWSER_CHROME_HEIGHT + 8
     : Math.max(aboutWindowTop + aboutWindowHeight + 96, playerWindowTop - diaryHeight - 260)
-  const diaryWidth = isMobileLayout ? 62 : Math.max(Math.min(leftColumnWidth - 34, 132), 106)
-  const mobileDiaryLeft = viewport.width - diaryWidth - 22
+  const diaryWidth = isMobileLayout ? 70 : Math.max(Math.min(leftColumnWidth - 34, 132), 106)
+  const mobileDiaryLeft = viewport.width - diaryWidth - 16
   const mobileAboutMinY = BROWSER_CHROME_HEIGHT + 8
 
   const clampMobileAboutPosition = useCallback((position) => {
@@ -3683,6 +3683,7 @@ function AboutPage({
 
       {!isFolderView && (
         <DiaryDeck
+          compact={isMobileLayout}
           left={isMobileLayout ? mobileDiaryLeft : leftColumnX + (leftColumnWidth - diaryWidth) / 2}
           top={diaryTop}
           width={diaryWidth}
