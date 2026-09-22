@@ -76,6 +76,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
         objects,
         vibe,
         caption: t.caption ?? '',
+        date: t.date ?? null,
         tags: tagList,
         tagSet: new Set(tagList),
         x: 0, y: 0, vx: 0, vy: 0,
@@ -392,57 +393,69 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
             })}
           </g>
         </svg>
-        {hovered != null && !dragRef.current && (() => {
-          const n = nodesRef.current[hovered]
+        {(() => {
+          const idx = hovered ?? selected
+          if (idx == null || dragRef.current) return null
+          const n = nodesRef.current[idx]
           if (!n) return null
-          const W = 280, H = 320
-          let sx = n.x * transform.scale + transform.x + 14
-          let sy = n.y * transform.scale + transform.y + 14
-          if (sx + W > size.w) sx = sx - W - 28
-          if (sy + H > size.h) sy = Math.max(4, size.h - H - 4)
+          const pinned = hovered == null && selected != null
+          const W = isMobileLayout ? Math.min(300, size.w - 16) : 300
+          const nb = [...(neighbors.get(n.index) ?? [])]
+          let sx = n.x * transform.scale + transform.x + 16
+          let sy = n.y * transform.scale + transform.y - 40
+          if (sx + W > size.w - 8) sx = n.x * transform.scale + transform.x - W - 16
+          if (sx < 8) sx = 8
+          if (sy < 8) sy = 8
+          const maxH = size.h - 16
           return (
-            <div style={{ position: 'absolute', left: sx, top: sy, pointerEvents: 'none', background: '#fff', border: '1px solid #000', padding: '8px', width: `${W}px`, boxSizing: 'border-box', zIndex: 5, boxShadow: '0 6px 24px rgba(0,0,0,0.18)' }}>
-              <img src={n.src} alt="" style={{ width: '100%', height: `${H - 60}px`, objectFit: 'contain', display: 'block', marginBottom: '6px', background: '#f6f6f6' }} />
-              <div style={{ fontSize: '11px', fontWeight: 300, lineHeight: 1.35 }}>{n.caption || n.tags.slice(0, 3).join(', ')}</div>
-              <div style={{ fontSize: '10px', fontWeight: 300, color: '#888', marginTop: '2px' }}>click to open</div>
+            <div
+              onPointerDown={(e) => e.stopPropagation()}
+              style={{ position: 'absolute', left: sx, top: sy, width: `${W}px`, maxHeight: `${maxH}px`, overflowY: 'auto', boxSizing: 'border-box', pointerEvents: pinned ? 'auto' : 'none', background: '#fde4ee', borderRadius: '14px', padding: '10px', zIndex: 7, boxShadow: '0 10px 30px rgba(0,0,0,0.18)', fontFamily: FONT }}
+            >
+              {pinned && (
+                <button type="button" onClick={() => setSelected(null)} aria-label="close" style={{ position: 'absolute', top: '14px', right: '14px', width: '26px', height: '26px', borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.85)', fontSize: '15px', cursor: 'pointer', lineHeight: '26px', padding: 0 }}>×</button>
+              )}
+              <img src={n.src} alt="" style={{ width: '100%', height: `${Math.round(W * 0.78)}px`, objectFit: 'cover', display: 'block', borderRadius: '10px', background: '#f6f6f6' }} />
+              <div style={{ fontSize: '15px', fontWeight: 400, lineHeight: 1.3, margin: '10px 0 4px', color: '#111' }}>
+                {n.index + 1}: {n.caption || 'untitled room'}
+              </div>
+              <div style={{ fontSize: '12px', fontWeight: 300, color: '#555', marginBottom: '6px' }}>
+                {n.date ? n.date : 'date unknown'} · {n.color}
+              </div>
+              <div style={{ fontSize: '12px', fontWeight: 300, color: '#333', marginBottom: '8px', lineHeight: 1.4 }}>
+                {n.tags.join(' · ')}
+              </div>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: nb.length ? '10px' : 0 }}>
+                <span style={{ background: '#fff', borderRadius: '999px', padding: '2px 9px', fontSize: '11px', fontWeight: 300 }}>{nb.length} relations</span>
+                <span style={{ background: '#fff', borderRadius: '999px', padding: '2px 9px', fontSize: '11px', fontWeight: 300 }}>{n.tags.length} tags</span>
+              </div>
+              {nb.length > 0 && (
+                <>
+                  <div style={{ borderTop: '1px solid rgba(0,0,0,0.12)', paddingTop: '8px', fontSize: '12px', fontWeight: 400, color: '#444', marginBottom: '6px' }}>connected rooms</div>
+                  <div style={{ background: '#fff', borderRadius: '8px', padding: '4px' }}>
+                    {nb.map((ni) => {
+                      const m = nodes[ni]
+                      const shared = m.tags.filter((t) => n.tagSet.has(t))
+                      return (
+                        <button key={ni} type="button" onClick={() => focusNode(ni)} style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%', border: 'none', background: 'transparent', padding: '4px', cursor: 'pointer', textAlign: 'left', fontFamily: FONT, borderBottom: '1px solid #f3e3ea' }}>
+                          <img src={m.thumbSrc} alt="" style={{ width: '38px', height: '38px', objectFit: 'cover', borderRadius: '4px', flexShrink: 0 }} />
+                          <span style={{ fontSize: '11px', fontWeight: 300, lineHeight: 1.3, color: '#111' }}>
+                            {ni + 1}: {m.caption || 'untitled room'}
+                            {shared.length > 0 && <span style={{ color: '#888' }}> — {shared.slice(0, 3).join(', ')}</span>}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+              {!pinned && <div style={{ fontSize: '10px', fontWeight: 300, color: '#999', marginTop: '6px' }}>click dot to pin</div>}
             </div>
           )
         })()}
         <div style={{ position: 'absolute', right: '10px', bottom: '8px', fontSize: '10px', color: '#999', fontWeight: 300, pointerEvents: 'none' }}>scroll to zoom · drag to pan · ← → to browse</div>
       </div>
 
-      {/* Preview */}
-      {sel && (
-        <div style={{ width: previewW, flex: isMobileLayout ? '0 0 auto' : '0 0 440px', borderLeft: isMobileLayout ? 'none' : '1px solid #eee', borderTop: isMobileLayout ? '1px solid #eee' : 'none', padding: '14px', boxSizing: 'border-box', overflowY: 'auto', maxHeight: isMobileLayout ? '55%' : '100%', fontSize: '12px', fontWeight: 300, lineHeight: 1.45, position: isMobileLayout ? 'absolute' : 'relative', bottom: 0, left: 0, right: 0, background: '#fff', zIndex: 6 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <span style={{ color: '#666' }}>{visibleList.indexOf(sel.index) + 1} / {visibleList.length}</span>
-            <button type="button" onClick={() => setSelected(null)} style={{ border: 'none', background: 'none', fontSize: '16px', cursor: 'pointer', padding: 0, lineHeight: 1 }}>×</button>
-          </div>
-          <a href={sel.src} target="_blank" rel="noreferrer">
-            <img src={sel.src} alt="" style={{ width: '100%', height: 'auto', display: 'block', marginBottom: '10px' }} />
-          </a>
-          {sel.caption && <p style={{ margin: '0 0 10px', fontSize: '13px' }}>{sel.caption}</p>}
-          <div style={{ marginBottom: '10px' }}>
-            {chip(sel.color, activeColors.size === 1 && activeColors.has(sel.color), () => toggleColor(sel.color), COLOR_HEX[sel.color])}
-            {sel.tags.map((t) => chip(t, activeTags.has(t), () => toggleTag(t)))}
-          </div>
-          {neighbors.get(sel.index)?.size > 0 && (
-            <>
-              <div style={{ color: '#666', marginBottom: '6px' }}>connected rooms</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '12px' }}>
-                {[...neighbors.get(sel.index)].map((ni) => (
-                  <img key={ni} src={nodes[ni].thumbSrc} alt="" onClick={() => focusNode(ni)} style={{ width: '54px', height: '54px', objectFit: 'cover', cursor: 'pointer', border: '1px solid #eee' }} />
-                ))}
-              </div>
-            </>
-          )}
-          <div style={{ display: 'flex', gap: '4px' }}>
-            {navBtn('← prev', () => goRelative(-1), false)}
-            {navBtn('next →', () => goRelative(1), false)}
-            {navBtn('random', goRandom, false)}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
