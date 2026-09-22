@@ -5,6 +5,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Nana's bot often pushes twice within a minute; without a queue the second Pages deploy is
+# rejected while the first is still in progress.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 permissions:
   contents: read
   pages: write
