@@ -3815,7 +3815,7 @@ function AboutPage({
             className="cursor-pointer"
             style={{
               position: 'absolute',
-              top: '92px',
+              top: activeFolderId === 'she-is-so-hot' ? '104px' : '92px',
               right: '18px',
               zIndex: 13,
               border: 'none',
@@ -3866,11 +3866,17 @@ function AboutPage({
           </a>
         )}
 
+        {isFolderView && activeFolderId === 'she-is-so-hot' && (
+          <div style={{ position: 'absolute', top: '62px', left: 0, right: 0, height: '30px', zIndex: 10 }}>
+            <RoomTickerBar onOpenSubmit={() => handleFolderRouteOpen('submit-room')} embedded />
+          </div>
+        )}
+
         {isFolderView && activeFolder && (
           <div
             style={{
               position: 'absolute',
-              top: '86px',
+              top: activeFolderId === 'she-is-so-hot' ? '92px' : '86px',
               left: 0,
               right: 0,
               bottom: 0,
@@ -4499,8 +4505,7 @@ function AboutFolderContent({
 
   if (folder.id === 'she-is-so-hot') {
     return (
-      <div style={{ ...plainPageStyle, padding: isMobileLayout ? '48px 16px 64px' : '54px 24px 64px', position: 'relative' }}>
-        <RoomTickerBar onOpenSubmit={() => onOpenFolderRoute?.('submit-room')} embedded />
+      <div style={{ ...plainPageStyle, padding: isMobileLayout ? '18px 16px 64px' : '24px 24px 64px', position: 'relative' }}>
         <h1 style={{ margin: '0 0 24px', fontSize: isMobileLayout ? '16px' : '18px', fontWeight: 300, fontStyle: 'normal', lineHeight: 1.3 }}>
           she is so hot i wanna clean her room
         </h1>
