@@ -2923,8 +2923,8 @@ function DiaryDeck({ left, top, width, availableHeight, inline = false, compact 
   const [currentIndex, setCurrentIndex] = useState(0)
   const photoCount = DIARY_PHOTOS.length
   const autoplayTimerRef = useRef(null)
-  const deckHeight = compact ? availableHeight : inline ? Math.max(280, Math.min(availableHeight ?? 360, 360)) : Math.max(154, Math.min(availableHeight, 220))
-  const cardWidth = compact ? Math.max(48, width - 12) : inline ? Math.max(164, Math.min(width - 36, 240)) : Math.max(102, Math.min(width - 36, 142))
+  const deckHeight = compact ? availableHeight : inline ? Math.max(280, Math.min(availableHeight ?? 360, 360)) : Math.max(100, Math.min(availableHeight, 220))
+  const cardWidth = compact ? Math.max(48, width - 12) : inline ? Math.max(164, Math.min(width - 36, 240)) : Math.max(64, Math.min(width - 24, 142))
   const cardHeight = Math.min(deckHeight - 30, cardWidth * 1.52)
   const scale = inline ? cardWidth / 198 : cardWidth / 142
   const titleSize = Math.max(11, 14 * scale)
@@ -3181,14 +3181,14 @@ function AboutPage({
 
   const folderArcLayout = isMobileLayout
     ? [
-        { id: 'press', left: '17%', top: '47%' },
-        { id: 'writing', left: '50%', top: '45%' },
-        { id: 'exhibitions', left: '82%', top: '48%' },
-        { id: 'filmmaking', left: '30%', top: '58%' },
-        { id: 'research', left: '66%', top: '59%' },
-        { id: 'local-group', left: '16%', top: '70%' },
-        { id: 'she-is-so-hot', left: '48%', top: '71%' },
-        { id: 'cv', left: '83%', top: '70%' },
+        { id: 'press', left: '62%', top: '24%' },
+        { id: 'writing', left: '86%', top: '30%' },
+        { id: 'exhibitions', left: '66%', top: '40%' },
+        { id: 'filmmaking', left: '88%', top: '47%' },
+        { id: 'research', left: '58%', top: '55%' },
+        { id: 'local-group', left: '84%', top: '62%' },
+        { id: 'cv', left: '62%', top: '69%' },
+        { id: 'she-is-so-hot', left: '84%', top: '78%' },
       ]
     : [
         { id: 'press', left: '25%', top: '36%' },
@@ -3209,32 +3209,33 @@ function AboutPage({
     setFolderPositions(new Map(folderArcLayout.map((p) => [p.id, { left: p.left, top: p.top }])))
   }, [isMobileLayout]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // mobile = desktop layout scaled to the phone: left column ≈ 44% of the width
   const leftColumnWidth = isMobileLayout
-    ? Math.max(200, Math.min(viewport.width - 28 - 34, 330))
+    ? Math.max(128, Math.min(Math.round(viewport.width * 0.44), 176))
     : Math.max(188, Math.min(viewport.width * 0.15, 218))
   const aboutWindowWidth = leftColumnWidth + 34
-  const welcomeWidth = isMobileLayout ? 96 : 126
+  const welcomeWidth = isMobileLayout ? Math.min(100, leftColumnWidth - 8) : 126
   const welcomeHeight = Math.round(welcomeWidth * (55 / 135))
   const leftColumnX = isMobileLayout ? 14 : 24
-  const aboutWindowTop = isMobileLayout ? 168 : 148
-  const aboutWindowHeight = isMobileLayout ? 124 : 181
+  const aboutWindowTop = isMobileLayout ? 124 : 148
+  const aboutWindowHeight = isMobileLayout ? 150 : 181
   const BROWSER_CHROME_HEIGHT = 62
   const aboutWindowLeft = isMobileLayout && mobileAboutWindowPosition ? mobileAboutWindowPosition.x : leftColumnX
   const aboutWindowTopPosition = isMobileLayout && mobileAboutWindowPosition ? mobileAboutWindowPosition.y : aboutWindowTop
-  const welcomeTop = isMobileLayout ? BROWSER_CHROME_HEIGHT + 10 : Math.round(BROWSER_CHROME_HEIGHT + ((aboutWindowTop - BROWSER_CHROME_HEIGHT - welcomeHeight) / 2))
-  const playerWidth = isMobileLayout ? Math.min(210, viewport.width - 150) : leftColumnWidth
+  const welcomeTop = Math.round(BROWSER_CHROME_HEIGHT + ((aboutWindowTop - BROWSER_CHROME_HEIGHT - welcomeHeight) / 2))
+  const playerWidth = leftColumnWidth
   const playerWindowHeight = Math.round(132 * (playerWidth / 290))
   const playerWindowTop = isMobileLayout
-    ? Math.max(aboutWindowTop + aboutWindowHeight + 24, viewport.height - playerWindowHeight - 14)
+    ? Math.max(aboutWindowTop + aboutWindowHeight + 200, viewport.height - playerWindowHeight - 14)
     : Math.max(aboutWindowTop + aboutWindowHeight + 430, viewport.height - playerWindowHeight - 28)
   const diaryHeight = isMobileLayout
-    ? 92
+    ? Math.max(110, Math.min(playerWindowTop - 40 - (aboutWindowTop + aboutWindowHeight) - 40, 150))
     : Math.max(154, Math.min(playerWindowTop - aboutWindowTop - aboutWindowHeight - 96, 220))
   const diaryTop = isMobileLayout
-    ? BROWSER_CHROME_HEIGHT + 8
+    ? aboutWindowTop + aboutWindowHeight + 18
     : Math.max(aboutWindowTop + aboutWindowHeight + 96, playerWindowTop - diaryHeight - 260)
-  const diaryWidth = isMobileLayout ? 70 : Math.max(Math.min(leftColumnWidth - 34, 132), 106)
-  const mobileDiaryLeft = viewport.width - diaryWidth - 16
+  const diaryWidth = isMobileLayout ? Math.max(84, Math.min(leftColumnWidth - 24, 110)) : Math.max(Math.min(leftColumnWidth - 34, 132), 106)
+  const mobileDiaryLeft = leftColumnX + (leftColumnWidth - diaryWidth) / 2
   const mobileAboutMinY = BROWSER_CHROME_HEIGHT + 8
 
   const clampMobileAboutPosition = useCallback((position) => {
@@ -3638,7 +3639,7 @@ function AboutPage({
                   background: 'transparent',
                   color: '#1a1a1a',
                   fontFamily: MAC_LIGHT_FONT_STACK,
-                  fontSize: '9.25px',
+                  fontSize: isMobileLayout ? '10px' : '9.25px',
                   fontWeight: 300,
                   lineHeight: 1.38,
                   whiteSpace: 'pre-wrap',
@@ -3683,7 +3684,7 @@ function AboutPage({
 
       {!isFolderView && (
         <DiaryDeck
-          compact={isMobileLayout}
+          compact={false}
           left={isMobileLayout ? mobileDiaryLeft : leftColumnX + (leftColumnWidth - diaryWidth) / 2}
           top={diaryTop}
           width={diaryWidth}
@@ -3694,7 +3695,7 @@ function AboutPage({
 
       {/* ── Safety pin (between left col and right stage) ── */}
       {!isFolderView && (
-        <div style={{ position: 'absolute', left: isMobileLayout ? `${leftColumnX + welcomeWidth + 14}px` : `${leftColumnX + aboutWindowWidth + 24}px`, top: isMobileLayout ? `${welcomeTop + 2}px` : '48%', zIndex: 20, pointerEvents: 'none' }}>
+        <div style={{ position: 'absolute', left: `${leftColumnX + aboutWindowWidth + (isMobileLayout ? 6 : 24)}px`, top: isMobileLayout ? `${aboutWindowTop + aboutWindowHeight + 40}px` : '48%', zIndex: 20, pointerEvents: 'none' }}>
           <img
             src="assets/safety-pin.gif"
             alt=""
@@ -3778,9 +3779,10 @@ function AboutPage({
           <div
             style={{
               position: 'absolute',
-              top: '112px',
-              left: '50%',
-              transform: 'translateX(-50%)',
+              top: isMobileLayout ? '78px' : '112px',
+              left: isMobileLayout ? 'auto' : '50%',
+              right: isMobileLayout ? '10px' : 'auto',
+              transform: isMobileLayout ? 'none' : 'translateX(-50%)',
               zIndex: 12,
               display: 'flex',
               flexDirection: 'column',
@@ -3794,12 +3796,12 @@ function AboutPage({
                 src="assets/zodiac.gif"
                 alt=""
                 aria-hidden="true"
-                style={{ width: '23px', height: 'auto', objectFit: 'contain' }}
+                style={{ width: isMobileLayout ? '18px' : '23px', height: 'auto', objectFit: 'contain' }}
               />
               <img
                 src="assets/shelestvetrovki-glitter.gif"
                 alt="shelestvetrovki"
-                style={{ width: 'min(172px, 14.4vw)', height: 'auto', objectFit: 'contain' }}
+                style={{ width: isMobileLayout ? '112px' : 'min(172px, 14.4vw)', height: 'auto', objectFit: 'contain' }}
               />
               <img
                 src="assets/7ADo.gif"
@@ -3927,7 +3929,7 @@ function AboutPage({
                 flexDirection: 'column',
                 alignItems: 'center',
                 gap: isMobileLayout ? '5px' : '6px',
-                width: isMobileLayout ? '96px' : '92px',
+                width: isMobileLayout ? '72px' : '92px',
                 cursor: 'inherit',
                 userSelect: 'none',
               }}
@@ -3936,12 +3938,12 @@ function AboutPage({
                 src={folder.icon ?? DEFAULT_FOLDER_ICON}
                 onError={(e) => { if (e.currentTarget.src !== DEFAULT_FOLDER_ICON) e.currentTarget.src = DEFAULT_FOLDER_ICON }}
                 alt={`${folder.label} folder`}
-                style={{ width: isMobileLayout ? '64px' : '68px', height: isMobileLayout ? '52px' : '56px', objectFit: 'contain' }}
+                style={{ width: isMobileLayout ? '48px' : '68px', height: isMobileLayout ? '40px' : '56px', objectFit: 'contain' }}
               />
               <span
                 style={{
                   fontFamily: MAC_LIGHT_FONT_STACK,
-                  fontSize: isMobileLayout ? '12px' : '13px',
+                  fontSize: isMobileLayout ? '10.5px' : '13px',
                   fontWeight: 300,
                   color: '#111',
                   textAlign: 'center',
