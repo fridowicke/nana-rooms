@@ -58,13 +58,14 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
   const animRef = useRef(null)
   const panRef = useRef(null)
   const dragRef = useRef(null)
+  const hoverTimerRef = useRef(null)
 
   const nodes = useMemo(() => {
     return images.map((img, index) => {
       const key = `${img.page}/${img.filename}`
       const t = tags?.[key] ?? {}
       const objects = Array.isArray(t.objects) ? t.objects : []
-      const vibe = Array.isArray(t.vibe) ? t.vibe : []
+      const vibe = []
       const color = COLOR_HEX[t.color] ? t.color : 'multicolor'
       const tagList = [...objects, ...vibe]
       return {
@@ -386,8 +387,8 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
                   opacity={vis ? (dim ? 0.3 : 1) : 0.08}
                   style={{ cursor: 'pointer' }}
                   onPointerDown={(e) => { e.stopPropagation(); dragRef.current = { index: n.index, moved: false } }}
-                  onPointerEnter={() => setHovered(n.index)}
-                  onPointerLeave={() => setHovered(null)}
+                  onPointerEnter={() => { clearTimeout(hoverTimerRef.current); setHovered(n.index) }}
+                  onPointerLeave={() => { hoverTimerRef.current = setTimeout(() => setHovered(null), 350) }}
                 />
               )
             })}
@@ -410,20 +411,22 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
           return (
             <div
               onPointerDown={(e) => e.stopPropagation()}
-              style={{ position: 'absolute', left: sx, top: sy, width: `${W}px`, maxHeight: `${maxH}px`, overflowY: 'auto', boxSizing: 'border-box', pointerEvents: pinned ? 'auto' : 'none', background: '#fde4ee', borderRadius: '14px', padding: '10px', zIndex: 7, boxShadow: '0 10px 30px rgba(0,0,0,0.18)', fontFamily: FONT }}
+              onPointerEnter={() => clearTimeout(hoverTimerRef.current)}
+              onPointerLeave={() => { if (!pinned) hoverTimerRef.current = setTimeout(() => setHovered(null), 250) }}
+              style={{ position: 'absolute', left: sx, top: sy, width: `${W}px`, maxHeight: `${maxH}px`, overflowY: 'auto', boxSizing: 'border-box', pointerEvents: 'auto', background: '#fde4ee', borderRadius: '14px', padding: '10px', zIndex: 7, boxShadow: '0 10px 30px rgba(0,0,0,0.18)', fontFamily: FONT }}
             >
               {pinned && (
                 <button type="button" onClick={() => setSelected(null)} aria-label="close" style={{ position: 'absolute', top: '14px', right: '14px', width: '26px', height: '26px', borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.85)', fontSize: '15px', cursor: 'pointer', lineHeight: '26px', padding: 0 }}>×</button>
               )}
               <img src={n.src} alt="" style={{ width: '100%', height: `${Math.round(W * 0.78)}px`, objectFit: 'cover', display: 'block', borderRadius: '10px', background: '#f6f6f6' }} />
               <div style={{ fontSize: '15px', fontWeight: 400, lineHeight: 1.3, margin: '10px 0 4px', color: '#111' }}>
-                {n.index + 1}: {n.caption || 'untitled room'}
+                room {n.index + 1}
               </div>
               <div style={{ fontSize: '12px', fontWeight: 300, color: '#555', marginBottom: '6px' }}>
                 {n.date ? n.date : 'date unknown'} · {n.color}
               </div>
               <div style={{ fontSize: '12px', fontWeight: 300, color: '#333', marginBottom: '8px', lineHeight: 1.4 }}>
-                {n.tags.join(' · ')}
+                {n.caption || n.tags.join(', ')}
               </div>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: nb.length ? '10px' : 0 }}>
                 <span style={{ background: '#fff', borderRadius: '999px', padding: '2px 9px', fontSize: '11px', fontWeight: 300 }}>{nb.length} relations</span>
@@ -437,10 +440,10 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
                       const m = nodes[ni]
                       const shared = m.tags.filter((t) => n.tagSet.has(t))
                       return (
-                        <button key={ni} type="button" onClick={() => focusNode(ni)} style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%', border: 'none', background: 'transparent', padding: '4px', cursor: 'pointer', textAlign: 'left', fontFamily: FONT, borderBottom: '1px solid #f3e3ea' }}>
+                        <button key={ni} type="button" onClick={() => { clearTimeout(hoverTimerRef.current); setHovered(null); focusNode(ni) }} style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%', border: 'none', background: 'transparent', padding: '4px', cursor: 'pointer', textAlign: 'left', fontFamily: FONT, borderBottom: '1px solid #f3e3ea' }}>
                           <img src={m.thumbSrc} alt="" style={{ width: '38px', height: '38px', objectFit: 'cover', borderRadius: '4px', flexShrink: 0 }} />
                           <span style={{ fontSize: '11px', fontWeight: 300, lineHeight: 1.3, color: '#111' }}>
-                            {ni + 1}: {m.caption || 'untitled room'}
+                            room {ni + 1}
                             {shared.length > 0 && <span style={{ color: '#888' }}> — {shared.slice(0, 3).join(', ')}</span>}
                           </span>
                         </button>
@@ -449,7 +452,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
                   </div>
                 </>
               )}
-              {!pinned && <div style={{ fontSize: '10px', fontWeight: 300, color: '#999', marginTop: '6px' }}>click dot to pin</div>}
+              
             </div>
           )
         })()}
