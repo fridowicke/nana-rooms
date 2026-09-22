@@ -4191,10 +4191,11 @@ function DiaryTumblrFeed({ plainPageStyle }) {
     </div>
   )
 }
+const ARCHIVE_TAGS_VERSION = '3'
 function ArchiveMapFolder({ isMobileLayout }) {
   const [tags, setTags] = useState(null)
   useEffect(() => {
-    fetch('archive-tags.json')
+    fetch(`archive-tags.json?v=${ARCHIVE_TAGS_VERSION}`)
       .then((r) => (r.ok ? r.json() : {}))
       .then(setTags)
       .catch(() => setTags({}))

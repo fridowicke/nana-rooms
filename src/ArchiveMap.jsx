@@ -126,23 +126,23 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
 
   // static layout: run the simulation synchronously once, nothing moves until dragged
   const layoutDone = useRef(false)
+  const userTouched = useRef(false)
   useEffect(() => {
     if (layoutDone.current || size.w < 50) return
     layoutDone.current = true
     const n = nodes.length
-    const R = Math.min(size.w, size.h) * 0.42 || 250
+    const R = 26 * Math.sqrt(Math.max(1, n))
     nodes.forEach((node, i) => {
-      const angle = (i / Math.max(1, n)) * Math.PI * 2 * 7
+      const angle = (i / Math.max(1, n)) * Math.PI * 2 * 9
       const r = R * Math.sqrt((i + 1) / n)
-      node.x = size.w / 2 + Math.cos(angle) * r
-      node.y = size.h / 2 + Math.sin(angle) * r
+      node.x = Math.cos(angle) * r
+      node.y = Math.sin(angle) * r
       node.vx = 0; node.vy = 0
     })
     nodesRef.current = nodes
     linksRef.current = links
-    const cx = size.w / 2, cy = size.h / 2
-    for (let iter = 0; iter < 300; iter++) {
-      const alpha = Math.max(0.02, 1 - iter / 280)
+    for (let iter = 0; iter < 400; iter++) {
+      const alpha = Math.max(0.03, 1 - iter / 360)
       for (let i = 0; i < nodes.length; i++) {
         const a = nodes[i]
         for (let j = i + 1; j < nodes.length; j++) {
@@ -150,8 +150,8 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
           let dx = a.x - b.x, dy = a.y - b.y
           let d2 = dx * dx + dy * dy
           if (d2 < 0.01) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d2 = 1 }
-          if (d2 > 90000) continue
-          const f = (900 / d2) * alpha
+          if (d2 > 250000) continue
+          const f = (3200 / d2) * alpha
           const d = Math.sqrt(d2)
           const fx = (dx / d) * f, fy = (dy / d) * f
           a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy
@@ -161,24 +161,37 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
         const a = nodes[l.source], b = nodes[l.target]
         const dx = b.x - a.x, dy = b.y - a.y
         const d = Math.sqrt(dx * dx + dy * dy) || 1
-        const f = ((d - 46) / d) * 0.05 * alpha * Math.min(2, l.weight)
+        const f = ((d - 90) / d) * 0.03 * alpha * Math.min(2, l.weight)
         a.vx += dx * f; a.vy += dy * f; b.vx -= dx * f; b.vy -= dy * f
       }
       for (const nd of nodes) {
-        nd.vx += (cx - nd.x) * 0.004 * alpha
-        nd.vy += (cy - nd.y) * 0.004 * alpha
-        nd.vx *= 0.82; nd.vy *= 0.82
+        nd.vx += (0 - nd.x) * 0.0012 * alpha
+        nd.vy += (0 - nd.y) * 0.0012 * alpha
+        nd.vx *= 0.8; nd.vy *= 0.8
         nd.x += nd.vx; nd.y += nd.vy
       }
     }
     setTick((t) => t + 1)
   }, [nodes, links, size.w, size.h])
+
+  // fit whole graph into the container until the user pans/zooms
+  useEffect(() => {
+    if (!layoutDone.current || userTouched.current || size.w < 50) return
+    const ns = nodesRef.current
+    if (!ns.length) return
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const nd of ns) { minX = Math.min(minX, nd.x); maxX = Math.max(maxX, nd.x); minY = Math.min(minY, nd.y); maxY = Math.max(maxY, nd.y) }
+    const pad = 60
+    const scale = Math.min((size.w - pad * 2) / Math.max(1, maxX - minX), (size.h - pad * 2) / Math.max(1, maxY - minY), 2.5)
+    setTransform({ scale, x: size.w / 2 - ((minX + maxX) / 2) * scale, y: size.h / 2 - ((minY + maxY) / 2) * scale })
+  }, [tick, size.w, size.h])
   // zoom
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
     const onWheel = (e) => {
       e.preventDefault()
+      userTouched.current = true
       const rect = el.getBoundingClientRect()
       const mx = e.clientX - rect.left, my = e.clientY - rect.top
       setTransform((t) => {
@@ -199,6 +212,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
 
   const onPointerDown = (e) => {
     if (e.button !== undefined && e.button !== 0) return
+    userTouched.current = true
     panRef.current = { sx: e.clientX, sy: e.clientY, tx: transform.x, ty: transform.y, moved: false }
   }
   const onPointerMove = (e) => {
@@ -220,9 +234,10 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
     if (dragRef.current) {
       const d = dragRef.current
       dragRef.current = null
-      if (!d.moved) setSelected(d.index)
+      if (!d.moved) { setSelected(d.index); setHovered(null) }
       return
     }
+    if (panRef.current && !panRef.current.moved) { setHovered(null); setSelected(null) }
     panRef.current = null
   }
 
@@ -376,7 +391,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
               const isSel = selected === n.index
               const isHov = hovered === n.index
               const dim = focusSet && !focusSet.has(n.index)
-              const r = (isSel ? 9 : isHov ? 8 : 6) / Math.sqrt(transform.scale)
+              const r = (isSel ? 11 : isHov ? 10 : 8) / Math.sqrt(transform.scale)
               return (
                 <circle
                   key={n.index}
@@ -386,9 +401,11 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
                   strokeWidth={(isSel ? 2 : 0.8) / transform.scale}
                   opacity={vis ? (dim ? 0.3 : 1) : 0.08}
                   style={{ cursor: 'pointer' }}
-                  onPointerDown={(e) => { e.stopPropagation(); dragRef.current = { index: n.index, moved: false } }}
-                  onPointerEnter={() => { clearTimeout(hoverTimerRef.current); setHovered(n.index) }}
-                  onPointerLeave={() => { hoverTimerRef.current = setTimeout(() => setHovered(null), 350) }}
+                  onPointerDown={(e) => { e.stopPropagation(); userTouched.current = true; e.currentTarget.setPointerCapture?.(e.pointerId); dragRef.current = { index: n.index, moved: false } }}
+                  onPointerMove={(e) => { if (dragRef.current && dragRef.current.index === n.index) onPointerMove(e) }}
+                  onPointerUp={(e) => { e.stopPropagation(); onPointerUp() }}
+                  onPointerEnter={() => { if (!dragRef.current && !panRef.current) setHovered(n.index) }}
+                  onPointerLeave={() => {}}
                 />
               )
             })}
@@ -396,7 +413,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
         </svg>
         {(() => {
           const idx = hovered ?? selected
-          if (idx == null || dragRef.current) return null
+          if (idx == null) return null
           const n = nodesRef.current[idx]
           if (!n) return null
           const pinned = hovered == null && selected != null
@@ -411,8 +428,6 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
           return (
             <div
               onPointerDown={(e) => e.stopPropagation()}
-              onPointerEnter={() => clearTimeout(hoverTimerRef.current)}
-              onPointerLeave={() => { if (!pinned) hoverTimerRef.current = setTimeout(() => setHovered(null), 250) }}
               style={{ position: 'absolute', left: sx, top: sy, width: `${W}px`, maxHeight: `${maxH}px`, overflowY: 'auto', boxSizing: 'border-box', pointerEvents: 'auto', background: '#fde4ee', borderRadius: '14px', padding: '10px', zIndex: 7, boxShadow: '0 10px 30px rgba(0,0,0,0.18)', fontFamily: FONT }}
             >
               {pinned && (
