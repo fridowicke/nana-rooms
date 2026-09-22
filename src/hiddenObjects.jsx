@@ -14,6 +14,14 @@ const EDITOR_FLAG_KEY = 'shelest-editor'
 const PICK_WIDTH = 1200
 const CLICK_SLOP_PX = 6
 
+const HOVER_TYPES = [
+  { value: '', label: 'ничего' },
+  { value: 'text', label: 'подпись' },
+  { value: 'image', label: 'картинка' },
+  { value: 'gif', label: 'гифка' },
+  { value: 'audio', label: 'звук' },
+]
+
 const REACTION_TYPES = [
   { value: '', label: 'нет' },
   { value: 'text', label: 'текст' },
@@ -42,6 +50,7 @@ function normalizeRoom(raw) {
         name: String(h.name ?? ''),
         strokes: h.strokes,
         reaction: h.reaction && h.reaction.type ? h.reaction : null,
+        hover: h.hover && h.hover.type ? h.hover : null,
       })),
   }
 }
@@ -549,7 +558,7 @@ const EDITOR_BUTTON = {
 }
 
 function HotspotEditorPanel({
-  roomNumber, room, draft, draftFaceCount, tool, setTool, onNameChange, onReactionChange, onSaveDraft, onClearDraft, onUndoStroke,
+  roomNumber, room, draft, draftFaceCount, tool, setTool, onNameChange, onReactionChange, onHoverReactionChange, onSaveDraft, onClearDraft, onUndoStroke,
   onEditHotspot, onDeleteHotspot, onHoverHotspot, onTimerChange, onCopyJson, onDownloadJson, onResetToPublished, onResetProgress,
   hasDraftOverride, faceCounts, isMobileLayout,
 }) {
@@ -597,6 +606,7 @@ function HotspotEditorPanel({
           выделено {draftFaceCount} треугольников · лассо: {draft.strokes.length}
         </div>
         <input value={draft.name} onChange={(e) => onNameChange(e.target.value)} placeholder="название, напр. зеркало" style={{ ...inputStyle, marginBottom: '6px' }} />
+        <div style={{ fontSize: '10px', opacity: 0.7, margin: '2px 0 3px' }}>при клике</div>
         <div style={{ display: 'flex', gap: '4px', marginBottom: '6px' }}>
           <select value={draft.reaction?.type ?? ''} onChange={(e) => onReactionChange({ type: e.target.value })} style={{ ...inputStyle, width: '40%' }}>
             {REACTION_TYPES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
@@ -605,7 +615,21 @@ function HotspotEditorPanel({
             <input
               value={draft.reaction.value ?? ''}
               onChange={(e) => onReactionChange({ value: e.target.value })}
-              placeholder={draft.reaction.type === 'text' ? 'текст' : 'ссылка на файл / url'}
+              placeholder={draft.reaction.type === 'text' ? 'текст' : 'reactions/имя-файла.mp3 или url'}
+              style={{ ...inputStyle, width: '60%' }}
+            />
+          )}
+        </div>
+        <div style={{ fontSize: '10px', opacity: 0.7, margin: '2px 0 3px' }}>при наведении (подсветка всегда, плюс:)</div>
+        <div style={{ display: 'flex', gap: '4px', marginBottom: '6px' }}>
+          <select value={draft.hover?.type ?? ''} onChange={(e) => onHoverReactionChange({ type: e.target.value })} style={{ ...inputStyle, width: '40%' }}>
+            {HOVER_TYPES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+          </select>
+          {draft.hover?.type && (
+            <input
+              value={draft.hover.value ?? ''}
+              onChange={(e) => onHoverReactionChange({ value: e.target.value })}
+              placeholder={draft.hover.type === 'text' ? 'подпись' : 'reactions/имя-файла.gif'}
               style={{ ...inputStyle, width: '60%' }}
             />
           )}
@@ -750,7 +774,7 @@ function LassoOverlay({ tool, onStroke, isMobileLayout }) {
 // ─── game wrapper ────────────────────────────────────────────────────────────
 
 function newDraft() {
-  return { id: null, name: '', strokes: [], reaction: null }
+  return { id: null, name: '', strokes: [], reaction: null, hover: null }
 }
 
 export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
@@ -772,7 +796,7 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
   const [hoverId, setHoverId] = useState(null)
   const [faceCounts, setFaceCounts] = useState(() => new Map())
   const runtimeRef = useRef({ faceToHotspot: null, hotspotFaces: new Map(), hotspotIds: [] })
-  const highlightsRef = useRef({ draft: null, hover: null, hint: null, flashes: [] })
+  const highlightsRef = useRef({ draft: null, hover: null, visitorHover: null, hint: null, flashes: [] })
   const hotspotsSignature = JSON.stringify(room.hotspots)
 
   // Load hotspots: the published file is the default, a local draft (from editing) overrides it.
@@ -904,6 +928,64 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
     triggerReaction(hotspot.reaction, setPopup)
   }, [roomNumber, flashFaces])
 
+  // Visitor hover: glow the hotspot under the pointer, show its name, run its hover reaction.
+  const [hoverInfo, setHoverInfo] = useState(null)
+  const hoverAudioRef = useRef(null)
+  useEffect(() => {
+    const engine = engineRef.current
+    if (!engine?.canvas || editMode) { setHoverInfo(null); return undefined }
+    const canvas = engine.canvas
+    let last = null
+    let frame = 0
+    let pending = null
+    const apply = (hotspot, clientX, clientY) => {
+      const id = hotspot?.id ?? null
+      if (id !== last) {
+        last = id
+        removeHighlight(highlightsRef.current.visitorHover)
+        highlightsRef.current.visitorHover = null
+        if (hoverAudioRef.current) { hoverAudioRef.current.pause(); hoverAudioRef.current = null }
+        if (hotspot) {
+          const faces = runtimeRef.current.hotspotFaces.get(hotspot.id)
+          if (faces) highlightsRef.current.visitorHover = createFaceHighlight(engine.mesh, faces, 0xff69b4, 0.35)
+          if (hotspot.hover?.type === 'audio' && hotspot.hover.value) {
+            try { const a = new Audio(hotspot.hover.value); a.loop = true; a.volume = 0.7; a.play().catch(() => {}); hoverAudioRef.current = a } catch { /* ignore */ }
+          }
+        }
+        canvas.style.cursor = hotspot ? 'pointer' : ''
+      }
+      setHoverInfo(hotspot ? { hotspot, x: clientX, y: clientY } : null)
+    }
+    const onMove = (e) => {
+      pending = [e.clientX, e.clientY]
+      if (frame) return
+      frame = requestAnimationFrame(() => {
+        frame = 0
+        if (!pending) return
+        const [cx, cy] = pending
+        const rect = canvas.getBoundingClientRect()
+        const picker = ensurePicker(engine)
+        const face = picker.pickPoint(engine.camera, (cx - rect.left) / rect.width, (cy - rect.top) / rect.height)
+        const { faceToHotspot, hotspotIds } = runtimeRef.current
+        let hotspot = null
+        if (face >= 0 && faceToHotspot && face < faceToHotspot.length) {
+          const index = faceToHotspot[face]
+          if (index >= 0) hotspot = room.hotspots.find((h) => h.id === hotspotIds[index]) ?? null
+        }
+        apply(hotspot, cx, cy)
+      })
+    }
+    const onLeave = () => apply(null, 0, 0)
+    canvas.addEventListener('pointermove', onMove)
+    canvas.addEventListener('pointerleave', onLeave)
+    return () => {
+      canvas.removeEventListener('pointermove', onMove)
+      canvas.removeEventListener('pointerleave', onLeave)
+      if (frame) cancelAnimationFrame(frame)
+      apply(null, 0, 0)
+    }
+  }, [editMode, room, hotspotsSignature, engineVersion])
+
   // Game clicks: a press without drag picks the triangle under the pointer through the id buffer.
   useEffect(() => {
     const engine = engineRef.current
@@ -1003,13 +1085,14 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
       name: draft.name.trim(),
       strokes: draft.strokes,
       reaction: draft.reaction?.type && draft.reaction?.value ? draft.reaction : null,
+      hover: draft.hover?.type && draft.hover?.value ? draft.hover : null,
     }
     const hotspots = draft.id ? room.hotspots.map((s) => (s.id === draft.id ? hotspot : s)) : [...room.hotspots, hotspot]
     persistRoom({ ...room, hotspots })
     handleClearDraft()
   }
   const handleEditHotspot = (hotspot) => {
-    setDraft({ id: hotspot.id, name: hotspot.name, strokes: hotspot.strokes, reaction: hotspot.reaction })
+    setDraft({ id: hotspot.id, name: hotspot.name, strokes: hotspot.strokes, reaction: hotspot.reaction, hover: hotspot.hover ?? null })
     setDraftFaces(recomputeDraftFaces(hotspot.strokes))
   }
   const handleDeleteHotspot = (id) => {
@@ -1092,6 +1175,7 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
           setTool={setTool}
           onNameChange={(name) => setDraft({ ...draft, name })}
           onReactionChange={(patch) => setDraft({ ...draft, reaction: patch.type === '' ? null : { ...(draft.reaction ?? {}), ...patch } })}
+          onHoverReactionChange={(patch) => setDraft({ ...draft, hover: patch.type === '' ? null : { ...(draft.hover ?? {}), ...patch } })}
           onSaveDraft={handleSaveDraft}
           onClearDraft={handleClearDraft}
           onUndoStroke={handleUndoStroke}
@@ -1108,6 +1192,23 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
           isMobileLayout={isMobileLayout}
         />
       )}
+
+      {hoverInfo && !editMode && (() => {
+        const { hotspot, x, y } = hoverInfo
+        const hv = hotspot.hover
+        const media = hv?.type === 'image' || hv?.type === 'gif' ? hv.value : null
+        const text = hv?.type === 'text' ? hv.value : null
+        const W = media ? 220 : 'auto'
+        const left = Math.min(x + 16, (typeof window !== 'undefined' ? window.innerWidth : 9999) - (media ? 240 : 200))
+        const top = Math.max(8, y - (media ? 190 : 40))
+        return (
+          <div style={{ position: 'fixed', left, top, width: W, zIndex: 9400, pointerEvents: 'none', background: '#fff', border: '1px solid #111', padding: media ? '6px' : '4px 9px', fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif', fontSize: '12px', fontWeight: 300, color: '#111', boxShadow: '0 6px 20px rgba(0,0,0,0.18)' }}>
+            {media && <img src={media} alt="" style={{ display: 'block', width: '100%', height: '150px', objectFit: 'cover', marginBottom: '5px' }} />}
+            <div>{hotspot.name}</div>
+            {text && <div style={{ opacity: 0.7, marginTop: '2px' }}>{text}</div>}
+          </div>
+        )
+      })()}
 
       <ReactionPopup reaction={popup} onClose={() => setPopup(null)} isMobileLayout={isMobileLayout} />
     </div>
