@@ -3181,7 +3181,6 @@ function AboutPage({
         { id: 'research', left: '24%', top: '54%' },
         { id: 'local-group', left: '60%', top: '54%' },
         { id: 'she-is-so-hot', left: '24%', top: '70%' },
-        { id: 'submit-room', left: '60%', top: '70%' },
         { id: 'cv', left: '42%', top: '86%' },
       ]
     : [
@@ -3193,7 +3192,6 @@ function AboutPage({
         { id: 'local-group', left: '84%', top: '48%' },
         { id: 'cv', left: '84%', top: '65%' },
         { id: 'she-is-so-hot', left: '25%', top: '60%' },
-        { id: 'submit-room', left: '37%', top: '62%' },
       ]
   const [folderPositions, setFolderPositions] = useState(
     () => new Map(folderArcLayout.map((p) => [p.id, { left: p.left, top: p.top }]))
@@ -4454,6 +4452,14 @@ function AboutFolderContent({
             she is so hot I wanna clean her room is a meme – a fragment of digital folklore that reflects the state of contemporary womanhood, where life feels too saturated with unresolved questions to attend to something as ordinary as cleaning one’s room. After evacuating from Ukraine to the perceived calm and safety of Japan, I began to observe how the psyche reveals its deepest layers through the mundane – spaces like my room. In isolation during migration, my phone became my best friend, and I noticed how my chronically online behaviors began to leak into my physical space, synchronizing with circulating internet “girlifying” phenomena – where everyone is “just a girl.” I am lost, lonely, haven’t washed my face for three days – and I am just a girl. By 3D scanning girls’ rooms globally, both offline and online, the work studies global condition of girlhood, suspended between physical isolation and chronic online presence, and can be understood as a collective digital consciousness. Walking through rendered hyper-feminine maximalist makeup products, dirty underwear, tangled charging cables, and plush toys, viewers are invited to excavate the psyche of a 21st-century woman. By scrolling through and zooming into digital landscapes of modern artifacts of girlhood — their mess — we can understand how women’s intimacy and identity become a collective consciousness inseparable from the digital world we live in. As the same consumer objects begin to repeat across different bedrooms, private space becomes collective, transforming intimacy into something performed, archived, circulated, and memefied within the conditions of the attention economy while questioning how agency can be negotiated within identities shaped through constant online visibility.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => onOpenFolderRoute?.('submit-room')}
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', width: '120px', margin: '48px 0 0', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer', font: 'inherit' }}
+        >
+          <img src={DEFAULT_FOLDER_ICON} alt="" style={{ width: '64px', height: '64px', objectFit: 'contain' }} />
+          <span style={{ fontSize: '13px', fontWeight: 300, lineHeight: 1.3, textAlign: 'center', color: '#000' }}>global collective bedrooms archive</span>
+        </button>
       </div>
     )
   }
