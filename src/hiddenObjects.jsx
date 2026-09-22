@@ -370,59 +370,67 @@ function createFaceHighlight(mesh, faces, color, opacity) {
   return highlight
 }
 
-// Sparkles: small twinkling points scattered over the hotspot's surface (hover hint for visitors).
+// Sparkles: the site's cursor-trail sparkle gifs, spawned over the hotspot's surface (hover hint).
+const SPARKLE_GIFS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map((k) => new URL(`../target/cursor/sparkle_${k}.gif`, import.meta.url).href)
 function createSparkles(engine, faces) {
   const mesh = engine.mesh
+  const canvas = engine.canvas
   const geometry = mesh.geometry
   const position = geometry.attributes.position
-  const count = Math.min(90, Math.max(18, Math.floor(faces.length / 40)))
-  const pts = new Float32Array(count * 3)
-  const phase = new Float32Array(count)
+  const host = canvas.parentElement
+  if (!host) return null
+  const layer = document.createElement('div')
+  layer.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:30'
+  host.appendChild(layer)
   const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3()
-  for (let i = 0; i < count; i++) {
+  const pickPoint = () => {
     const f = faces[Math.floor(Math.random() * faces.length)]
     a.fromBufferAttribute(position, triangleVertexIndex(geometry, f, 0))
     b.fromBufferAttribute(position, triangleVertexIndex(geometry, f, 1))
     c.fromBufferAttribute(position, triangleVertexIndex(geometry, f, 2))
     let u = Math.random(), v = Math.random()
     if (u + v > 1) { u = 1 - u; v = 1 - v }
-    const x = a.x + (b.x - a.x) * u + (c.x - a.x) * v
-    const y = a.y + (b.y - a.y) * u + (c.y - a.y) * v
-    const z = a.z + (b.z - a.z) * u + (c.z - a.z) * v
-    pts[i * 3] = x; pts[i * 3 + 1] = y; pts[i * 3 + 2] = z
-    phase[i] = Math.random() * Math.PI * 2
+    const w = new THREE.Vector3(
+      a.x + (b.x - a.x) * u + (c.x - a.x) * v,
+      a.y + (b.y - a.y) * u + (c.y - a.y) * v,
+      a.z + (b.z - a.z) * u + (c.z - a.z) * v,
+    )
+    return mesh.localToWorld(w)
   }
-  const g = new THREE.BufferGeometry()
-  g.setAttribute('position', new THREE.BufferAttribute(pts, 3))
-  const canvas = document.createElement('canvas')
-  canvas.width = canvas.height = 64
-  const ctx = canvas.getContext('2d')
-  ctx.clearRect(0, 0, 64, 64)
-  ctx.fillStyle = '#fff'
-  ctx.shadowColor = '#fff'; ctx.shadowBlur = 8
-  const star = (cx, cy, r) => {
-    ctx.beginPath()
-    ctx.moveTo(cx, cy - r); ctx.quadraticCurveTo(cx, cy, cx + r, cy); ctx.quadraticCurveTo(cx, cy, cx, cy + r)
-    ctx.quadraticCurveTo(cx, cy, cx - r, cy); ctx.quadraticCurveTo(cx, cy, cx, cy - r); ctx.fill()
-  }
-  star(32, 32, 26)
-  const tex = new THREE.CanvasTexture(canvas)
-  const mat = new THREE.PointsMaterial({ size: 0.045, map: tex, transparent: true, depthWrite: false, depthTest: true, sizeAttenuation: true, color: 0xffffff, opacity: 0.95, blending: THREE.AdditiveBlending })
-  const points = new THREE.Points(g, mat)
-  points.renderOrder = 999
-  points.raycast = () => {}
-  points.userData.isPickerHelper = true
-  mesh.add(points)
-  const start = performance.now()
+  const live = []
   let raf = 0
-  const tick = () => {
-    const t = (performance.now() - start) / 1000
-    mat.size = 0.035 + 0.02 * (0.5 + 0.5 * Math.sin(t * 5))
-    mat.opacity = 0.65 + 0.35 * (0.5 + 0.5 * Math.sin(t * 7 + 1))
+  let last = 0
+  const spawn = () => {
+    const world = pickPoint()
+    const img = document.createElement('img')
+    img.src = SPARKLE_GIFS[Math.floor(Math.random() * SPARKLE_GIFS.length)]
+    img.alt = ''
+    const size = 18 + Math.random() * 18
+    img.style.cssText = `position:absolute;width:${size}px;height:${size}px;transform:translate(-50%,-50%);opacity:0;transition:opacity 160ms;will-change:transform`
+    layer.appendChild(img)
+    live.push({ img, world, born: performance.now(), life: 700 + Math.random() * 500 })
+  }
+  const tick = (now) => {
     raf = requestAnimationFrame(tick)
+    if (now - last > 70 && live.length < 18) { last = now; spawn() }
+    const rect = canvas.getBoundingClientRect()
+    const cam = engine.camera
+    const v = new THREE.Vector3()
+    for (let i = live.length - 1; i >= 0; i--) {
+      const sp = live[i]
+      const age = now - sp.born
+      if (age > sp.life) { sp.img.remove(); live.splice(i, 1); continue }
+      v.copy(sp.world).project(cam)
+      const x = (v.x + 1) / 2 * rect.width
+      const y = (1 - v.y) / 2 * rect.height
+      const behind = v.z > 1
+      sp.img.style.left = `${x}px`
+      sp.img.style.top = `${y}px`
+      sp.img.style.opacity = behind ? '0' : String(age < 120 ? age / 120 : age > sp.life - 200 ? (sp.life - age) / 200 : 1)
+    }
   }
   raf = requestAnimationFrame(tick)
-  return { object: points, dispose: () => { cancelAnimationFrame(raf); mesh.remove(points); g.dispose(); mat.dispose(); tex.dispose() } }
+  return { object: layer, dispose: () => { cancelAnimationFrame(raf); layer.remove() } }
 }
 
 function removeHighlight(highlight) {
@@ -612,7 +620,7 @@ function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp
     display: 'flex',
     flexDirection: isMobileLayout ? 'row' : 'column',
     alignItems: isMobileLayout ? 'center' : 'stretch',
-    padding: isMobileLayout ? '8px 12px' : '14px 12px',
+    padding: isMobileLayout ? '8px 12px' : '14px 12px 120px',
     gap: isMobileLayout ? '10px' : '6px',
     overflowY: isMobileLayout ? 'hidden' : 'auto',
     overflowX: isMobileLayout ? 'auto' : 'hidden',
@@ -906,6 +914,7 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
   const [timeUp, setTimeUp] = useState(false)
   const [popup, setPopup] = useState(null)
   const [editorEnabled] = useState(isEditorEnabled)
+  useEffect(() => { try { localStorage.removeItem(EDITOR_FLAG_KEY) } catch { /* ignore */ } }, [])
   const [editMode, setEditMode] = useState(false)
   const [tool, setTool] = useState('lasso')
   const [draft, setDraft] = useState(newDraft)
