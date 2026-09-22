@@ -498,8 +498,8 @@ const FOLDER_DEFINITIONS = [
   },
   {
     id: 'submit-room',
-    label: 'global collective bedrooms archive',
-    title: 'global collective bedrooms archive',
+    label: 'submit room',
+    title: 'Submit Room',
     sections: [],
   },
   {
@@ -2415,9 +2415,15 @@ function DoorLinks({ doors, onOpenRoom, occluderRoot }) {
   )
 }
 
-function RoomTickerBar({ onOpenSubmit }) {
+function RoomTickerBar({ onOpenSubmit, embedded = false }) {
   return (
-    <button type="button" className="room-ticker-bar" onClick={onOpenSubmit} aria-label="Submit room">
+    <button
+      type="button"
+      className="room-ticker-bar"
+      onClick={onOpenSubmit}
+      aria-label="Submit room"
+      style={embedded ? { position: 'absolute', zIndex: 6 } : undefined}
+    >
       <span>clean my room +++++ clean my room +++++ clean my room +++++</span>
     </button>
   )
@@ -4178,6 +4184,62 @@ function DiaryTumblrFeed({ plainPageStyle }) {
     </div>
   )
 }
+function DraggableFolderIcon({ label, onOpen, initial = { x: 24, y: 24 } }) {
+  const [pos, setPos] = useState(initial)
+  const dragRef = useRef(null)
+
+  const startDrag = (clientX, clientY) => {
+    dragRef.current = { startX: clientX, startY: clientY, originX: pos.x, originY: pos.y, moved: false }
+  }
+  const onMove = (clientX, clientY) => {
+    const d = dragRef.current
+    if (!d) return
+    const dx = clientX - d.startX
+    const dy = clientY - d.startY
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) d.moved = true
+    setPos({ x: Math.max(0, d.originX + dx), y: Math.max(0, d.originY + dy) })
+  }
+  const endDrag = () => {
+    const d = dragRef.current
+    dragRef.current = null
+    if (d && !d.moved) onOpen?.()
+  }
+
+  useEffect(() => {
+    const mm = (e) => onMove(e.clientX, e.clientY)
+    const mu = () => endDrag()
+    const tm = (e) => { if (e.touches[0]) onMove(e.touches[0].clientX, e.touches[0].clientY) }
+    window.addEventListener('mousemove', mm)
+    window.addEventListener('mouseup', mu)
+    window.addEventListener('touchmove', tm, { passive: true })
+    window.addEventListener('touchend', mu)
+    return () => {
+      window.removeEventListener('mousemove', mm)
+      window.removeEventListener('mouseup', mu)
+      window.removeEventListener('touchmove', tm)
+      window.removeEventListener('touchend', mu)
+    }
+  })
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onMouseDown={(e) => { e.preventDefault(); startDrag(e.clientX, e.clientY) }}
+      onTouchStart={(e) => { if (e.touches[0]) startDrag(e.touches[0].clientX, e.touches[0].clientY) }}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onOpen?.() }}
+      style={{
+        position: 'absolute', left: pos.x, top: pos.y, zIndex: 5,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', width: '120px',
+        cursor: 'grab', userSelect: 'none', font: 'inherit',
+      }}
+    >
+      <img src={DEFAULT_FOLDER_ICON} alt="" draggable={false} style={{ width: '64px', height: '64px', objectFit: 'contain', pointerEvents: 'none' }} />
+      <span style={{ fontSize: '13px', fontWeight: 300, lineHeight: 1.3, textAlign: 'center', color: '#000' }}>{label}</span>
+    </div>
+  )
+}
+
 
 function AboutFolderContent({
   folder,
@@ -4437,7 +4499,8 @@ function AboutFolderContent({
 
   if (folder.id === 'she-is-so-hot') {
     return (
-      <div style={{ ...plainPageStyle, padding: isMobileLayout ? '18px 16px 64px' : '24px 24px 64px' }}>
+      <div style={{ ...plainPageStyle, padding: isMobileLayout ? '48px 16px 64px' : '54px 24px 64px', position: 'relative' }}>
+        <RoomTickerBar onOpenSubmit={() => onOpenFolderRoute?.('submit-room')} embedded />
         <h1 style={{ margin: '0 0 24px', fontSize: isMobileLayout ? '16px' : '18px', fontWeight: 300, fontStyle: 'normal', lineHeight: 1.3 }}>
           she is so hot i wanna clean her room
         </h1>
@@ -4452,14 +4515,11 @@ function AboutFolderContent({
             she is so hot I wanna clean her room is a meme – a fragment of digital folklore that reflects the state of contemporary womanhood, where life feels too saturated with unresolved questions to attend to something as ordinary as cleaning one’s room. After evacuating from Ukraine to the perceived calm and safety of Japan, I began to observe how the psyche reveals its deepest layers through the mundane – spaces like my room. In isolation during migration, my phone became my best friend, and I noticed how my chronically online behaviors began to leak into my physical space, synchronizing with circulating internet “girlifying” phenomena – where everyone is “just a girl.” I am lost, lonely, haven’t washed my face for three days – and I am just a girl. By 3D scanning girls’ rooms globally, both offline and online, the work studies global condition of girlhood, suspended between physical isolation and chronic online presence, and can be understood as a collective digital consciousness. Walking through rendered hyper-feminine maximalist makeup products, dirty underwear, tangled charging cables, and plush toys, viewers are invited to excavate the psyche of a 21st-century woman. By scrolling through and zooming into digital landscapes of modern artifacts of girlhood — their mess — we can understand how women’s intimacy and identity become a collective consciousness inseparable from the digital world we live in. As the same consumer objects begin to repeat across different bedrooms, private space becomes collective, transforming intimacy into something performed, archived, circulated, and memefied within the conditions of the attention economy while questioning how agency can be negotiated within identities shaped through constant online visibility.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => onOpenFolderRoute?.('submit-room')}
-          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', width: '120px', margin: '48px 0 0', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer', font: 'inherit' }}
-        >
-          <img src={DEFAULT_FOLDER_ICON} alt="" style={{ width: '64px', height: '64px', objectFit: 'contain' }} />
-          <span style={{ fontSize: '13px', fontWeight: 300, lineHeight: 1.3, textAlign: 'center', color: '#000' }}>global collective bedrooms archive</span>
-        </button>
+        <DraggableFolderIcon
+          label="global collective bedrooms archive"
+          onOpen={() => onOpenFolderRoute?.('open-collective-archive')}
+          initial={isMobileLayout ? { x: 16, y: 56 } : { x: 780, y: 70 }}
+        />
       </div>
     )
   }
