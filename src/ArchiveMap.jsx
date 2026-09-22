@@ -448,8 +448,8 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
                   onPointerDown={(e) => { e.stopPropagation(); userTouched.current = true; e.currentTarget.setPointerCapture?.(e.pointerId); dragRef.current = { index: n.index, moved: false } }}
                   onPointerMove={(e) => { if (dragRef.current && dragRef.current.index === n.index) onPointerMove(e) }}
                   onPointerUp={(e) => { e.stopPropagation(); onPointerUp() }}
-                  onPointerEnter={() => { if (!dragRef.current && !panRef.current) setHovered(n.index) }}
-                  onPointerLeave={() => {}}
+                  onPointerEnter={() => { if (dragRef.current || panRef.current) return; clearTimeout(hoverTimerRef.current); setHovered(n.index) }}
+                  onPointerLeave={() => { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = setTimeout(() => setHovered(null), 600) }}
                 />
               )
             })}
@@ -472,6 +472,8 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
           return (
             <div
               onPointerDown={(e) => e.stopPropagation()}
+              onPointerEnter={() => clearTimeout(hoverTimerRef.current)}
+              onPointerLeave={() => { if (!pinned) { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = setTimeout(() => setHovered(null), 200) } }}
               style={{ position: 'absolute', left: sx, top: sy, width: `${W}px`, maxHeight: `${maxH}px`, overflowY: 'auto', boxSizing: 'border-box', pointerEvents: 'auto', background: '#fde4ee', borderRadius: '14px', padding: '10px', zIndex: 7, boxShadow: '0 10px 30px rgba(0,0,0,0.18)', fontFamily: FONT, transition: 'left 120ms ease-out, top 120ms ease-out' }}
             >
               {pinned && (
