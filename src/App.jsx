@@ -4507,7 +4507,6 @@ function AboutFolderContent({
 
 
   if (folder.id === 'research') {
-    if (activeFolderDetailId === 'patchy-studies') {
       return (
         <div style={{ ...plainPageStyle, padding: 0, overflow: 'hidden' }}>
           <iframe
@@ -4518,19 +4517,6 @@ function AboutFolderContent({
           />
         </div>
       )
-    }
-    return (
-      <div style={{ ...plainPageStyle, padding: isMobileLayout ? '18px 16px 64px' : '24px 24px 64px' }}>
-        <h1 style={{ margin: '0 0 24px', fontSize: isMobileLayout ? '16px' : '18px', fontWeight: 300, fontStyle: 'normal' }}>research</h1>
-        <button
-          type="button"
-          onClick={() => onOpenFolderRoute?.(folder.id, 'patchy-studies')}
-          style={{ border: 'none', background: 'transparent', padding: 0, font: 'inherit', fontSize: isMobileLayout ? '16px' : '18px', fontWeight: 300, textDecoration: 'underline', cursor: 'pointer', color: '#000' }}
-        >
-          PATCHY STUDIES →
-        </button>
-      </div>
-    )
   }
 
   if (folder.id === 'local-group') {
