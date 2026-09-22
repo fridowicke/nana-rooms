@@ -79,11 +79,11 @@ function saveDraftRoom(roomNumber, room) {
 function clearDraftRoom(roomNumber) {
   try { localStorage.removeItem(draftKey(roomNumber)) } catch { /* private mode */ }
 }
-function loadFound(roomNumber) {
-  try { return JSON.parse(localStorage.getItem(foundKey(roomNumber)) || '[]') } catch { return [] }
+function loadFound() {
+  return []
 }
-function saveFound(roomNumber, found) {
-  try { localStorage.setItem(foundKey(roomNumber), JSON.stringify(found)) } catch { /* private mode */ }
+function saveFound() {
+  /* progress is per visit: reloading the page starts the game over */
 }
 
 // The editor stays invisible for visitors: it only appears after a room was opened once with
@@ -92,15 +92,9 @@ function isEditorEnabled() {
   if (typeof window === 'undefined') return false
   try {
     const params = new URLSearchParams(window.location.search)
-    if (params.get('edit') === '1') {
-      localStorage.setItem(EDITOR_FLAG_KEY, '1')
-      return true
-    }
-    if (params.get('edit') === '0') {
-      localStorage.removeItem(EDITOR_FLAG_KEY)
-      return false
-    }
-    return localStorage.getItem(EDITOR_FLAG_KEY) === '1'
+    if (params.get('edit') === '1') return true
+    try { localStorage.removeItem(EDITOR_FLAG_KEY) } catch { /* ignore */ }
+    return false
   } catch {
     return false
   }
@@ -376,8 +370,64 @@ function createFaceHighlight(mesh, faces, color, opacity) {
   return highlight
 }
 
+// Sparkles: small twinkling points scattered over the hotspot's surface (hover hint for visitors).
+function createSparkles(engine, faces) {
+  const mesh = engine.mesh
+  const geometry = mesh.geometry
+  const position = geometry.attributes.position
+  const count = Math.min(90, Math.max(18, Math.floor(faces.length / 40)))
+  const pts = new Float32Array(count * 3)
+  const phase = new Float32Array(count)
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3()
+  for (let i = 0; i < count; i++) {
+    const f = faces[Math.floor(Math.random() * faces.length)]
+    a.fromBufferAttribute(position, triangleVertexIndex(geometry, f, 0))
+    b.fromBufferAttribute(position, triangleVertexIndex(geometry, f, 1))
+    c.fromBufferAttribute(position, triangleVertexIndex(geometry, f, 2))
+    let u = Math.random(), v = Math.random()
+    if (u + v > 1) { u = 1 - u; v = 1 - v }
+    const x = a.x + (b.x - a.x) * u + (c.x - a.x) * v
+    const y = a.y + (b.y - a.y) * u + (c.y - a.y) * v
+    const z = a.z + (b.z - a.z) * u + (c.z - a.z) * v
+    pts[i * 3] = x; pts[i * 3 + 1] = y; pts[i * 3 + 2] = z
+    phase[i] = Math.random() * Math.PI * 2
+  }
+  const g = new THREE.BufferGeometry()
+  g.setAttribute('position', new THREE.BufferAttribute(pts, 3))
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 64
+  const ctx = canvas.getContext('2d')
+  ctx.clearRect(0, 0, 64, 64)
+  ctx.fillStyle = '#fff'
+  ctx.shadowColor = '#fff'; ctx.shadowBlur = 8
+  const star = (cx, cy, r) => {
+    ctx.beginPath()
+    ctx.moveTo(cx, cy - r); ctx.quadraticCurveTo(cx, cy, cx + r, cy); ctx.quadraticCurveTo(cx, cy, cx, cy + r)
+    ctx.quadraticCurveTo(cx, cy, cx - r, cy); ctx.quadraticCurveTo(cx, cy, cx, cy - r); ctx.fill()
+  }
+  star(32, 32, 26)
+  const tex = new THREE.CanvasTexture(canvas)
+  const mat = new THREE.PointsMaterial({ size: 0.045, map: tex, transparent: true, depthWrite: false, depthTest: true, sizeAttenuation: true, color: 0xffffff, opacity: 0.95, blending: THREE.AdditiveBlending })
+  const points = new THREE.Points(g, mat)
+  points.renderOrder = 999
+  points.raycast = () => {}
+  points.userData.isPickerHelper = true
+  mesh.add(points)
+  const start = performance.now()
+  let raf = 0
+  const tick = () => {
+    const t = (performance.now() - start) / 1000
+    mat.size = 0.035 + 0.02 * (0.5 + 0.5 * Math.sin(t * 5))
+    mat.opacity = 0.65 + 0.35 * (0.5 + 0.5 * Math.sin(t * 7 + 1))
+    raf = requestAnimationFrame(tick)
+  }
+  raf = requestAnimationFrame(tick)
+  return { object: points, dispose: () => { cancelAnimationFrame(raf); mesh.remove(points); g.dispose(); mat.dispose(); tex.dispose() } }
+}
+
 function removeHighlight(highlight) {
   if (!highlight) return
+  if (typeof highlight.dispose === 'function' && highlight.object) { highlight.dispose(); return }
   highlight.parent?.remove(highlight)
   highlight.geometry.dispose()
   highlight.material.dispose()
@@ -544,6 +594,7 @@ function triggerReaction(reaction, setPopup) {
 function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp, allFound, onRestart, isMobileLayout }) {
   const remaining = hotspots.filter((s) => !found.includes(s.id))
   const foundList = hotspots.filter((s) => found.includes(s.id))
+  const FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif'
 
   const panelStyle = {
     position: 'absolute',
@@ -552,40 +603,34 @@ function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp
     right: 0,
     width: isMobileLayout ? '100%' : '200px',
     height: isMobileLayout ? 'auto' : 'calc(100% - 30px)',
-    background: 'linear-gradient(180deg, #1a0a2e 0%, #0d0520 60%, #1a0530 100%)',
-    borderLeft: isMobileLayout ? 'none' : '2px solid #6b21a8',
-    borderTop: isMobileLayout ? '2px solid #6b21a8' : 'none',
+    background: 'rgba(255,255,255,0.72)',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    borderLeft: isMobileLayout ? 'none' : '1px solid rgba(0,0,0,0.12)',
+    borderTop: isMobileLayout ? '1px solid rgba(0,0,0,0.12)' : 'none',
     zIndex: 50,
     display: 'flex',
     flexDirection: isMobileLayout ? 'row' : 'column',
     alignItems: isMobileLayout ? 'center' : 'stretch',
-    padding: isMobileLayout ? '8px 12px' : '12px 10px',
-    gap: isMobileLayout ? '10px' : '8px',
+    padding: isMobileLayout ? '8px 12px' : '14px 12px',
+    gap: isMobileLayout ? '10px' : '6px',
     overflowY: isMobileLayout ? 'hidden' : 'auto',
     overflowX: isMobileLayout ? 'auto' : 'hidden',
     boxSizing: 'border-box',
-    fontFamily: '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif',
+    fontFamily: FONT,
+    color: '#111',
   }
-  const titleStyle = {
-    color: '#e8c96b', fontSize: isMobileLayout ? '11px' : '13px', fontWeight: 'bold', textAlign: 'center',
-    textShadow: '0 0 8px rgba(232,201,107,0.6)', letterSpacing: '0.05em', marginBottom: isMobileLayout ? 0 : '4px', whiteSpace: 'nowrap',
-  }
-  const counterStyle = { color: '#c084fc', fontSize: isMobileLayout ? '10px' : '11px', textAlign: 'center', marginBottom: isMobileLayout ? 0 : '6px', whiteSpace: 'nowrap' }
+  const titleStyle = { fontSize: isMobileLayout ? '12px' : '13px', fontWeight: 400, marginBottom: isMobileLayout ? 0 : '2px', whiteSpace: 'nowrap' }
+  const counterStyle = { fontSize: '11px', fontWeight: 300, color: '#666', marginBottom: isMobileLayout ? 0 : '8px', whiteSpace: 'nowrap' }
   const itemStyle = (isFound) => ({
-    padding: '4px 6px', borderRadius: '4px',
-    background: isFound ? 'rgba(134,239,172,0.12)' : 'rgba(255,255,255,0.06)',
-    border: `1px solid ${isFound ? 'rgba(134,239,172,0.3)' : 'rgba(255,255,255,0.1)'}`,
-    color: isFound ? 'rgba(134,239,172,0.7)' : '#f0e6ff',
-    fontSize: isMobileLayout ? '10px' : '12px',
-    textDecoration: isFound ? 'line-through' : 'none',
-    opacity: isFound ? 0.6 : 1, whiteSpace: 'nowrap', flexShrink: 0,
+    padding: '3px 0', fontSize: isMobileLayout ? '11px' : '13px', fontWeight: 300,
+    color: isFound ? '#999' : '#111', textDecoration: isFound ? 'line-through' : 'none',
+    whiteSpace: 'nowrap', flexShrink: 0,
   })
   const buttonStyle = (disabled) => ({
-    background: disabled ? 'rgba(255,255,255,0.05)' : 'linear-gradient(135deg, #7c3aed, #4c1d95)',
-    border: `1px solid ${disabled ? '#444' : '#a855f7'}`, color: disabled ? '#888' : '#e8c96b',
-    padding: isMobileLayout ? '4px 10px' : '6px 8px', borderRadius: '6px', cursor: disabled ? 'default' : 'pointer',
-    fontFamily: 'inherit', fontSize: isMobileLayout ? '10px' : '11px', textAlign: 'center',
-    boxShadow: disabled ? 'none' : '0 0 8px rgba(168,85,247,0.4)', whiteSpace: 'nowrap', flexShrink: 0,
+    background: 'transparent', border: '1px solid ' + (disabled ? '#ccc' : '#111'), color: disabled ? '#aaa' : '#111',
+    padding: isMobileLayout ? '4px 10px' : '5px 8px', borderRadius: '999px', cursor: disabled ? 'default' : 'pointer',
+    fontFamily: FONT, fontSize: '11px', fontWeight: 300, textAlign: 'center', whiteSpace: 'nowrap', flexShrink: 0, marginTop: isMobileLayout ? 0 : 'auto',
   })
   const timerLabel = timeLeft != null ? `${Math.floor(timeLeft / 60)}:${String(timeLeft % 60).padStart(2, '0')}` : null
 
@@ -593,12 +638,10 @@ function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp
     return (
       <div style={{ ...panelStyle, alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center', display: 'flex', flexDirection: isMobileLayout ? 'row' : 'column', alignItems: 'center', gap: '8px' }}>
-          <div style={{ fontSize: isMobileLayout ? '18px' : '28px' }}>{allFound ? '✨' : '⏱'}</div>
-          <div style={{ color: '#e8c96b', fontSize: isMobileLayout ? '12px' : '14px', fontWeight: 'bold', textShadow: '0 0 10px rgba(232,201,107,0.8)' }}>
-            {allFound ? 'all found!' : "time's up"}
-          </div>
-          <div style={{ color: '#c084fc', fontSize: '11px' }}>{found.length} / {hotspots.length}</div>
-          <button type="button" onClick={onRestart} style={buttonStyle(false)}>play again</button>
+          <div style={{ fontSize: isMobileLayout ? '18px' : '26px' }}>{allFound ? '✨' : '⏱'}</div>
+          <div style={{ fontSize: '13px', fontWeight: 400 }}>{allFound ? 'all found!' : "time's up"}</div>
+          <div style={{ fontSize: '11px', fontWeight: 300, color: '#666' }}>{found.length} / {hotspots.length}</div>
+          <button type="button" onClick={onRestart} style={{ ...buttonStyle(false), marginTop: 0 }}>play again</button>
         </div>
       </div>
     )
@@ -606,23 +649,24 @@ function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp
 
   return (
     <div style={panelStyle}>
-      {!isMobileLayout && <div style={titleStyle}>✦ items to find ✦</div>}
+      {!isMobileLayout && <div style={titleStyle}>find these objects:</div>}
       <div style={counterStyle}>
-        {found.length} / {hotspots.length} found
-        {timerLabel && <span style={{ color: timeLeft < 30 ? '#f87171' : '#c084fc', marginLeft: '8px' }}>⏱ {timerLabel}</span>}
+        {found.length} / {hotspots.length}
+        {timerLabel && <span style={{ color: timeLeft < 30 ? '#e5524e' : '#666', marginLeft: '8px' }}>⏱ {timerLabel}</span>}
       </div>
       {remaining.map((s) => <div key={s.id} style={itemStyle(false)}>{s.name}</div>)}
       {foundList.length > 0 && !isMobileLayout && (
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '6px', marginTop: '2px' }}>
+        <div style={{ borderTop: '1px solid rgba(0,0,0,0.1)', paddingTop: '6px', marginTop: '4px' }}>
           {foundList.map((s) => <div key={s.id} style={itemStyle(true)}>{s.name}</div>)}
         </div>
       )}
       <button type="button" onClick={onHint} disabled={hintUsed} style={buttonStyle(hintUsed)}>
-        {hintUsed ? 'hint used' : '💡 hint'}
+        {hintUsed ? 'hint used' : 'hint'}
       </button>
     </div>
   )
 }
+
 
 // ─── editor ──────────────────────────────────────────────────────────────────
 
@@ -1020,7 +1064,7 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
         if (hoverAudioRef.current) { hoverAudioRef.current.pause(); hoverAudioRef.current = null }
         if (hotspot) {
           const faces = runtimeRef.current.hotspotFaces.get(hotspot.id)
-          if (faces) highlightsRef.current.visitorHover = createFaceHighlight(engine.mesh, faces, 0xff69b4, 0.35)
+          if (faces) highlightsRef.current.visitorHover = createSparkles(engine, faces)
           if (hotspot.hover?.type === 'audio' && hotspot.hover.value) {
             try { const a = new Audio(hotspot.hover.value); a.loop = true; a.volume = 0.7; a.play().catch(() => {}); hoverAudioRef.current = a } catch { /* ignore */ }
           }
