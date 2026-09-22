@@ -419,6 +419,24 @@ function ensurePicker(engine) {
 
 // ─── reactions ───────────────────────────────────────────────────────────────
 
+function toEmbedUrl(url) {
+  if (!url) return null
+  try {
+    const u = new URL(url)
+    const host = u.hostname.replace(/^www\./, '')
+    if (host === 'youtu.be') return `https://www.youtube.com/embed/${u.pathname.slice(1)}?autoplay=1`
+    if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'music.youtube.com') {
+      if (u.pathname.startsWith('/embed/')) return url
+      if (u.pathname.startsWith('/shorts/')) return `https://www.youtube.com/embed/${u.pathname.split('/')[2]}?autoplay=1`
+      const v = u.searchParams.get('v')
+      if (v) return `https://www.youtube.com/embed/${v}?autoplay=1`
+    }
+    if (host === 'vimeo.com') return `https://player.vimeo.com/video/${u.pathname.split('/').filter(Boolean).pop()}?autoplay=1`
+    if (host === 'player.vimeo.com') return url
+  } catch { /* not a url */ }
+  return null
+}
+
 function ReactionPopup({ reaction, onClose, isMobileLayout }) {
   if (!reaction) return null
   const body = (() => {
@@ -429,6 +447,14 @@ function ReactionPopup({ reaction, onClose, isMobileLayout }) {
       return <img src={reaction.value} alt={reaction.title || ''} style={{ display: 'block', maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain' }} />
     }
     if (reaction.type === 'video') {
+      const embed = toEmbedUrl(reaction.value)
+      if (embed) {
+        return (
+          <div style={{ position: 'relative', width: '100%', paddingTop: '56.25%', background: '#000' }}>
+            <iframe src={embed} title={reaction.title || 'video'} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }} />
+          </div>
+        )
+      }
       return <video src={reaction.value} controls autoPlay playsInline style={{ display: 'block', maxWidth: '100%', maxHeight: '70vh' }} />
     }
     return null
@@ -596,8 +622,8 @@ function HotspotEditorPanel({
         {tool === 'camera'
           ? 'двигай камеру как обычно, потом вернись к лассо'
           : tool === 'erase'
-            ? 'обведи лишнее — оно уберётся из выделения'
-            : 'обведи объект мышкой/пальцем — розовым подсветится то, что выбрано. можно обводить несколько раз и с разных сторон'}
+            ? 'обведи лишнее — оно уберётся из выделения. зажми ПРОБЕЛ чтобы крутить камеру'
+            : 'обведи объект мышкой — розовым подсветится что выбрано. зажми ПРОБЕЛ (или кнопка 🎥) чтобы двигать камеру, отпусти — снова лассо'}
       </div>
 
       <div style={{ background: 'rgba(255,105,180,0.12)', border: '1px solid rgba(255,105,180,0.3)', borderRadius: '6px', padding: '8px', marginBottom: '8px' }}>
@@ -701,7 +727,7 @@ function HotspotEditorPanel({
   )
 }
 
-function LassoOverlay({ tool, onStroke, isMobileLayout }) {
+function LassoOverlay({ tool, onStroke, isMobileLayout, passThrough }) {
   // The stroke in progress lives in a ref: pointer moves arrive faster than React re-renders,
   // and the state copy only feeds the SVG preview.
   const pointsRef = useRef(null)
@@ -750,7 +776,7 @@ function LassoOverlay({ tool, onStroke, isMobileLayout }) {
       onPointerMove={handleMove}
       onPointerUp={handleUp}
       onPointerCancel={handleCancel}
-      style={{ position: 'absolute', inset: 0, zIndex: 40, cursor: 'crosshair', touchAction: 'none' }}
+      style={{ position: 'absolute', inset: 0, zIndex: 40, cursor: passThrough ? 'grab' : 'crosshair', touchAction: 'none', pointerEvents: passThrough ? 'none' : 'auto' }}
     >
       <svg width="100%" height="100%" viewBox="0 0 1000 1000" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
         {points && points.length > 1 && (
@@ -1127,13 +1153,25 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
   }), [])
 
   const panelWidth = isMobileLayout ? 0 : 200
+  const [spaceHeld, setSpaceHeld] = useState(false)
+  useEffect(() => {
+    if (!editMode) { setSpaceHeld(false); return undefined }
+    const down = (e) => { if (e.code === 'Space' && !(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) { e.preventDefault(); setSpaceHeld(true) } }
+    const up = (e) => { if (e.code === 'Space') setSpaceHeld(false) }
+    const blur = () => setSpaceHeld(false)
+    window.addEventListener('keydown', down)
+    window.addEventListener('keyup', up)
+    window.addEventListener('blur', blur)
+    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', blur) }
+  }, [editMode])
   const lassoActive = editMode && tool !== 'camera'
+  const cameraFree = !lassoActive || spaceHeld
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex' }}>
       <div style={{ flex: 1, position: 'relative', marginRight: gameMode ? `${panelWidth}px` : 0 }}>
-        {children({ sceneProps, editMode, cameraLocked: lassoActive })}
-        {lassoActive && <LassoOverlay tool={tool} onStroke={applyStroke} isMobileLayout={isMobileLayout} />}
+        {children({ sceneProps, editMode, cameraLocked: !cameraFree })}
+        {lassoActive && <LassoOverlay tool={tool} onStroke={applyStroke} isMobileLayout={isMobileLayout} passThrough={spaceHeld} />}
       </div>
 
       {gameMode && (
