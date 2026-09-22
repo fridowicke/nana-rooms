@@ -122,8 +122,11 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
     return () => ro.disconnect()
   }, [])
 
-  // init positions + simulation
+  // static layout: run the simulation synchronously once, nothing moves until dragged
+  const layoutDone = useRef(false)
   useEffect(() => {
+    if (layoutDone.current || size.w < 50) return
+    layoutDone.current = true
     const n = nodes.length
     const R = Math.min(size.w, size.h) * 0.42 || 250
     nodes.forEach((node, i) => {
@@ -135,16 +138,13 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
     })
     nodesRef.current = nodes
     linksRef.current = links
-    let iter = 0
-    const step = () => {
-      const ns = nodesRef.current
-      const ls = linksRef.current
-      const cx = size.w / 2, cy = size.h / 2
-      const alpha = Math.max(0.02, 1 - iter / 320)
-      for (let i = 0; i < ns.length; i++) {
-        const a = ns[i]
-        for (let j = i + 1; j < ns.length; j++) {
-          const b = ns[j]
+    const cx = size.w / 2, cy = size.h / 2
+    for (let iter = 0; iter < 300; iter++) {
+      const alpha = Math.max(0.02, 1 - iter / 280)
+      for (let i = 0; i < nodes.length; i++) {
+        const a = nodes[i]
+        for (let j = i + 1; j < nodes.length; j++) {
+          const b = nodes[j]
           let dx = a.x - b.x, dy = a.y - b.y
           let d2 = dx * dx + dy * dy
           if (d2 < 0.01) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d2 = 1 }
@@ -155,29 +155,22 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
           a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy
         }
       }
-      for (const l of ls) {
-        const a = ns[l.source], b = ns[l.target]
+      for (const l of links) {
+        const a = nodes[l.source], b = nodes[l.target]
         const dx = b.x - a.x, dy = b.y - a.y
         const d = Math.sqrt(dx * dx + dy * dy) || 1
-        const target = 46
-        const f = ((d - target) / d) * 0.05 * alpha * Math.min(2, l.weight)
+        const f = ((d - 46) / d) * 0.05 * alpha * Math.min(2, l.weight)
         a.vx += dx * f; a.vy += dy * f; b.vx -= dx * f; b.vy -= dy * f
       }
-      for (const nd of ns) {
-        if (dragRef.current && dragRef.current.index === nd.index) { nd.vx = 0; nd.vy = 0; continue }
+      for (const nd of nodes) {
         nd.vx += (cx - nd.x) * 0.004 * alpha
         nd.vy += (cy - nd.y) * 0.004 * alpha
         nd.vx *= 0.82; nd.vy *= 0.82
         nd.x += nd.vx; nd.y += nd.vy
       }
-      iter++
-      setTick((t) => t + 1)
-      if (iter < 360) animRef.current = requestAnimationFrame(step)
     }
-    animRef.current = requestAnimationFrame(step)
-    return () => cancelAnimationFrame(animRef.current)
+    setTick((t) => t + 1)
   }, [nodes, links, size.w, size.h])
-
   // zoom
   useEffect(() => {
     const el = containerRef.current
@@ -296,17 +289,18 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
   const anyFilter = activeTags.size > 0 || q || activeColors.size !== COLOR_ORDER.length
 
   const panelW = isMobileLayout ? '100%' : '220px'
-  const previewW = isMobileLayout ? '100%' : '300px'
+  const previewW = isMobileLayout ? '100%' : '440px'
 
-  const chip = (label, active, onClick, colorDot) => (
+  const markNode = hovered != null ? nodes[hovered] : sel
+  const chip = (label, active, onClick, colorDot, marked = false) => (
     <button
       key={label}
       type="button"
       onClick={onClick}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: '5px',
-        border: '1px solid ' + (active ? '#000' : '#ddd'),
-        background: active ? '#000' : '#fff', color: active ? '#fff' : '#000',
+        border: '1px solid ' + (active ? '#000' : marked ? '#ff69b4' : '#ddd'),
+        background: active ? '#000' : marked ? '#ffe4f3' : '#fff', color: active ? '#fff' : '#000',
         borderRadius: '999px', padding: '2px 8px', margin: '0 4px 4px 0',
         fontFamily: FONT, fontSize: '11px', fontWeight: 300, cursor: 'pointer', lineHeight: 1.5,
       }}
@@ -343,11 +337,11 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
         </div>
         <div style={{ color: '#666', marginBottom: '4px' }}>colour</div>
         <div style={{ marginBottom: '10px' }}>
-          {COLOR_ORDER.map((c) => chip(c, activeColors.has(c) && activeColors.size !== COLOR_ORDER.length, () => toggleColor(c), COLOR_HEX[c]))}
+          {COLOR_ORDER.map((c) => chip(c, activeColors.has(c) && activeColors.size !== COLOR_ORDER.length, () => toggleColor(c), COLOR_HEX[c], markNode?.color === c))}
         </div>
         <div style={{ color: '#666', marginBottom: '4px' }}>tags</div>
         <div>
-          {allTags.map(([t, n]) => chip(`${t} ${n}`, activeTags.has(t), () => toggleTag(t)))}
+          {allTags.map(([t, n]) => chip(`${t} ${n}`, activeTags.has(t), () => toggleTag(t), null, Boolean(markNode?.tagSet.has(t))))}
         </div>
       </div>
 
@@ -401,11 +395,16 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
         {hovered != null && !dragRef.current && (() => {
           const n = nodesRef.current[hovered]
           if (!n) return null
-          const sx = n.x * transform.scale + transform.x, sy = n.y * transform.scale + transform.y
+          const W = 280, H = 320
+          let sx = n.x * transform.scale + transform.x + 14
+          let sy = n.y * transform.scale + transform.y + 14
+          if (sx + W > size.w) sx = sx - W - 28
+          if (sy + H > size.h) sy = Math.max(4, size.h - H - 4)
           return (
-            <div style={{ position: 'absolute', left: sx + 12, top: sy + 12, pointerEvents: 'none', background: '#fff', border: '1px solid #000', padding: '6px', width: '140px', zIndex: 5 }}>
-              <img src={n.thumbSrc} alt="" style={{ width: '100%', height: '100px', objectFit: 'cover', display: 'block', marginBottom: '4px' }} />
-              <div style={{ fontSize: '10px', fontWeight: 300, lineHeight: 1.3 }}>{n.caption || n.tags.slice(0, 3).join(', ')}</div>
+            <div style={{ position: 'absolute', left: sx, top: sy, pointerEvents: 'none', background: '#fff', border: '1px solid #000', padding: '8px', width: `${W}px`, boxSizing: 'border-box', zIndex: 5, boxShadow: '0 6px 24px rgba(0,0,0,0.18)' }}>
+              <img src={n.src} alt="" style={{ width: '100%', height: `${H - 60}px`, objectFit: 'contain', display: 'block', marginBottom: '6px', background: '#f6f6f6' }} />
+              <div style={{ fontSize: '11px', fontWeight: 300, lineHeight: 1.35 }}>{n.caption || n.tags.slice(0, 3).join(', ')}</div>
+              <div style={{ fontSize: '10px', fontWeight: 300, color: '#888', marginTop: '2px' }}>click to open</div>
             </div>
           )
         })()}
@@ -414,7 +413,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
 
       {/* Preview */}
       {sel && (
-        <div style={{ width: previewW, flex: isMobileLayout ? '0 0 auto' : '0 0 300px', borderLeft: isMobileLayout ? 'none' : '1px solid #eee', borderTop: isMobileLayout ? '1px solid #eee' : 'none', padding: '14px', boxSizing: 'border-box', overflowY: 'auto', maxHeight: isMobileLayout ? '55%' : '100%', fontSize: '12px', fontWeight: 300, lineHeight: 1.45, position: isMobileLayout ? 'absolute' : 'relative', bottom: 0, left: 0, right: 0, background: '#fff', zIndex: 6 }}>
+        <div style={{ width: previewW, flex: isMobileLayout ? '0 0 auto' : '0 0 440px', borderLeft: isMobileLayout ? 'none' : '1px solid #eee', borderTop: isMobileLayout ? '1px solid #eee' : 'none', padding: '14px', boxSizing: 'border-box', overflowY: 'auto', maxHeight: isMobileLayout ? '55%' : '100%', fontSize: '12px', fontWeight: 300, lineHeight: 1.45, position: isMobileLayout ? 'absolute' : 'relative', bottom: 0, left: 0, right: 0, background: '#fff', zIndex: 6 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
             <span style={{ color: '#666' }}>{visibleList.indexOf(sel.index) + 1} / {visibleList.length}</span>
             <button type="button" onClick={() => setSelected(null)} style={{ border: 'none', background: 'none', fontSize: '16px', cursor: 'pointer', padding: 0, lineHeight: 1 }}>×</button>
