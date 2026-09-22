@@ -273,7 +273,8 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
       e.preventDefault()
       const { x, y } = local(e)
       const old = S.view.scale
-      const f = Math.max(0.15, Math.min(4, old * Math.exp(-e.deltaY * 0.001)))
+      const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY
+      const f = Math.max(0.1, Math.min(6, old * Math.exp(-dy * 0.0035)))
       const wx = (x - S.view.x) / old, wy = (y - S.view.y) / old
       S.view.x = x - wx * f; S.view.y = y - wy * f; S.view.scale = f
     }
@@ -312,7 +313,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
   const goRandom = () => { if (visibleList.length) focusNode(visibleList[Math.floor(Math.random() * visibleList.length)]) }
   const fit = () => { S.view = { x: S.W / 2, y: S.H / 2, scale: Math.min(S.W / 1500, S.H / 1100, 1) } }
   const zoomBy = (k) => {
-    const old = S.view.scale, f = Math.max(0.15, Math.min(4, old * k))
+    const old = S.view.scale, f = Math.max(0.1, Math.min(6, old * k))
     const cx = S.W / 2, cy = S.H / 2
     const wx = (cx - S.view.x) / old, wy = (cy - S.view.y) / old
     S.view = { x: cx - wx * f, y: cy - wy * f, scale: f }
@@ -391,8 +392,8 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
         <canvas ref={canvasRef} className="am-canvas" style={{ display: 'block', touchAction: 'none' }} />
 
         <div style={{ position: 'absolute', right: '12px', top: '12px', display: 'flex', gap: '6px', zIndex: 8 }}>
-          {roundBtn('+', () => zoomBy(1.2), 'zoom in')}
-          {roundBtn('−', () => zoomBy(1 / 1.2), 'zoom out')}
+          {roundBtn('+', () => zoomBy(1.6), 'zoom in')}
+          {roundBtn('−', () => zoomBy(1 / 1.6), 'zoom out')}
           {roundBtn('⌂', fit, 'fit')}
         </div>
 
