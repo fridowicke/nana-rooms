@@ -606,21 +606,22 @@ function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp
 
   const panelStyle = {
     position: 'absolute',
-    top: isMobileLayout ? 'auto' : '30px',
+    top: isMobileLayout ? 'auto' : '96px',
     bottom: isMobileLayout ? '0' : 'auto',
-    right: 0,
-    width: isMobileLayout ? '100%' : '200px',
-    height: isMobileLayout ? 'auto' : 'calc(100% - 30px)',
+    right: isMobileLayout ? 0 : '12px',
+    width: isMobileLayout ? '100%' : '160px',
+    maxHeight: isMobileLayout ? 'none' : 'calc(100% - 220px)',
+    borderRadius: isMobileLayout ? 0 : '10px',
+    border: isMobileLayout ? 'none' : '1px solid rgba(0,0,0,0.12)',
     background: 'rgba(255,255,255,0.72)',
     backdropFilter: 'blur(10px)',
     WebkitBackdropFilter: 'blur(10px)',
-    borderLeft: isMobileLayout ? 'none' : '1px solid rgba(0,0,0,0.12)',
-    borderTop: isMobileLayout ? '1px solid rgba(0,0,0,0.12)' : 'none',
+    borderTop: isMobileLayout ? '1px solid rgba(0,0,0,0.12)' : undefined,
     zIndex: 50,
     display: 'flex',
     flexDirection: isMobileLayout ? 'row' : 'column',
     alignItems: isMobileLayout ? 'center' : 'stretch',
-    padding: isMobileLayout ? '8px 12px' : '14px 12px 120px',
+    padding: isMobileLayout ? '8px 12px' : '12px 12px',
     gap: isMobileLayout ? '10px' : '6px',
     overflowY: isMobileLayout ? 'hidden' : 'auto',
     overflowX: isMobileLayout ? 'auto' : 'hidden',
@@ -637,8 +638,8 @@ function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp
   })
   const buttonStyle = (disabled) => ({
     background: 'transparent', border: '1px solid ' + (disabled ? '#ccc' : '#111'), color: disabled ? '#aaa' : '#111',
-    padding: isMobileLayout ? '4px 10px' : '5px 8px', borderRadius: '999px', cursor: disabled ? 'default' : 'pointer',
-    fontFamily: FONT, fontSize: '11px', fontWeight: 300, textAlign: 'center', whiteSpace: 'nowrap', flexShrink: 0, marginTop: isMobileLayout ? 0 : 'auto',
+    padding: '3px 10px', borderRadius: '999px', cursor: disabled ? 'default' : 'pointer',
+    fontFamily: FONT, fontSize: '11px', fontWeight: 300, textAlign: 'center', whiteSpace: 'nowrap', flexShrink: 0, marginTop: isMobileLayout ? 0 : '8px', alignSelf: isMobileLayout ? 'center' : 'flex-start',
   })
   const timerLabel = timeLeft != null ? `${Math.floor(timeLeft / 60)}:${String(timeLeft % 60).padStart(2, '0')}` : null
 
