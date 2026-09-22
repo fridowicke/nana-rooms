@@ -4452,6 +4452,10 @@ function AboutFolderContent({
             she is so hot I wanna clean her room is a meme – a fragment of digital folklore that reflects the state of contemporary womanhood, where life feels too saturated with unresolved questions to attend to something as ordinary as cleaning one’s room. After evacuating from Ukraine to the perceived calm and safety of Japan, I began to observe how the psyche reveals its deepest layers through the mundane – spaces like my room. In isolation during migration, my phone became my best friend, and I noticed how my chronically online behaviors began to leak into my physical space, synchronizing with circulating internet “girlifying” phenomena – where everyone is “just a girl.” I am lost, lonely, haven’t washed my face for three days – and I am just a girl. By 3D scanning girls’ rooms globally, both offline and online, the work studies global condition of girlhood, suspended between physical isolation and chronic online presence, and can be understood as a collective digital consciousness. Walking through rendered hyper-feminine maximalist makeup products, dirty underwear, tangled charging cables, and plush toys, viewers are invited to excavate the psyche of a 21st-century woman. By scrolling through and zooming into digital landscapes of modern artifacts of girlhood — their mess — we can understand how women’s intimacy and identity become a collective consciousness inseparable from the digital world we live in. As the same consumer objects begin to repeat across different bedrooms, private space becomes collective, transforming intimacy into something performed, archived, circulated, and memefied within the conditions of the attention economy while questioning how agency can be negotiated within identities shaped through constant online visibility.
           </p>
         </div>
+        <h2 style={{ margin: '48px 0 16px', fontSize: isMobileLayout ? '16px' : '18px', fontWeight: 300, fontStyle: 'normal', lineHeight: 1.3 }}>
+          global collective bedrooms archive
+        </h2>
+        <TallyEmbed />
       </div>
     )
   }
