@@ -1,20 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 
 const COLOR_HEX = {
-  pink: '#ff8fcf',
-  white: '#e6e6e6',
-  beige: '#e2c9a6',
-  brown: '#a9714b',
-  black: '#2b2b2b',
-  grey: '#9a9a9a',
-  blue: '#7db4ff',
-  green: '#7dd39a',
-  purple: '#b58cf0',
-  red: '#ff6b6b',
-  yellow: '#ffd76b',
-  multicolor: '#ff9f7a',
-  'screen time': '#18d9d3',
+  pink: '#ff2fd6',
+  toys: '#f5ff2e',
+  cluttered: '#8fd3ff',
+  tidy: '#7ff5e0',
+  screenshot: '#39ff14',
 }
+const CAT_LABEL = { pink: 'pink / girly', toys: 'toys & makeup', cluttered: 'super cluttered', tidy: 'not so messy', screenshot: 'screen time' }
 const COLOR_ORDER = Object.keys(COLOR_HEX)
 const SCREENSHOT_TAG = 'screen time screenshot'
 const FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif'
@@ -71,8 +64,8 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
     const key = `${img.page}/${img.filename}`
     const t = tags?.[key] ?? {}
     const objects = Array.isArray(t.objects) ? t.objects : []
-    const isShot = objects.includes(SCREENSHOT_TAG)
-    const color = isShot ? 'screen time' : (COLOR_HEX[t.color] ? t.color : 'multicolor')
+    const isShot = objects.includes(SCREENSHOT_TAG) || t.cat === 'screenshot'
+    const color = isShot ? 'screenshot' : (COLOR_HEX[t.cat] ? t.cat : 'cluttered')
     const tagList = [...objects]
     const im = new Image()
     im.src = img.thumbSrc
@@ -106,7 +99,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
   const visibleList = useMemo(() => nodes.filter((n) => {
     if (!activeColors.has(n.color)) return false
     if (activeTags.size > 0) for (const t of activeTags) if (!n.tagSet.has(t)) return false
-    if (q && !(n.caption.toLowerCase().includes(q) || n.tags.some((t) => t.includes(q)) || n.color.includes(q))) return false
+    if (q && !(n.caption.toLowerCase().includes(q) || n.tags.some((t) => t.includes(q)) || CAT_LABEL[n.color].includes(q))) return false
     return true
   }).map((n) => n.index), [nodes, activeColors, activeTags, q])
 
@@ -199,7 +192,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
         ctx.lineWidth = (hot ? 1.6 : 0.7) / view.scale
         ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke()
       }
-      const showImg = view.scale > 0.55
+      const showImg = false
       for (const i of S.visible) {
         const n = nodes[i]
         const dim = rels && !rels.has(i)
@@ -274,7 +267,8 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
       const { x, y } = local(e)
       const old = S.view.scale
       const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY
-      const f = Math.max(0.1, Math.min(6, old * Math.exp(-dy * 0.0035)))
+      const mag = Math.max(Math.abs(dy) * 0.004, 0.08)
+      const f = Math.max(0.1, Math.min(8, old * Math.exp(dy < 0 ? mag : -mag)))
       const wx = (x - S.view.x) / old, wy = (y - S.view.y) / old
       S.view.x = x - wx * f; S.view.y = y - wy * f; S.view.scale = f
     }
@@ -379,9 +373,9 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
           {navBtn('random', goRandom, visibleList.length === 0)}
           {anyFilter && navBtn('reset', reset, false)}
         </div>
-        <div style={{ color: '#666', marginBottom: '4px' }}>colour</div>
+        <div style={{ color: '#666', marginBottom: '4px' }}>category</div>
         <div style={{ marginBottom: '10px' }}>
-          {COLOR_ORDER.map((c) => chip(c, activeColors.has(c) && activeColors.size !== COLOR_ORDER.length, () => toggleColor(c), COLOR_HEX[c], markNode?.color === c))}
+          {COLOR_ORDER.map((c) => chip(CAT_LABEL[c], activeColors.has(c) && activeColors.size !== COLOR_ORDER.length, () => toggleColor(c), COLOR_HEX[c], markNode?.color === c))}
         </div>
         <div style={{ color: '#666', marginBottom: '4px' }}>tags</div>
         <div>{allTags.map(([t, n]) => chip(`${t} ${n}`, activeTags.has(t), () => toggleTag(t), null, Boolean(markNode?.tagSet.has(t))))}</div>
@@ -412,12 +406,12 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
             <button type="button" onClick={() => setSelected(null)} aria-label="close" style={{ position: 'absolute', right: '10px', top: '8px', border: 0, background: 'none', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}>×</button>
             <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '8px' }}>
               <span style={{ display: 'inline-block', width: '9px', height: '9px', borderRadius: '50%', background: COLOR_HEX[sel.color], marginRight: '6px', verticalAlign: '-1px' }} />
-              room {sel.index + 1} · {sel.color} · {sel.date ?? 'date unknown'}
+              room {sel.index + 1} · {CAT_LABEL[sel.color]} · {sel.date ?? 'date unknown'}
             </div>
             <a href={sel.src} target="_blank" rel="noreferrer"><img src={sel.src} alt="" style={{ width: '100%', height: 'auto', display: 'block', borderRadius: '8px', marginBottom: '10px' }} /></a>
             <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: 300, lineHeight: 1.4 }}>{sel.caption || sel.tags.join(', ')}</p>
             <div style={{ marginBottom: '10px' }}>
-              {chip(sel.color, activeColors.size === 1 && activeColors.has(sel.color), () => toggleColor(sel.color), COLOR_HEX[sel.color])}
+              {chip(CAT_LABEL[sel.color], activeColors.size === 1 && activeColors.has(sel.color), () => toggleColor(sel.color), COLOR_HEX[sel.color])}
               {sel.tags.map((t) => chip(t, activeTags.has(t), () => toggleTag(t)))}
             </div>
             {neighbors.get(sel.index)?.size > 0 && (
