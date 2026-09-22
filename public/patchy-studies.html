@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>She Is So Hot — Patchy Studies</title>
+  <meta name="description" content="An interconnected research archive on girlhood, feminist culture, images, internet life, rooms, care, and maintenance.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23d8ff38'/%3E%3Cpath d='M9 36c13-22 25 16 46-11M9 47c15-18 29 10 45-4' fill='none' stroke='%23000' stroke-width='5'/%3E%3C/svg%3E">
+  <style>
+    :root{--ink:#111;--paper:#f4f2ed;--acid:#d8ff38;--pink:#ff7bb4;--blue:#9ce6ff;--line:rgba(17,17,17,.22)}
+    *{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.35 Arial,Helvetica,sans-serif}
+    button,input{font:inherit;color:inherit} button{cursor:pointer}
+    header{position:sticky;top:0;z-index:20;display:grid;grid-template-columns:minmax(260px,1fr) auto;gap:20px;align-items:start;padding:16px 18px 13px;background:rgba(244,242,237,.95);border-bottom:1.5px solid var(--ink);backdrop-filter:blur(10px)}
+    h1{font-size:clamp(1.35rem,2.6vw,2.6rem);line-height:.94;text-transform:uppercase;letter-spacing:-.055em;margin:0;max-width:700px}
+    .intro{font:14px/1.25 Georgia,serif;max-width:590px;margin:8px 0 0}.controls{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:7px;max-width:650px}
+    .search{width:210px;border:1.5px solid var(--ink);background:white;border-radius:0;padding:8px 10px;outline:none}.search:focus{box-shadow:4px 4px 0 var(--acid)}
+    .filter,.reset{border:1.5px solid var(--ink);background:transparent;padding:7px 10px;border-radius:99px}.filter:hover,.filter.active{background:var(--ink);color:white}.reset{background:var(--acid)}
+    .legend{display:flex;gap:18px;align-items:center;padding:9px 18px;border-bottom:1px solid var(--ink);font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;overflow:auto;white-space:nowrap}
+    .key::before{content:"";display:inline-block;width:10px;height:10px;margin-right:6px;border:1px solid;vertical-align:-1px}.book::before{background:var(--acid)}.essay::before{background:var(--pink)}.work::before{background:var(--blue)}
+    main{position:relative;padding:26px 18px 120px;min-height:100vh}.map{position:relative;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px 14px;align-items:start;z-index:2}
+    #threads{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;overflow:visible}#threads path{fill:none;stroke:var(--ink);stroke-width:1.4;stroke-dasharray:4 5;opacity:.5}
+    .card{position:relative;background:#fff;border:1.5px solid var(--ink);padding:12px 13px 13px;box-shadow:5px 5px 0 rgba(17,17,17,.12);transition:opacity .2s,transform .2s,box-shadow .2s;transform:rotate(var(--tilt));min-height:145px}
+    .card:nth-child(4n+1){margin-top:25px}.card:nth-child(7n){margin-top:48px}.card:hover,.card.selected{transform:rotate(0) translateY(-3px);box-shadow:7px 7px 0 var(--ink);z-index:5}.card.related{box-shadow:6px 6px 0 var(--acid)}.card.muted{opacity:.13}.card.hidden{display:none}
+    .card::before{content:"";position:absolute;left:11px;top:-7px;width:44px;height:11px;background:var(--kind);border:1px solid var(--ink);transform:rotate(-3deg)}
+    .meta{display:flex;justify-content:space-between;gap:8px;margin:1px 0 12px;font-size:.68rem;text-transform:uppercase;letter-spacing:.07em}.num{font-family:monospace}
+    h2{font:700 1.08rem/1.02 Arial,sans-serif;letter-spacing:-.025em;margin:0 0 4px}.author{font:italic .87rem/1.2 Georgia,serif;margin-bottom:11px}.desc{font:.83rem/1.35 Georgia,serif;margin:0 0 12px}
+    .tags{display:flex;gap:5px;flex-wrap:wrap}.tag{font-size:.62rem;text-transform:uppercase;border:1px solid;padding:2px 5px;border-radius:99px}
+    .connections{display:none;border-top:1px solid;margin-top:11px;padding-top:9px;font-size:.7rem}.selected .connections{display:block}.connections b{text-transform:uppercase}.connections span{display:block;margin-top:3px;font-family:Georgia,serif;font-style:italic}
+    .empty{display:none;text-align:center;padding:14vh 20px;font:italic 1.4rem Georgia,serif}.empty.show{display:block}
+    footer{border-top:1.5px solid;padding:16px 18px 30px;display:flex;justify-content:space-between;gap:20px;font-size:.75rem;text-transform:uppercase}.footer-note{font-family:Georgia,serif;text-transform:none;max-width:590px}
+    @media(max-width:1050px){header{grid-template-columns:1fr}.controls{justify-content:flex-start}.map{grid-template-columns:repeat(3,1fr)}}
+    @media(max-width:760px){header{position:relative;padding:14px}.intro{font-size:.88rem}.controls{gap:5px}.search{width:100%}.map{grid-template-columns:1fr 1fr;gap:14px}.card{transform:none;margin-top:0!important;min-height:0}.legend{padding-left:14px}main{padding:16px 12px 80px}#threads{display:none}}
+    @media(max-width:490px){.map{grid-template-columns:1fr}.filter{font-size:.78rem}.card{padding:13px 14px}footer{display:block}.footer-note{margin-top:12px}}
+  </style>
+  <style>
+    html,body{width:100%;height:100%;overflow:hidden;background:#f2f1ec}
+    body{font-family:Arial,Helvetica,sans-serif}
+    .graph-stage{position:fixed;inset:0;overflow:hidden;background:#f2f1ec}
+    #network{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+    #network.grabbing{cursor:grabbing}
+    .panel{position:fixed;z-index:30;top:14px;left:14px;width:min(330px,calc(100vw - 28px));padding:16px 16px 14px;background:rgba(238,236,232,.94);border:1px solid rgba(0,0,0,.12);border-radius:17px;box-shadow:0 9px 35px rgba(0,0,0,.13);backdrop-filter:blur(14px);transition:transform .25s,opacity .25s}
+    .panel.closed{transform:translateX(calc(-100% - 22px));opacity:.2;pointer-events:none}
+    .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}.panel h1{font-size:1rem;line-height:1;text-transform:none;letter-spacing:0;margin:0}
+    .collapse,.reopen{border:1px solid rgba(0,0,0,.28);background:transparent;width:31px;height:31px;border-radius:50%;padding:0;font-size:20px;line-height:25px}
+    .reopen{display:none;position:fixed;z-index:31;top:14px;left:14px;background:rgba(238,236,232,.94)}.panel.closed+.reopen{display:block}
+    .counts{font-size:.72rem;color:#555;margin:0 0 15px}.mode-row{display:flex;align-items:center;gap:9px;font-size:.8rem;margin-bottom:4px}.mode-word{font-weight:700}.mode-help{font:italic .72rem/1.25 Georgia,serif;color:#555;margin:0 0 13px}
+    .switch{position:relative;width:46px;height:25px;border:0;background:#bbb;border-radius:30px;padding:0}.switch i{position:absolute;width:19px;height:19px;left:3px;top:3px;border-radius:50%;background:white;transition:.2s}.switch.on{background:#2923cf}.switch.on i{left:24px}
+    .label{display:block;font-size:.72rem;font-weight:700;margin:0 0 6px}.graph-search{width:100%;padding:10px 11px;background:rgba(255,255,255,.52);border:1px solid rgba(0,0,0,.18);border-radius:9px;outline:none;font-size:.82rem;margin-bottom:12px}.graph-search:focus{border-color:#2923cf;box-shadow:0 0 0 2px rgba(41,35,207,.15)}
+    .panel-rule{height:1px;background:rgba(0,0,0,.12);margin:0 -16px 11px}.visibility-title{font-size:.72rem;font-weight:700;margin-bottom:6px}
+    .vis-row{display:grid;grid-template-columns:18px 13px 1fr auto;gap:7px;align-items:center;margin:7px 0;font-size:.78rem}.vis-row input{accent-color:#222}.swatch{width:13px;height:13px;border-radius:4px}.vis-count{font-variant-numeric:tabular-nums;color:#555}
+    .panel-note{font:italic .68rem/1.3 Georgia,serif;color:#555;margin:11px 0 0}.reset-link{border:0;background:none;text-decoration:underline;font-size:.7rem;padding:0}
+    .brand{position:fixed;z-index:20;bottom:16px;left:16px;background:#38d40a;color:#071b00;border-radius:8px;padding:8px 12px 7px;font-size:clamp(.83rem,1.7vw,1.15rem);letter-spacing:-.025em;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+    .zoom-controls{position:fixed;right:15px;top:15px;z-index:20;display:flex;gap:6px}.zoom-controls button{width:34px;height:34px;padding:0;border:1px solid rgba(0,0,0,.2);background:rgba(245,244,240,.88);border-radius:50%;font-size:19px;backdrop-filter:blur(8px)}
+    .detail{display:none;position:fixed;z-index:25;right:15px;bottom:15px;width:min(390px,calc(100vw - 30px));max-height:42vh;overflow:auto;background:rgba(245,244,240,.96);border:1px solid rgba(0,0,0,.18);border-radius:15px;padding:15px 17px 16px;box-shadow:0 12px 40px rgba(0,0,0,.15);backdrop-filter:blur(12px)}.detail.open{display:block}.detail-type{font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;font-weight:700}.detail h2{font-size:1.15rem;line-height:1.05;margin:7px 24px 3px}.detail-author{font:italic .85rem Georgia,serif;margin:0 24px 10px}.detail p{font:.82rem/1.4 Georgia,serif;margin:0}.detail-links{margin-top:10px;padding-top:9px;border-top:1px solid rgba(0,0,0,.16);font-size:.7rem;line-height:1.35}.detail-close{position:absolute;right:10px;top:8px;border:0;background:none;font-size:20px}
+    .hint{position:fixed;z-index:10;left:50%;bottom:18px;transform:translateX(-50%);font-size:.67rem;color:#555;background:rgba(242,241,236,.8);padding:4px 8px;border-radius:8px;pointer-events:none}
+    @media(max-width:640px){.panel{top:9px;left:9px;width:min(300px,calc(100vw - 18px));max-height:62vh;overflow:auto}.brand{left:10px;bottom:10px}.detail{right:9px;bottom:52px;width:calc(100vw - 18px);max-height:31vh}.hint{display:none}.zoom-controls{right:9px;top:9px}}
+  </style>
+</head>
+<body>
+  <main class="graph-stage" id="stage"><canvas id="network" aria-label="Interactive network diagram of feminist theory, girlhood, internet culture, rooms and care"></canvas></main>
+  <aside class="panel" id="panel">
+    <div class="panel-head"><h1>Diagram controls</h1><button class="collapse" id="collapse" aria-label="Close controls">−</button></div>
+    <div class="counts" id="counts">66 nodes</div>
+    <div class="mode-row"><span class="mode-word">Explore</span><button class="switch" id="mode" aria-label="Toggle focus mode"><i></i></button><span class="mode-word">Focus</span></div>
+    <p class="mode-help" id="modeHelp">Explore the full filtered diagram.</p>
+    <label class="label" for="graphSearch">Search nodes and immediate relations</label>
+    <input class="graph-search" id="graphSearch" placeholder="e.g. girlhood, Tiqqun, maintenance">
+    <div class="panel-rule"></div><div class="visibility-title">Visibility</div>
+    <label class="vis-row"><input type="checkbox" data-type="book" checked><span class="swatch" style="background:#198b48"></span><span>book</span><span class="vis-count" id="bookCount"></span></label>
+    <label class="vis-row"><input type="checkbox" data-type="essay" checked><span class="swatch" style="background:#e5524e"></span><span>essay / manifesto</span><span class="vis-count" id="essayCount"></span></label>
+    <label class="vis-row"><input type="checkbox" data-type="work" checked><span class="swatch" style="background:#7857a7"></span><span>film / artwork / video</span><span class="vis-count" id="workCount"></span></label>
+    <p class="panel-note">Hover for details. Click a node to pin its card and show its direct relations. Drag nodes or the background; scroll to zoom.</p>
+    <button class="reset-link" id="resetGraph">Reset diagram</button>
+  </aside><button class="reopen" id="reopen" aria-label="Open controls">+</button>
+  <div class="zoom-controls"><button id="zoomIn" aria-label="Zoom in">+</button><button id="zoomOut" aria-label="Zoom out">−</button><button id="fit" aria-label="Fit diagram">⌂</button></div>
+  <div class="brand">She Is So Hot I Wanna Clean Her Room — Patchy Studies</div>
+  <section class="detail" id="detail"><button class="detail-close" id="detailClose" aria-label="Close details">×</button><div class="detail-type" id="detailType"></div><h2 id="detailTitle"></h2><div class="detail-author" id="detailAuthor"></div><p id="detailDesc"></p><div class="detail-links" id="detailLinks"></div></section>
+  <div class="hint">drag to move · scroll to zoom · select a node to follow its connections</div>
+<script>
+const items=[
+['younggirl','Preliminary Materials for a Theory of the Young-Girl','Tiqqun','book','The Young-Girl as capitalism’s ideal visible, consumable and self-monitoring subject.','girlhood,image,pop',['girlonline','mcrobbie','bartky','gilbert']],
+['girlonline','Girl Online: A User Manual','Joanna Walsh','book','A woman online becomes user, image, worker and commodity at the same time.','internet,image,girlhood',['younggirl','glitch','chun','dean']],
+['gilbert','Girl on Girl: How Pop Culture Turned a Generation of Women Against Themselves','Sophie Gilbert','book','Pornography, celebrity, tabloids and reality TV recast objectification as empowerment.','pop,image,girlhood',['younggirl','levy','empowered','jansen']],
+['mcrobbie','The Aftermath of Feminism','Angela McRobbie','book','Postfeminism declares equality complete, then returns discipline and consumption as free choice.','pop,girlhood,image',['gill','empowered','futuregirl','younggirl']],
+['gill','Postfeminist Media Culture: Elements of a Sensibility','Rosalind Gill','essay','Self-surveillance, makeover, confidence and the body understood as a permanent project.','pop,image,girlhood',['mcrobbie','bartky','perfectme','tolentino']],
+['empowered','Empowered','Sarah Banet-Weiser','book','Popular, branded feminism grows beside popular misogyny inside an economy of visibility.','pop,internet,image',['gill','zeisler','gilbert','noble']],
+['zeisler','We Were Feminists Once','Andi Zeisler','book','How feminism became a corporate language, marketable aesthetic and consumer identity.','pop,image',['empowered','mcrobbie','ukeles']],
+['levy','Female Chauvinist Pigs','Ariel Levy','book','Women reproduce sexual objectification while participation is presented as liberation.','pop,image,girlhood',['gilbert','bardo','mulvey']],
+['subcultures','Girls and Subcultures','Angela McRobbie + Jenny Garber','essay','Girls disappeared from subculture studies because their culture happened in bedrooms, magazines, friendships and fandom.','girlhood,care,pop',['driscoll','private','girlsmedia','girlsbook']],
+['driscoll','Girls','Catherine Driscoll','book','Girlhood is treated as a cultural and political category, not simply a biological age.','girlhood,pop',['subcultures','futuregirl','girlsbook']],
+['futuregirl','Future Girl','Anita Harris','book','The neoliberal can-do girl must be ambitious, flexible and solely responsible for her future.','girlhood,pop',['driscoll','mcrobbie','perfectme']],
+['girlsmedia','Girls Make Media','Mary Celeste Kearney','book','Girls as producers of zines, video, music and websites—not passive media consumers.','girlhood,internet,pop',['subcultures','cyberindex','soda']],
+['private','Youth Culture and Private Space','Siân Lincoln','book','The bedroom becomes archive, studio, refuge and identity-machine.','girlhood,care',['subcultures','cvetkovich','soda','ukeles']],
+['girlsbook','GIRLS: On Boredom, Rebellion and Being In-Between','Elisa De Wyngaert et al.','book','Girlhood through boredom, dollhouses, clothing, bedrooms and unstable transformation.','girlhood,care,image',['driscoll','private','virginsuicides']],
+['ilovedick','I Love Dick','Chris Kraus','book','Desire and humiliation turn female emotional excess into criticism, theory and art.','image,girlhood',['cvetkovich','ahmed','jansen']],
+['cvetkovich','Depression: A Public Feeling','Ann Cvetkovich','book','Ordinary feelings and domestic stagnation connect private life to public conditions.','care,girlhood',['private','ahmed','carematters']],
+['mulvey','Visual Pleasure and Narrative Cinema','Laura Mulvey','essay','The foundational account of narrative cinema’s gendered gaze.','image,pop',['berger','hooks','jansen','levy']],
+['berger','Ways of Seeing — Chapter / Episode 2','John Berger','work','Women learn not only to live but to watch themselves being seen.','image,pop',['mulvey','bartky','jansen']],
+['jansen','Girl on Girl: Art and Photography in the Age of the Female Gaze','Charlotte Jansen','book','Women photographing women: intimacy, agency and the difficult promise of a female gaze.','image,girlhood',['mulvey','hooks','artmonsters','gilbert']],
+['artmonsters','Art Monsters','Lauren Elkin','book','Unruly female bodies refuse cleanliness, obedience and acceptable presentation.','image,care',['jansen','ukeles','bardo']],
+['jones','Seeing Differently','Amelia Jones','book','Embodied looking is structured through gender, race, sexuality and power.','image',['hooks','mulvey','mcmillan']],
+['hooks','The Oppositional Gaze','bell hooks','essay','A Black feminist correction to supposedly universal accounts of female spectatorship.','image,pop',['mulvey','jones','mcmillan','noble']],
+['mcmillan','Embodied Avatars','Uri McMillan','book','Black feminist performance uses self-objectification, avatars and the body as artistic media.','image,internet',['hooks','glitch','rezarie','jones']],
+['cyberindex','Cyberfeminism Index','Mindy Seu, ed.','book','A non-linear, collaborative archive of feminist technologies, artworks and counter-histories.','internet,image',['haraway','plant','vns','glitch']],
+['haraway','A Cyborg Manifesto','Donna Haraway','essay','The cyborg disrupts naturalized boundaries between human, machine, animal and gender.','internet,image',['cyberindex','xeno','plant']],
+['plant','Zeros + Ones','Sadie Plant','book','A speculative counter-history linking women, computation, weaving and networks.','internet',['haraway','vns','cyberindex']],
+['vns','A Cyberfeminist Manifesto for the 21st Century','VNS Matrix','essay','Irreverent, erotic techno-politics that claimed cyberspace as a feminist zone.','internet,image',['plant','cyberindex','oldboys','allnewgen']],
+['oldboys','100 Anti-Theses of Cyberfeminism','Old Boys Network','essay','Cyberfeminism remains deliberately multiple by defining what it is not.','internet',['vns','cyberindex','xeno']],
+['glitch','Glitch Feminism','Legacy Russell','book','Error, illegibility and refusal become escapes from racialized and gendered classification.','internet,image',['girlonline','mcmillan','xeno','cortright']],
+['xeno','The Xenofeminist Manifesto','Laboria Cuboniks','essay','Technology and alienation are repurposed toward gender abolition and collective freedom.','internet',['haraway','glitch','oldboys']],
+['noble','Algorithms of Oppression','Safiya Umoja Noble','book','Search engines reproduce racist and sexist hierarchies while presenting results as neutral.','internet,image',['benjamin','empowered','hooks']],
+['benjamin','Race After Technology','Ruha Benjamin','book','Discriminatory systems hide inside the language of technical efficiency and progress.','internet',['noble','mcmillan','rezarie']],
+['chun','Updating to Remain the Same','Wendy Hui Kyong Chun','book','Habit and repetition make networks feel compulsory, intimate and continuously new.','internet',['girlonline','dean','soda']],
+['touch','Touch Screen Theory','Michele White','book','A feminist account of interfaces, touching and embodied screen subjectivity.','internet,image',['chun','girlonline','heart']],
+['dean','Blog Theory','Jodi Dean','book','Confession and circulation create the fantasy that online expression automatically becomes politics.','internet',['girlonline','chun','ulman']],
+['bardo','Unbearable Weight','Susan Bordo','book','The female body becomes the surface on which discipline and cultural contradiction are written.','image,girlhood',['bartky','levy','beauty']],
+['bartky','Foucault, Femininity, and the Modernization of Patriarchal Power','Sandra Lee Bartky','essay','Grooming, posture and dieting operate as distributed systems of discipline.','image,girlhood,care',['bardo','gill','perfectme','younggirl']],
+['beauty','The Beauty Myth','Naomi Wolf','book','Beauty operates as a political demand; influential, but best read critically for its universalizing claims.','image,pop',['bardo','perfectme','bartky']],
+['perfectme','Perfect Me','Heather Widdows','book','Beauty becomes an ethical duty: failure to optimize the body feels like moral failure.','image,pop,girlhood',['gill','futuregirl','tolentino']],
+['tolentino','Always Be Optimizing — in Trick Mirror','Jia Tolentino','essay','Beauty, exercise, work and surveillance converge in the optimized female self.','pop,image',['perfectme','gill','stagg']],
+['stagg','Sleeveless','Natasha Stagg','book','Fashion, celebrity, branding and aspiration produce the exhaustion of living as an image.','pop,image',['tolentino','younggirl','steyerl']],
+['steyerl','The Spam of the Earth','Hito Steyerl','essay','The politics of being represented, scanned, circulated—or disappearing from images.','image,internet',['stagg','noble','glitch']],
+['ukeles','Manifesto for Maintenance Art 1969!','Mierle Laderman Ukeles','essay','Cleaning, repairing and sustaining life become visible as art and political labor.','care,image',['federici','strasser','carematters','semikitchen']],
+['federici','Revolution at Point Zero','Silvia Federici','book','Domestic and reproductive work forms the hidden infrastructure of capitalism.','care',['ukeles','strasser','carematters']],
+['strasser','Never Done','Susan Strasser','book','A material history of housework, tools, standards and labor inside the home.','care',['federici','ukeles','jeannedielman']],
+['ahmed','The Promise of Happiness','Sara Ahmed','book','The happy housewife and feminist killjoy reveal how femininity maintains other people’s comfort.','care,girlhood',['cvetkovich','girlfriends','federici']],
+['queerphen','Queer Phenomenology','Sara Ahmed','book','Bodies orient themselves through rooms, objects and the paths they are allowed to follow.','care,image',['ahmed','private','carematters']],
+['carematters','Matters of Care','Maria Puig de la Bellacasa','book','Care is labor, dependency and power—not innocent kindness.','care',['ukeles','federici','queerphen']],
+['girlfriends','Girlfriends and Postfeminist Sisterhood','Alison Winch','book','Female intimacy can become a system through which women monitor, manage and correct one another.','girlhood,care,pop',['ahmed','gilbert','subcultures']],
+['semikitchen','Semiotics of the Kitchen','Martha Rosler','work','Domestic tools become an angry alphabet of gendered containment.','care,image',['ukeles','jeannedielman','federici']],
+['jeannedielman','Jeanne Dielman','Chantal Akerman','work','Repetition and domestic routine expose the temporal violence beneath immaculate maintenance.','care,image',['strasser','ukeles','semikitchen']],
+['benning','Early Pixelvision videos','Sadie Benning','work','Bedroom-scale video turns limited technology into queer self-authorship.','girlhood,internet,image',['private','girlsmedia','soda']],
+['rist','I’m Not the Girl Who Misses Much','Pipilotti Rist','work','A distorted female pop performance destabilizes the body and music-video legibility.','image,pop',['glitch','berger','syms']],
+['allnewgen','All New Gen','VNS Matrix','work','A feminist computer game weaponizes slime, pleasure and parody against Big Daddy Mainframe.','internet,image',['vns','cyberindex','xeno']],
+['rezarie','Afro Cyber Resistance','Tabita Rezaire','work','A decolonial video critique of the internet’s geographic, racial and spiritual architectures.','internet,image',['benjamin','mcmillan','noble']],
+['hershman','Roberta Breitmore / Teknolust','Lynn Hershman Leeson','work','Constructed female identities and technological doubles test who is allowed to count as real.','internet,image,girlhood',['ulman','haraway','mcmillan']],
+['ulman','Excellences & Perfections','Amalia Ulman','work','An Instagram performance inhabits recognizable femininity until authenticity and branding collapse.','internet,image,pop',['younggirl','dean','hershman','hirsch']],
+['hirsch','Scandalishious','Ann Hirsch','work','A YouTube persona performs the sexualized adolescent girl inside participatory internet culture.','internet,girlhood,pop',['ulman','soda','gilbert']],
+['cortright','VVEBCAM','Petra Cortright','work','Webcam self-performance collides with cheap digital effects and platform economies.','internet,image',['glitch','soda','hirsch']],
+['soda','Bedroom + webcam works','Molly Soda','work','Mess, confession and bedroom intimacy circulate as both vulnerable expression and platform content.','internet,girlhood,care',['private','hirsch','cortright','chun']],
+['syms','Notes on Gesture','Martine Syms','work','Codified gestures reveal how identity becomes learned, repeated and machine-readable.','image,internet',['mcmillan','rist','perry']],
+['perry','Graft and Ash for a Three Monitor Workstation','Sondra Perry','work','A digitally mediated body speaks from within the infrastructures that fragment and extract it.','internet,image',['syms','mcmillan','benjamin']],
+['heart','What the Heart Wants','Cécile B. Evans','work','Emotion, data and disembodied intelligence meet in a world organized by technological desire.','internet,image',['touch','haraway','glitch']],
+['virginsuicides','The Virgin Suicides','Sofia Coppola','work','Girlhood is enclosed inside bedrooms, collective fantasy and the projections of watching boys.','girlhood,image,care',['girlsbook','mulvey','private']],
+['worldsfair','We’re All Going to the World’s Fair','Jane Schoenbrun','work','Online performance, loneliness and unstable identity blur viewer, participant and fictional girl.','internet,girlhood,image',['hirsch','heart','girlonline']],
+['eighthgrade','Eighth Grade','Bo Burnham','work','Adolescent selfhood is rehearsed for the camera before it can be lived with others.','girlhood,internet,pop',['gilbert','chun','worldsfair']]
+].map((x,i)=>({id:x[0],title:x[1],author:x[2],type:x[3],desc:x[4],tags:x[5].split(','),links:x[6],n:String(i+1).padStart(2,'0')}));
+const canvas=document.querySelector('#network'),ctx=canvas.getContext('2d'),palette={book:'#198b48',essay:'#e5524e',work:'#7857a7'};
+const nodes=items.map((o,i)=>({...o,x:Math.cos(i*2.399)*220+(i%4)*25,y:Math.sin(i*2.399)*170+(i%5)*18,vx:0,vy:0,w:90,h:34,fixed:false}));
+const byId=Object.fromEntries(nodes.map(n=>[n.id,n])),edgeKeys=new Set(),edges=[];
+items.forEach(a=>a.links.forEach(id=>{if(!byId[id])return;const k=[a.id,id].sort().join('|');if(!edgeKeys.has(k)){edgeKeys.add(k);edges.push({a:byId[a.id],b:byId[id]})}}));
+let dpr=1,W=innerWidth,H=innerHeight,view={x:innerWidth/2,y:innerHeight/2,scale:.72},selected=null,hovered=null,focus=false,query='',drag=null,pan=null,moved=false,alpha=1,raf;
+const enabled={book:true,essay:true,work:true};
+function rounded(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
+function wrap(text,max=20){const words=text.split(' '),lines=[];let line='';for(const word of words){const test=line?line+' '+word:word;if(test.length>max&&line){lines.push(line);line=word}else line=test}if(line)lines.push(line);return lines.slice(0,4)}
+function sizeNode(n){const lines=wrap(n.title,n.type==='essay'?23:20);n.lines=lines;n.w=Math.max(n.type==='essay'?112:82,Math.min(n.type==='essay'?190:148,Math.max(...lines.map(l=>l.length))*6.2+22));n.h=lines.length*13+18}
+nodes.forEach(sizeNode);
+function resize(){dpr=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;canvas.width=W*dpr;canvas.height=H*dpr;canvas.style.width=W+'px';canvas.style.height=H+'px';draw()}
+function visibleNodes(){const base=nodes.filter(n=>enabled[n.type]);if(!query&&!focus)return base;const q=query.toLowerCase(),matches=new Set(base.filter(n=>!q||(`${n.title} ${n.author} ${n.desc} ${n.tags.join(' ')}`).toLowerCase().includes(q)).map(n=>n.id));if(selected&&focus){matches.add(selected.id);selected.links.forEach(id=>matches.add(id));edges.forEach(e=>{if(e.a===selected)matches.add(e.b.id);if(e.b===selected)matches.add(e.a.id)})}if(query){edges.forEach(e=>{if(matches.has(e.a.id))matches.add(e.b.id);if(matches.has(e.b.id))matches.add(e.a.id)})}return base.filter(n=>matches.has(n.id))}
+function simulate(){if(alpha<.002&&!drag)return;const vis=visibleNodes(),set=new Set(vis);for(let i=0;i<vis.length;i++){const a=vis[i];if(a.fixed)continue;for(let j=i+1;j<vis.length;j++){const b=vis[j],dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy+50,f=9000/d2*alpha,dist=Math.sqrt(d2);a.vx+=dx/dist*f;b.vx-=dx/dist*f;a.vy+=dy/dist*f;b.vy-=dy/dist*f}a.vx+=-a.x*.0007*alpha;a.vy+=-a.y*.0007*alpha}
+ edges.forEach(e=>{if(!set.has(e.a)||!set.has(e.b))return;const dx=e.b.x-e.a.x,dy=e.b.y-e.a.y,d=Math.max(1,Math.sqrt(dx*dx+dy*dy)),ideal=105+(e.a.w+e.b.w)*.16,f=(d-ideal)*.0018*alpha,fx=dx/d*f,fy=dy/d*f;if(!e.a.fixed){e.a.vx+=fx;e.a.vy+=fy}if(!e.b.fixed){e.b.vx-=fx;e.b.vy-=fy}});
+ vis.forEach(n=>{if(n.fixed)return;n.vx*=.86;n.vy*=.86;n.x+=n.vx;n.y+=n.vy});alpha*=.992}
+function world(sx,sy){return{x:(sx-view.x)/view.scale,y:(sy-view.y)/view.scale}}
+function screen(n){return{x:view.x+n.x*view.scale,y:view.y+n.y*view.scale}}
+function hit(sx,sy){const p=world(sx,sy),vis=visibleNodes();for(let i=vis.length-1;i>=0;i--){const n=vis[i];if(p.x>n.x-n.w/2&&p.x<n.x+n.w/2&&p.y>n.y-n.h/2&&p.y<n.y+n.h/2)return n}return null}
+function relationSet(){if(!selected&&!hovered)return null;const n=selected||hovered,s=new Set([n.id]);edges.forEach(e=>{if(e.a===n)s.add(e.b.id);if(e.b===n)s.add(e.a.id)});return s}
+function draw(){ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);const vis=visibleNodes(),set=new Set(vis),rels=relationSet();ctx.save();ctx.translate(view.x,view.y);ctx.scale(view.scale,view.scale);
+ ctx.lineWidth=1/view.scale;edges.forEach(e=>{if(!set.has(e.a)||!set.has(e.b))return;const hot=rels&&(rels.has(e.a.id)&&rels.has(e.b.id));ctx.strokeStyle=hot?'rgba(20,20,20,.72)':'rgba(25,25,25,.22)';ctx.lineWidth=(hot?1.5:.72)/view.scale;ctx.beginPath();ctx.moveTo(e.a.x,e.a.y);ctx.lineTo(e.b.x,e.b.y);ctx.stroke()});
+ vis.forEach(n=>{const dim=rels&&!rels.has(n.id),sel=n===selected,hov=n===hovered;ctx.globalAlpha=dim?.14:1;rounded(n.x-n.w/2,n.y-n.h/2,n.w,n.h,Math.min(12,n.h/2));ctx.fillStyle=palette[n.type];ctx.fill();if(sel||hov){ctx.lineWidth=(sel?4:2)/view.scale;ctx.strokeStyle='#111';ctx.stroke()}ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`${n.type==='essay'?'600':'500'} 11px Arial`;const lh=13,start=n.y-(n.lines.length-1)*lh/2;n.lines.forEach((l,i)=>ctx.fillText(l,n.x,start+i*lh));ctx.globalAlpha=1});ctx.restore();
+ document.querySelector('#counts').textContent=`${vis.length}/${nodes.length} nodes · ${edges.filter(e=>set.has(e.a)&&set.has(e.b)).length}/${edges.length} links`}
+function loop(){simulate();draw();raf=requestAnimationFrame(loop)}
+function showDetail(n){selected=n;const names=[];edges.forEach(e=>{if(e.a===n)names.push(e.b.title);else if(e.b===n)names.push(e.a.title)});document.querySelector('#detailType').textContent=n.type+' · '+n.tags.join(' / ');document.querySelector('#detailType').style.color=palette[n.type];document.querySelector('#detailTitle').textContent=n.title;document.querySelector('#detailAuthor').textContent=n.author;document.querySelector('#detailDesc').textContent=n.desc;document.querySelector('#detailLinks').innerHTML='<b>Direct relations</b><br>'+names.join(' · ');document.querySelector('#detail').classList.add('open');alpha=.3}
+function closeDetail(){selected=null;document.querySelector('#detail').classList.remove('open');alpha=.25}
+canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);const n=hit(e.clientX,e.clientY);moved=false;if(n){drag=n;n.fixed=true}else pan={x:e.clientX,y:e.clientY,vx:view.x,vy:view.y};canvas.classList.add('grabbing')});
+canvas.addEventListener('pointermove',e=>{if(drag){const p=world(e.clientX,e.clientY);drag.x=p.x;drag.y=p.y;moved=true;alpha=.2}else if(pan){view.x=pan.vx+e.clientX-pan.x;view.y=pan.vy+e.clientY-pan.y;moved=true}else{hovered=hit(e.clientX,e.clientY);canvas.style.cursor=hovered?'pointer':'grab'}});
+canvas.addEventListener('pointerup',e=>{if(drag){const n=drag;drag=null;n.fixed=false;if(!moved)showDetail(n)}else if(!moved&&!hit(e.clientX,e.clientY))closeDetail();pan=null;canvas.classList.remove('grabbing')});
+canvas.addEventListener('wheel',e=>{e.preventDefault();const old=view.scale,f=Math.max(.2,Math.min(3,old*Math.exp(-e.deltaY*.001))),wx=(e.clientX-view.x)/old,wy=(e.clientY-view.y)/old;view.x=e.clientX-wx*f;view.y=e.clientY-wy*f;view.scale=f},{passive:false});
+document.querySelector('#mode').onclick=e=>{focus=!focus;e.currentTarget.classList.toggle('on',focus);document.querySelector('#modeHelp').textContent=focus?'Show only the selected node and its immediate relations.':'Explore the full filtered diagram.';alpha=.6};
+document.querySelector('#graphSearch').oninput=e=>{query=e.target.value.trim();selected=null;document.querySelector('#detail').classList.remove('open');alpha=.8};
+document.querySelectorAll('.vis-row input').forEach(i=>i.onchange=()=>{enabled[i.dataset.type]=i.checked;alpha=.7});
+document.querySelector('#collapse').onclick=()=>document.querySelector('#panel').classList.add('closed');document.querySelector('#reopen').onclick=()=>document.querySelector('#panel').classList.remove('closed');
+document.querySelector('#detailClose').onclick=closeDetail;document.querySelector('#resetGraph').onclick=()=>{query='';document.querySelector('#graphSearch').value='';focus=false;document.querySelector('#mode').classList.remove('on');Object.keys(enabled).forEach(k=>enabled[k]=true);document.querySelectorAll('.vis-row input').forEach(i=>i.checked=true);closeDetail();nodes.forEach((n,i)=>{n.x=Math.cos(i*2.399)*220+(i%4)*25;n.y=Math.sin(i*2.399)*170+(i%5)*18;n.vx=n.vy=0});view={x:W/2,y:H/2,scale:.72};alpha=1};
+document.querySelector('#zoomIn').onclick=()=>view.scale=Math.min(3,view.scale*1.2);document.querySelector('#zoomOut').onclick=()=>view.scale=Math.max(.2,view.scale/1.2);document.querySelector('#fit').onclick=()=>{view={x:W/2,y:H/2,scale:Math.min(W/1200,H/850)}};
+['book','essay','work'].forEach(t=>document.querySelector('#'+t+'Count').textContent=nodes.filter(n=>n.type===t).length);
+addEventListener('resize',resize);resize();loop();
+</script>
+</body></html>

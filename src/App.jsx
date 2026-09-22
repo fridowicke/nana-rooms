@@ -4506,6 +4506,33 @@ function AboutFolderContent({
   }
 
 
+  if (folder.id === 'research') {
+    if (activeFolderDetailId === 'patchy-studies') {
+      return (
+        <div style={{ ...plainPageStyle, padding: 0, overflow: 'hidden' }}>
+          <iframe
+            src="/patchy-studies.html"
+            title="Patchy Studies"
+            style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+            sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-top-navigation-by-user-activation"
+          />
+        </div>
+      )
+    }
+    return (
+      <div style={{ ...plainPageStyle, padding: isMobileLayout ? '18px 16px 64px' : '24px 24px 64px' }}>
+        <h1 style={{ margin: '0 0 24px', fontSize: isMobileLayout ? '16px' : '18px', fontWeight: 300, fontStyle: 'normal' }}>research</h1>
+        <button
+          type="button"
+          onClick={() => onOpenFolderRoute?.(folder.id, 'patchy-studies')}
+          style={{ border: 'none', background: 'transparent', padding: 0, font: 'inherit', fontSize: isMobileLayout ? '16px' : '18px', fontWeight: 300, textDecoration: 'underline', cursor: 'pointer', color: '#000' }}
+        >
+          PATCHY STUDIES →
+        </button>
+      </div>
+    )
+  }
+
   if (folder.id === 'local-group') {
     return (
       <div style={{ ...plainPageStyle, padding: 0, overflow: 'hidden' }}>
