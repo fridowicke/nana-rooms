@@ -5165,8 +5165,8 @@ function PressArticleWindow({ url, label, onClose, isMobileLayout = false }) {
   const dragOffset = useRef({ x: 0, y: 0 })
   const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1440
   const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 900
-  const winW = isMobileLayout ? Math.min(viewportWidth - 16, 520) : Math.min(viewportWidth - 80, 900)
-  const winH = isMobileLayout ? viewportHeight - 120 : Math.min(viewportHeight - 100, 680)
+  const winW = isMobileLayout ? viewportWidth : Math.min(viewportWidth - 80, 900)
+  const winH = isMobileLayout ? 0 : Math.min(viewportHeight - 100, 680)
   const [pos, setPos] = useState({
     x: Math.max(8, (viewportWidth - winW) / 2),
     y: Math.max(40, (viewportHeight - winH) / 2 - 20),
@@ -5218,7 +5218,20 @@ function PressArticleWindow({ url, label, onClose, isMobileLayout = false }) {
       />
       {/* Window */}
       <div
-        style={{
+        style={isMobileLayout ? {
+          position: 'fixed',
+          left: 0,
+          right: 0,
+          top: 0,
+          bottom: 0,
+          height: '100dvh',
+          zIndex: 201,
+          display: 'flex',
+          flexDirection: 'column',
+          background: '#fff',
+          fontFamily: MAC_LIGHT_FONT_STACK,
+          userSelect: 'none',
+        } : {
           position: 'fixed',
           left: pos.x,
           top: pos.y,
@@ -5235,32 +5248,46 @@ function PressArticleWindow({ url, label, onClose, isMobileLayout = false }) {
       >
         {/* Title bar */}
         <div
-          onMouseDown={startDrag}
-          onTouchStart={startDrag}
+          onMouseDown={isMobileLayout ? undefined : startDrag}
+          onTouchStart={isMobileLayout ? undefined : startDrag}
           style={{
             background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)',
-            padding: '5px 8px',
+            padding: isMobileLayout ? 'max(8px, env(safe-area-inset-top)) 10px 8px' : '5px 8px',
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
             borderBottom: '1px solid #b0b0b0',
-            cursor: 'grab',
+            cursor: isMobileLayout ? 'default' : 'grab',
             touchAction: 'none',
+            flexShrink: 0,
           }}
         >
           <button
             type="button"
             aria-label="Close press window"
             onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
             onClick={(e) => { e.stopPropagation(); onClose() }}
-            style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-block', flexShrink: 0, padding: 0, appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' }}
-          />
+            style={{ width: isMobileLayout ? '28px' : '10px', height: isMobileLayout ? '28px' : '10px', borderRadius: '50%', border: 'none', background: 'transparent', display: 'grid', placeItems: 'center', flexShrink: 0, padding: 0, appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' }}
+          >
+            <span style={{ width: isMobileLayout ? '14px' : '10px', height: isMobileLayout ? '14px' : '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'block' }} />
+          </button>
           <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d4a017', display: 'inline-block', flexShrink: 0 }} />
           <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'inline-block', flexShrink: 0 }} />
-          <span style={{ flex: 1, textAlign: 'center', fontSize: '11px', fontWeight: 400, color: '#333', marginRight: '30px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pubName}</span>
+          <span style={{ flex: 1, textAlign: 'center', fontSize: isMobileLayout ? '13px' : '11px', fontWeight: 400, color: '#333', marginRight: isMobileLayout ? 0 : '30px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pubName}</span>
+          {isMobileLayout && (
+            <button
+              type="button"
+              onTouchStart={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); onClose() }}
+              style={{ border: '1px solid #333', background: '#fff', borderRadius: '999px', padding: '4px 12px', fontFamily: 'inherit', fontSize: '12px', fontWeight: 300, cursor: 'pointer', flexShrink: 0 }}
+            >
+              close ×
+            </button>
+          )}
         </div>
         {/* Body */}
-        <div style={{ height: winH, background: '#fff', position: 'relative' }}>
+        <div style={{ height: isMobileLayout ? 'auto' : winH, flex: isMobileLayout ? 1 : undefined, minHeight: 0, background: '#fff', position: 'relative' }}>
           {!iframeBlocked ? (
             <iframe
               src={url}
