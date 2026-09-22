@@ -438,13 +438,23 @@ function toEmbedUrl(url) {
 }
 
 function ReactionPopup({ reaction, onClose, isMobileLayout }) {
+  const [pos, setPos] = useState(null)
+  const dragRef = useRef(null)
+  useEffect(() => { setPos(null) }, [reaction])
+  useEffect(() => {
+    if (!reaction) return undefined
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [reaction, onClose])
   if (!reaction) return null
+
   const body = (() => {
     if (reaction.type === 'text') {
-      return <div style={{ whiteSpace: 'pre-wrap', fontSize: '14px', lineHeight: 1.5, padding: '18px 20px' }}>{reaction.value}</div>
+      return <div style={{ whiteSpace: 'pre-wrap', fontSize: '14px', lineHeight: 1.5, padding: '18px 20px', fontWeight: 300 }}>{reaction.value}</div>
     }
     if (reaction.type === 'image') {
-      return <img src={reaction.value} alt={reaction.title || ''} style={{ display: 'block', maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain' }} />
+      return <img src={reaction.value} alt={reaction.title || ''} style={{ display: 'block', maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', margin: '0 auto' }} />
     }
     if (reaction.type === 'video') {
       const embed = toEmbedUrl(reaction.value)
@@ -455,20 +465,57 @@ function ReactionPopup({ reaction, onClose, isMobileLayout }) {
           </div>
         )
       }
-      return <video src={reaction.value} controls autoPlay playsInline style={{ display: 'block', maxWidth: '100%', maxHeight: '70vh' }} />
+      return <video src={reaction.value} controls autoPlay playsInline style={{ display: 'block', width: '100%', maxHeight: '70vh', background: '#000' }} />
     }
     return null
   })()
   if (!body) return null
+
+  const winW = isMobileLayout ? 'calc(100vw - 24px)' : 'min(720px, calc(100vw - 80px))'
+  const startDrag = (e) => {
+    if (e.button != null && e.button !== 0) return
+    const el = e.currentTarget.parentElement
+    const rect = el.getBoundingClientRect()
+    dragRef.current = { sx: e.clientX, sy: e.clientY, ox: rect.left, oy: rect.top }
+    const move = (ev) => {
+      const d = dragRef.current
+      if (!d) return
+      setPos({ x: d.ox + ev.clientX - d.sx, y: d.oy + ev.clientY - d.sy })
+    }
+    const up = () => { dragRef.current = null; window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
+  const winStyle = pos
+    ? { position: 'fixed', left: pos.x, top: pos.y, transform: 'none' }
+    : { position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }
+
   return (
     <div
-      onClick={onClose}
-      style={{ position: 'absolute', inset: 0, zIndex: 9500, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobileLayout ? '16px' : '40px' }}
+      onPointerDown={(e) => { if (e.target === e.currentTarget) onClose() }}
+      style={{ position: 'fixed', inset: 0, zIndex: 9500, background: 'rgba(0,0,0,0.35)' }}
     >
-      <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', color: '#111', borderRadius: '10px', maxWidth: '720px', width: '100%', boxShadow: '0 12px 40px rgba(0,0,0,0.4)', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: '#ececec', fontSize: '12px' }}>
-          <button type="button" onClick={onClose} style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ff5f57', border: 'none', cursor: 'pointer', padding: 0 }} aria-label="close" />
-          <span style={{ opacity: 0.6 }}>{reaction.title || ''}</span>
+      <div
+        onPointerDown={(e) => e.stopPropagation()}
+        style={{ ...winStyle, width: winW, background: '#fff', color: '#111', borderRadius: '10px', boxShadow: '0 24px 70px rgba(0,0,0,0.45)', overflow: 'hidden', fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}
+      >
+        <div
+          onPointerDown={startDrag}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)', borderBottom: '1px solid #b0b0b0', fontSize: '12px', cursor: 'grab', userSelect: 'none' }}
+        >
+          <button
+            type="button"
+            onPointerDown={(e) => { e.stopPropagation(); e.preventDefault() }}
+            onClick={(e) => { e.stopPropagation(); onClose() }}
+            aria-label="close"
+            title="закрыть"
+            style={{ width: '22px', height: '22px', borderRadius: '50%', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, display: 'grid', placeItems: 'center' }}
+          >
+            <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'block' }} />
+          </button>
+          <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d89e24', display: 'block' }} />
+          <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'block' }} />
+          <span style={{ flex: 1, textAlign: 'center', opacity: 0.7, fontWeight: 300, paddingRight: '58px' }}>{reaction.title || ''}</span>
         </div>
         {body}
       </div>
