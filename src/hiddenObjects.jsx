@@ -11,7 +11,7 @@ const ROOM_DATA_VERSION = 2
 const draftKey = (roomNumber) => `shelest-hotspots-v2-r${roomNumber}`
 const foundKey = (roomNumber) => `shelest-found-r${roomNumber}`
 const EDITOR_FLAG_KEY = 'shelest-editor'
-const PICK_WIDTH = 1200
+const PICK_WIDTH = 2000
 const CLICK_SLOP_PX = 6
 
 const HOVER_TYPES = [
@@ -256,23 +256,36 @@ class ScanPicker {
       minX = Math.min(minX, x); maxX = Math.max(maxX, x)
       minY = Math.min(minY, y); maxY = Math.max(maxY, y)
     }
-    const x0 = Math.max(0, Math.floor(minX))
-    const y0 = Math.max(0, Math.floor(minY))
-    const x1 = Math.min(width - 1, Math.ceil(maxX))
-    const y1 = Math.min(height - 1, Math.ceil(maxY))
+    // Read a margin around the lasso too, so we can see how much of each triangle lies outside.
+    const marginX = Math.max(24, (maxX - minX) * 0.5)
+    const marginY = Math.max(24, (maxY - minY) * 0.5)
+    const x0 = Math.max(0, Math.floor(minX - marginX))
+    const y0 = Math.max(0, Math.floor(minY - marginY))
+    const x1 = Math.min(width - 1, Math.ceil(maxX + marginX))
+    const y1 = Math.min(height - 1, Math.ceil(maxY + marginY))
     const faces = new Set()
     if (x1 >= x0 && y1 >= y0) {
       const regionWidth = x1 - x0 + 1
       const regionHeight = y1 - y0 + 1
       const pixels = new Uint8Array(regionWidth * regionHeight * 4)
       this.gl.readRenderTargetPixels(target, x0, y0, regionWidth, regionHeight, pixels)
+      const inside = new Map()
+      const total = new Map()
       for (let row = 0; row < regionHeight; row++) {
         for (let column = 0; column < regionWidth; column++) {
           const offset = (row * regionWidth + column) * 4
           const id = pixels[offset] + pixels[offset + 1] * 256 + pixels[offset + 2] * 65536
           if (id === 0) continue
-          if (pointInPolygon(x0 + column + 0.5, y0 + row + 0.5, pixelPolygon)) faces.add(id - 1)
+          const face = id - 1
+          total.set(face, (total.get(face) ?? 0) + 1)
+          if (pointInPolygon(x0 + column + 0.5, y0 + row + 0.5, pixelPolygon)) inside.set(face, (inside.get(face) ?? 0) + 1)
         }
+      }
+      // A triangle counts as selected only when most of its visible area is inside the lasso.
+      // This stops big flat scan triangles (bedding, floor) from bleeding out past the outline.
+      for (const [face, count] of inside) {
+        const all = total.get(face) ?? count
+        if (count / all >= 0.6 || (all <= 6 && count >= 1)) faces.add(face)
       }
     }
     target.dispose()
