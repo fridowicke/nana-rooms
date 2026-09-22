@@ -3181,14 +3181,14 @@ function AboutPage({
 
   const folderArcLayout = isMobileLayout
     ? [
-        { id: 'press', left: '24%', top: '22%' },
-        { id: 'writing', left: '60%', top: '22%' },
-        { id: 'exhibitions', left: '24%', top: '38%' },
-        { id: 'filmmaking', left: '60%', top: '38%' },
-        { id: 'research', left: '24%', top: '54%' },
-        { id: 'local-group', left: '60%', top: '54%' },
-        { id: 'she-is-so-hot', left: '24%', top: '70%' },
-        { id: 'cv', left: '42%', top: '86%' },
+        { id: 'press', left: '18%', top: '44%' },
+        { id: 'writing', left: '52%', top: '41%' },
+        { id: 'exhibitions', left: '82%', top: '46%' },
+        { id: 'filmmaking', left: '30%', top: '56%' },
+        { id: 'research', left: '66%', top: '57%' },
+        { id: 'local-group', left: '16%', top: '68%' },
+        { id: 'cv', left: '84%', top: '69%' },
+        { id: 'she-is-so-hot', left: '48%', top: '71%' },
       ]
     : [
         { id: 'press', left: '25%', top: '36%' },
@@ -3210,29 +3210,32 @@ function AboutPage({
   }, [isMobileLayout]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const leftColumnWidth = isMobileLayout
-    ? Math.max(230, Math.min(viewport.width - 28, 340))
+    ? Math.max(180, Math.min(Math.round(viewport.width * 0.58), 260))
     : Math.max(188, Math.min(viewport.width * 0.15, 218))
   const aboutWindowWidth = leftColumnWidth + 34
   const welcomeWidth = 126
   const welcomeHeight = Math.round(welcomeWidth * (55 / 135))
   const leftColumnX = isMobileLayout ? 14 : 24
-  const aboutWindowTop = isMobileLayout ? 92 : 148
-  const aboutWindowHeight = isMobileLayout ? 170 : 181
+  const aboutWindowTop = isMobileLayout ? 86 : 148
+  const aboutWindowHeight = isMobileLayout ? 160 : 181
   const BROWSER_CHROME_HEIGHT = 62
   const aboutWindowLeft = isMobileLayout && mobileAboutWindowPosition ? mobileAboutWindowPosition.x : leftColumnX
   const aboutWindowTopPosition = isMobileLayout && mobileAboutWindowPosition ? mobileAboutWindowPosition.y : aboutWindowTop
   const welcomeTop = Math.round(BROWSER_CHROME_HEIGHT + ((aboutWindowTop - BROWSER_CHROME_HEIGHT - welcomeHeight) / 2))
   const playerWindowHeight = Math.round(132 * (leftColumnWidth / 290))
   const playerWindowTop = isMobileLayout
-    ? Math.max(aboutWindowTop + aboutWindowHeight + 24, viewport.height - playerWindowHeight - 18)
+    ? Math.max(aboutWindowTop + aboutWindowHeight + 24, viewport.height - playerWindowHeight - 14)
     : Math.max(aboutWindowTop + aboutWindowHeight + 430, viewport.height - playerWindowHeight - 28)
   const diaryHeight = isMobileLayout
-    ? Math.max(128, Math.min(playerWindowTop - aboutWindowTop - aboutWindowHeight - 28, 180))
+    ? Math.max(110, Math.min(aboutWindowHeight + 20, 160))
     : Math.max(154, Math.min(playerWindowTop - aboutWindowTop - aboutWindowHeight - 96, 220))
   const diaryTop = isMobileLayout
-    ? aboutWindowTop + aboutWindowHeight + 18
+    ? aboutWindowTop + 10
     : Math.max(aboutWindowTop + aboutWindowHeight + 96, playerWindowTop - diaryHeight - 260)
-  const diaryWidth = isMobileLayout ? Math.min(150, leftColumnWidth - 24) : Math.max(Math.min(leftColumnWidth - 34, 132), 106)
+  const diaryWidth = isMobileLayout
+    ? Math.max(72, Math.min(96, viewport.width - (leftColumnX + aboutWindowWidth) - 30))
+    : Math.max(Math.min(leftColumnWidth - 34, 132), 106)
+  const mobileDiaryLeft = leftColumnX + aboutWindowWidth + Math.max(8, Math.round((viewport.width - (leftColumnX + aboutWindowWidth) - diaryWidth) / 2))
   const mobileAboutMinY = BROWSER_CHROME_HEIGHT + 8
 
   const clampMobileAboutPosition = useCallback((position) => {
@@ -3616,7 +3619,7 @@ function AboutPage({
             </div>
 
             {/* Body */}
-            <div style={{ background: '#f5f5f5', position: 'relative', height: '148px' }}>
+            <div style={{ background: '#f5f5f5', position: 'relative', height: isMobileLayout ? `${aboutWindowHeight - 24}px` : '148px' }}>
               <div
                 ref={editorContentRef}
                 className="classic-textedit-scroll"
@@ -3679,9 +3682,9 @@ function AboutPage({
         </div>
       )}
 
-      {!isFolderView && !isMobileLayout && (
+      {!isFolderView && (
         <DiaryDeck
-          left={leftColumnX + (leftColumnWidth - diaryWidth) / 2}
+          left={isMobileLayout ? mobileDiaryLeft : leftColumnX + (leftColumnWidth - diaryWidth) / 2}
           top={diaryTop}
           width={diaryWidth}
           availableHeight={diaryHeight}
@@ -3690,19 +3693,19 @@ function AboutPage({
       )}
 
       {/* ── Safety pin (between left col and right stage) ── */}
-      {!isFolderView && !isMobileLayout && (
-        <div style={{ position: 'absolute', left: `${leftColumnX + aboutWindowWidth + 24}px`, top: '48%', zIndex: 20, pointerEvents: 'none' }}>
+      {!isFolderView && (
+        <div style={{ position: 'absolute', left: isMobileLayout ? 'auto' : `${leftColumnX + aboutWindowWidth + 24}px`, right: isMobileLayout ? '10px' : 'auto', top: isMobileLayout ? `${aboutWindowTop + aboutWindowHeight + 22}px` : '48%', zIndex: 20, pointerEvents: 'none' }}>
           <img
             src="assets/safety-pin.gif"
             alt=""
             aria-hidden="true"
-            style={{ width: '50px', height: 'auto', objectFit: 'contain' }}
+            style={{ width: isMobileLayout ? '34px' : '50px', height: 'auto', objectFit: 'contain' }}
           />
         </div>
       )}
 
       {/* ── Radio gif (static) ── */}
-      {!isFolderView && !isMobileLayout && (
+      {!isFolderView && (
         <div
           style={{
             position: 'fixed',
@@ -3720,7 +3723,7 @@ function AboutPage({
       )}
 
       {/* ── Player (draggable) ── */}
-      {!isFolderView && !isMobileLayout && (
+      {!isFolderView && (
         <div
           style={{
             position: 'fixed',
