@@ -229,10 +229,26 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
     ro.observe(stage)
     resize()
 
+    const touches = new Map()
+    let pinch = null
+    const pinchState = () => {
+      const t = [...touches.values()]
+      if (t.length < 2) return null
+      return { d: Math.hypot(t[1].x - t[0].x, t[1].y - t[0].y), cx: (t[0].x + t[1].x) / 2, cy: (t[0].y + t[1].y) / 2 }
+    }
     const onDown = (e) => {
       if (e.button !== undefined && e.button !== 0) return
       canvas.setPointerCapture(e.pointerId)
       const { x, y } = local(e)
+      touches.set(e.pointerId, { x, y })
+      if (touches.size === 2) {
+        if (S.drag) { S.drag.fixed = false; S.drag = null }
+        S.pan = null
+        const ps = pinchState()
+        pinch = { d0: ps.d, s0: S.view.scale, cx: ps.cx, cy: ps.cy, vx: S.view.x, vy: S.view.y }
+        S.moved = true
+        return
+      }
       const n = hit(x, y)
       S.moved = false
       if (n) { S.drag = n; n.fixed = true } else S.pan = { x, y, vx: S.view.x, vy: S.view.y }
@@ -240,6 +256,16 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
     }
     const onMove = (e) => {
       const { x, y } = local(e)
+      if (touches.has(e.pointerId)) touches.set(e.pointerId, { x, y })
+      if (pinch && touches.size >= 2) {
+        const ps = pinchState()
+        if (!ps) return
+        const f = Math.max(0.1, Math.min(8, pinch.s0 * ps.d / pinch.d0))
+        const wx = (pinch.cx - pinch.vx) / pinch.s0, wy = (pinch.cy - pinch.vy) / pinch.s0
+        S.view = { scale: f, x: ps.cx - wx * f, y: ps.cy - wy * f }
+        S.moved = true
+        return
+      }
       if (S.drag) {
         const p = world(x, y); S.drag.x = p.x; S.drag.y = p.y; S.moved = true; S.alpha = Math.max(S.alpha, 0.2)
       } else if (S.pan) {
@@ -253,6 +279,9 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
     }
     const onUp = (e) => {
       const { x, y } = local(e)
+      touches.delete(e.pointerId)
+      if (touches.size < 2) pinch = null
+      if (touches.size > 0) { canvas.classList.remove('grabbing'); return }
       if (S.drag) {
         const n = S.drag; S.drag = null; n.fixed = false
         if (!S.moved) { setSelected(n.index); S.alpha = Math.max(S.alpha, 0.3) }
