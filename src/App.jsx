@@ -4,6 +4,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Stage, Html, useGLTF, KeyboardControls, useKeyboardControls } from '@react-three/drei'
 import * as THREE from 'three'
 import { HiddenObjectGame, HiddenObjectScene } from './hiddenObjects.jsx'
+import ArchiveMap from './ArchiveMap.jsx'
 
 const keyboardMap = [
   { name: 'forward', keys: ['ArrowUp', 'w', 'W'] },
@@ -4190,6 +4191,20 @@ function DiaryTumblrFeed({ plainPageStyle }) {
     </div>
   )
 }
+function ArchiveMapFolder({ isMobileLayout }) {
+  const [tags, setTags] = useState(null)
+  useEffect(() => {
+    fetch('archive-tags.json')
+      .then((r) => (r.ok ? r.json() : {}))
+      .then(setTags)
+      .catch(() => setTags({}))
+  }, [])
+  if (tags === null) {
+    return <div style={{ padding: '24px', fontSize: '13px', fontWeight: 300, color: '#666' }}>loading archive…</div>
+  }
+  return <ArchiveMap images={OPEN_ARCHIVE_IMAGES} tags={tags} isMobileLayout={isMobileLayout} />
+}
+
 function DraggableFolderIcon({ label, onOpen, initial = { x: 24, y: 24 } }) {
   const [pos, setPos] = useState(initial)
   const dragRef = useRef(null)
@@ -4545,36 +4560,9 @@ function AboutFolderContent({
   }
 
   if (folder.id === 'open-collective-archive') {
-    const activeArchiveImage = activeFolderImageIndex != null && OPEN_ARCHIVE_IMAGES.length > 0
-      ? OPEN_ARCHIVE_IMAGES[activeFolderImageIndex % OPEN_ARCHIVE_IMAGES.length]
-      : null
-    const showNextArchiveImage = () => {
-      if (OPEN_ARCHIVE_IMAGES.length === 0) return
-      onOpenFolderRoute?.(folder.id, 'view', ((activeFolderImageIndex ?? 0) + 1) % OPEN_ARCHIVE_IMAGES.length)
-    }
-
     return (
-      <div
-        style={{
-          ...plainPageStyle,
-          overflow: 'hidden',
-          padding: 0,
-          background: '#fff',
-        }}
-      >
-        <NodeGraph
-          images={OPEN_ARCHIVE_IMAGES}
-          onOpenImage={(imageIndex) => onOpenFolderRoute?.(folder.id, 'view', imageIndex)}
-        />
-
-        {activeArchiveImage && createPortal(
-          <ExhibitionLightbox
-            image={activeArchiveImage}
-            onNext={showNextArchiveImage}
-            onClose={() => onOpenFolderRoute?.(folder.id)}
-          />,
-          document.body,
-        )}
+      <div style={{ ...plainPageStyle, overflow: 'hidden', padding: 0, background: '#fff' }}>
+        <ArchiveMapFolder isMobileLayout={isMobileLayout} />
       </div>
     )
   }
