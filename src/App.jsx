@@ -4441,7 +4441,20 @@ function AboutFolderContent({
         <h1 style={{ margin: '0 0 24px', fontSize: isMobileLayout ? '16px' : '18px', fontWeight: 300, fontStyle: 'normal', lineHeight: 1.3 }}>
           she is so hot i wanna clean her room
         </h1>
-        <p style={{ margin: 0, fontSize: '14px', fontWeight: 300, color: '#888' }}>coming soon</p>
+        <p style={{ margin: '0 0 24px', fontSize: isMobileLayout ? '14px' : '15px', fontWeight: 300, color: '#555' }}>
+          2023 – Ongoing · Tokyo, Japan
+        </p>
+        <div style={{ maxWidth: '720px', fontSize: isMobileLayout ? '16px' : '18px', fontWeight: 300, lineHeight: 1.5, fontStyle: 'normal' }}>
+          <p style={{ margin: '0 0 20px' }}>
+            This work explores intimacy within modern girlhood in the chronically online generation through internet culture, where even a messy room becomes a meme. Beneath hyper-feminine maximalism, these 3D bedroom scans excavate the inner psyche of a modern woman.
+          </p>
+          <p style={{ margin: '0 0 20px' }}>
+            she is so hot I wanna clean her room is a meme – a fragment of digital folklore that reflects the state of contemporary womanhood, where life feels too saturated with unresolved questions to attend to something as ordinary as cleaning one’s room. After evacuating from Ukraine to the perceived calm and safety of Japan, I began to observe how the psyche reveals its deepest layers through the mundane – spaces like my room. In isolation during migration, my phone became my best friend, and I noticed how my chronically online behaviors began to leak into my physical space, synchronizing with circulating internet “girlifying” phenomena – where everyone is “just a girl.” I am lost, lonely, haven’t washed my face for three days – and I am just a girl.
+          </p>
+          <p style={{ margin: 0 }}>
+            I soon realized I was not alone. Not only within Japan, where ostentatious femininity often provides a safe space for those navigating 建前 (tatemae, the public face), even as 本音 (honne, the inner self) remains hidden, rarely extending to something as intimate as a messy room – but across a global condition of girlhood. Sharing this work online revealed a worldwide dilemma: how to maintain intimacy with oneself while being chronically online. Through 3D scanning as a form of documentation, I aim to transform the cluttered room into a digital landscape of the modern woman’s mind, restoring agency to girls whose identities have long been memefied.
+          </p>
+        </div>
       </div>
     )
   }
