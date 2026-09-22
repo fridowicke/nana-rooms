@@ -56,6 +56,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
   const [activeTags, setActiveTags] = useState(() => new Set())
   const [query, setQuery] = useState('')
   const [panelOpen, setPanelOpen] = useState(!isMobileLayout)
+  const [isPanning, setIsPanning] = useState(false)
   const nodesRef = useRef([])
   const linksRef = useRef([])
   const animRef = useRef(null)
@@ -137,7 +138,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
     if (layoutDone.current || size.w < 50) return
     layoutDone.current = true
     const n = nodes.length
-    const R = 26 * Math.sqrt(Math.max(1, n))
+    const R = 40 * Math.sqrt(Math.max(1, n))
     nodes.forEach((node, i) => {
       const angle = (i / Math.max(1, n)) * Math.PI * 2 * 9
       const r = R * Math.sqrt((i + 1) / n)
@@ -156,8 +157,8 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
           let dx = a.x - b.x, dy = a.y - b.y
           let d2 = dx * dx + dy * dy
           if (d2 < 0.01) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d2 = 1 }
-          if (d2 > 250000) continue
-          const f = (3200 / d2) * alpha
+          if (d2 > 640000) continue
+          const f = (9000 / d2) * alpha
           const d = Math.sqrt(d2)
           const fx = (dx / d) * f, fy = (dy / d) * f
           a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy
@@ -167,12 +168,12 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
         const a = nodes[l.source], b = nodes[l.target]
         const dx = b.x - a.x, dy = b.y - a.y
         const d = Math.sqrt(dx * dx + dy * dy) || 1
-        const f = ((d - 90) / d) * 0.03 * alpha * Math.min(2, l.weight)
+        const f = ((d - 150) / d) * 0.03 * alpha * Math.min(2, l.weight)
         a.vx += dx * f; a.vy += dy * f; b.vx -= dx * f; b.vy -= dy * f
       }
       for (const nd of nodes) {
-        nd.vx += (0 - nd.x) * 0.0012 * alpha
-        nd.vy += (0 - nd.y) * 0.0012 * alpha
+        nd.vx += (0 - nd.x) * 0.0006 * alpha
+        nd.vy += (0 - nd.y) * 0.0006 * alpha
         nd.vx *= 0.8; nd.vy *= 0.8
         nd.x += nd.vx; nd.y += nd.vy
       }
@@ -256,6 +257,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
   const onPointerDown = (e) => {
     if (e.button !== undefined && e.button !== 0) return
     userTouched.current = true
+    setIsPanning(true)
     panRef.current = { sx: e.clientX, sy: e.clientY, tx: transform.x, ty: transform.y, moved: false }
   }
   const onPointerMove = (e) => {
@@ -282,6 +284,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
     }
     if (panRef.current && !panRef.current.moved) { setHovered(null); setSelected(null) }
     panRef.current = null
+    setIsPanning(false)
   }
 
   const focusNode = useCallback((index) => {
@@ -376,7 +379,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
   )
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', background: '#fff', fontFamily: FONT, display: 'flex', flexDirection: isMobileLayout ? 'column' : 'row' }}>
+    <div className="archive-map" style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', background: '#fff', fontFamily: FONT, display: 'flex', flexDirection: isMobileLayout ? 'column' : 'row' }}>
       {/* Left panel */}
       <div style={{ width: panelW, flex: isMobileLayout ? '0 0 auto' : '0 0 220px', borderRight: isMobileLayout ? 'none' : '1px solid #eee', borderBottom: isMobileLayout ? '1px solid #eee' : 'none', padding: '14px 14px 10px', boxSizing: 'border-box', overflowY: 'auto', maxHeight: isMobileLayout ? (panelOpen ? '45%' : '44px') : '100%', transition: 'max-height 200ms', fontSize: '12px', fontWeight: 300, lineHeight: 1.4 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px' }}>
@@ -409,7 +412,8 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
       {/* Graph */}
       <div
         ref={containerRef}
-        style={{ flex: 1, position: 'relative', minHeight: 0, cursor: panRef.current ? 'grabbing' : 'grab', touchAction: 'none' }}
+        className={`am-canvas${isPanning ? ' grabbing' : ''}`}
+        style={{ flex: 1, position: 'relative', minHeight: 0, touchAction: 'none' }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -449,11 +453,12 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
                   onPointerMove={(e) => { if (dragRef.current && dragRef.current.index === n.index) onPointerMove(e) }}
                   onPointerUp={(e) => { e.stopPropagation(); onPointerUp() }}
                   onPointerEnter={() => { if (dragRef.current || panRef.current) return; clearTimeout(hoverTimerRef.current); setHovered(n.index) }}
-                  onPointerLeave={() => { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = setTimeout(() => setHovered(null), 600) }}
+                  onPointerLeave={() => { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = setTimeout(() => setHovered(null), 900) }}
                 />
               )
             })}
           </g>
+          {(() => { const idx = hovered ?? selected; const n = idx != null ? nodesRef.current[idx] : null; if (!n) return null; const px = n.x * transform.scale + transform.x, py = n.y * transform.scale + transform.y; const W = isMobileLayout ? Math.min(300, size.w - 16) : 300; return <line x1={px} y1={py} x2={size.w - 12 - W / 2} y2={40} stroke='#ff69b4' strokeWidth={1} strokeDasharray='3 3' opacity={0.7} pointerEvents='none' /> })()}
         </svg>
         {(() => {
           const idx = hovered ?? selected
@@ -461,20 +466,15 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
           const n = nodesRef.current[idx]
           if (!n) return null
           const pinned = hovered == null && selected != null
-          const W = isMobileLayout ? Math.min(300, size.w - 16) : 300
           const nb = [...(neighbors.get(n.index) ?? [])]
-          let sx = n.x * transform.scale + transform.x + 16
-          let sy = n.y * transform.scale + transform.y - 40
-          if (sx + W > size.w - 8) sx = n.x * transform.scale + transform.x - W - 16
-          if (sx < 8) sx = 8
-          if (sy < 8) sy = 8
+          const W = isMobileLayout ? Math.min(300, size.w - 16) : 300
           const maxH = size.h - 16
           return (
             <div
               onPointerDown={(e) => e.stopPropagation()}
               onPointerEnter={() => clearTimeout(hoverTimerRef.current)}
               onPointerLeave={() => { if (!pinned) { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = setTimeout(() => setHovered(null), 200) } }}
-              style={{ position: 'absolute', left: sx, top: sy, width: `${W}px`, maxHeight: `${maxH}px`, overflowY: 'auto', boxSizing: 'border-box', pointerEvents: 'auto', background: '#fde4ee', borderRadius: '14px', padding: '10px', zIndex: 7, boxShadow: '0 10px 30px rgba(0,0,0,0.18)', fontFamily: FONT, transition: 'left 120ms ease-out, top 120ms ease-out' }}
+              style={{ position: 'absolute', right: 12, top: 12, width: `${W}px`, maxHeight: `${maxH}px`, overflowY: 'auto', boxSizing: 'border-box', pointerEvents: 'auto', background: '#fde4ee', borderRadius: '14px', padding: '10px', zIndex: 7, boxShadow: '0 10px 30px rgba(0,0,0,0.18)', fontFamily: FONT }}
             >
               {pinned && (
                 <button type="button" onClick={() => setSelected(null)} aria-label="close" style={{ position: 'absolute', top: '14px', right: '14px', width: '26px', height: '26px', borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.85)', fontSize: '15px', cursor: 'pointer', lineHeight: '26px', padding: 0 }}>×</button>

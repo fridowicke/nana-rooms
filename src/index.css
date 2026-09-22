@@ -199,3 +199,11 @@ a, button, [role="button"], .cursor-pointer {
     transform: translateX(-100%);
   }
 }
+
+/* archive map: plain system cursor everywhere inside the map */
+.archive-map, .archive-map * { cursor: default !important; }
+.archive-map .am-canvas { cursor: default !important; }
+.archive-map .am-canvas.grabbing { cursor: grabbing !important; }
+.archive-map circle { cursor: pointer !important; }
+.archive-map button, .archive-map input, .archive-map a { cursor: pointer !important; }
+.archive-map input { cursor: text !important; }
