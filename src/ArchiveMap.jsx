@@ -62,6 +62,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
   const panRef = useRef(null)
   const dragRef = useRef(null)
   const hoverTimerRef = useRef(null)
+  const targetRef = useRef({ x: 0, y: 0, scale: 1 })
 
   const nodes = useMemo(() => {
     return images.map((img, index) => {
@@ -178,19 +179,53 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
     }
     setTick((t) => t + 1)
   }, [nodes, links, size.w, size.h])
-
-  // fit whole graph into the container until the user pans/zooms
-  useEffect(() => {
-    if (!layoutDone.current || userTouched.current || size.w < 50) return
+  // fit whole graph into the container (instant on first layout, animated on reset)
+  const fitTransform = useCallback(() => {
     const ns = nodesRef.current
-    if (!ns.length) return
+    if (!ns.length || size.w < 50) return null
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     for (const nd of ns) { minX = Math.min(minX, nd.x); maxX = Math.max(maxX, nd.x); minY = Math.min(minY, nd.y); maxY = Math.max(maxY, nd.y) }
     const pad = 60
     const scale = Math.min((size.w - pad * 2) / Math.max(1, maxX - minX), (size.h - pad * 2) / Math.max(1, maxY - minY), 2.5)
-    setTransform({ scale, x: size.w / 2 - ((minX + maxX) / 2) * scale, y: size.h / 2 - ((minY + maxY) / 2) * scale })
-  }, [tick, size.w, size.h])
-  // zoom
+    return { scale, x: size.w / 2 - ((minX + maxX) / 2) * scale, y: size.h / 2 - ((minY + maxY) / 2) * scale }
+  }, [size.w, size.h])
+  useEffect(() => {
+    if (!layoutDone.current || userTouched.current) return
+    const next = fitTransform()
+    if (!next) return
+    targetRef.current = next
+    setTransform(next)
+  }, [tick, fitTransform])
+  // smooth zoom: wheel updates a target, a rAF loop eases the visible transform toward it
+  const rafRef = useRef(null)
+  const animateToTarget = useCallback(() => {
+    if (rafRef.current) return
+    const step = () => {
+      const tg = targetRef.current
+      setTransform((t) => {
+        const ease = 0.16
+        const ns = t.scale + (tg.scale - t.scale) * ease
+        const nx = t.x + (tg.x - t.x) * ease
+        const ny = t.y + (tg.y - t.y) * ease
+        const done = Math.abs(tg.scale - ns) < 0.0005 && Math.abs(tg.x - nx) < 0.3 && Math.abs(tg.y - ny) < 0.3
+        if (done) { rafRef.current = null; return { ...tg } }
+        rafRef.current = requestAnimationFrame(step)
+        return { scale: ns, x: nx, y: ny }
+      })
+    }
+    rafRef.current = requestAnimationFrame(step)
+  }, [])
+  const setTarget = useCallback((next) => {
+    targetRef.current = typeof next === 'function' ? next(targetRef.current) : next
+    animateToTarget()
+  }, [animateToTarget])
+  const jumpTo = useCallback((next) => {
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
+    targetRef.current = next
+    setTransform(next)
+  }, [])
+  useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }, [])
+
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
@@ -199,16 +234,19 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
       userTouched.current = true
       const rect = el.getBoundingClientRect()
       const mx = e.clientX - rect.left, my = e.clientY - rect.top
-      setTransform((t) => {
-        const factor = e.deltaY < 0 ? 1.1 : 0.9
-        const scale = Math.min(6, Math.max(0.25, t.scale * factor))
+      // normalise delta: trackpads send many small deltas, mice send ~100 per notch
+      const raw = e.deltaMode === 1 ? e.deltaY * 20 : e.deltaY
+      const delta = Math.max(-120, Math.min(120, raw))
+      const factor = Math.exp(-delta * 0.0035)
+      setTarget((t) => {
+        const scale = Math.min(8, Math.max(0.2, t.scale * factor))
         const k = scale / t.scale
         return { scale, x: mx - (mx - t.x) * k, y: my - (my - t.y) * k }
       })
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
-  }, [])
+  }, [setTarget])
 
   const toWorld = (clientX, clientY) => {
     const rect = containerRef.current.getBoundingClientRect()
@@ -233,7 +271,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
     if (!p) return
     const dx = e.clientX - p.sx, dy = e.clientY - p.sy
     if (Math.abs(dx) > 2 || Math.abs(dy) > 2) p.moved = true
-    setTransform((t) => ({ ...t, x: p.tx + dx, y: p.ty + dy }))
+    jumpTo({ ...targetRef.current, x: p.tx + dx, y: p.ty + dy })
   }
   const onPointerUp = () => {
     if (dragRef.current) {
@@ -250,11 +288,11 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
     const nd = nodesRef.current[index]
     if (!nd) return
     setSelected(index)
-    setTransform((t) => {
+    setTarget((t) => {
       const scale = Math.max(t.scale, 1.6)
       return { scale, x: size.w / 2 - nd.x * scale, y: size.h / 2 - nd.y * scale }
     })
-  }, [size.w, size.h])
+  }, [size.w, size.h, setTarget])
 
   const goRelative = (delta) => {
     if (visibleList.length === 0) return
@@ -271,7 +309,8 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
     setActiveTags(new Set())
     setQuery('')
     setSelected(null)
-    setTransform({ x: 0, y: 0, scale: 1 })
+    const next = fitTransform()
+    if (next) setTarget(next)
   }
 
   const toggleColor = (c) => setActiveColors((prev) => {
@@ -433,7 +472,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
           return (
             <div
               onPointerDown={(e) => e.stopPropagation()}
-              style={{ position: 'absolute', left: sx, top: sy, width: `${W}px`, maxHeight: `${maxH}px`, overflowY: 'auto', boxSizing: 'border-box', pointerEvents: 'auto', background: '#fde4ee', borderRadius: '14px', padding: '10px', zIndex: 7, boxShadow: '0 10px 30px rgba(0,0,0,0.18)', fontFamily: FONT }}
+              style={{ position: 'absolute', left: sx, top: sy, width: `${W}px`, maxHeight: `${maxH}px`, overflowY: 'auto', boxSizing: 'border-box', pointerEvents: 'auto', background: '#fde4ee', borderRadius: '14px', padding: '10px', zIndex: 7, boxShadow: '0 10px 30px rgba(0,0,0,0.18)', fontFamily: FONT, transition: 'left 120ms ease-out, top 120ms ease-out' }}
             >
               {pinned && (
                 <button type="button" onClick={() => setSelected(null)} aria-label="close" style={{ position: 'absolute', top: '14px', right: '14px', width: '26px', height: '26px', borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.85)', fontSize: '15px', cursor: 'pointer', lineHeight: '26px', padding: 0 }}>×</button>
