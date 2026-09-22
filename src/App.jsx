@@ -3801,7 +3801,7 @@ function AboutPage({
           </div>
         )}
 
-        {!isFolderView && (
+        {(!isFolderView || activeFolderId === 'she-is-so-hot') && (
           <button
             type="button"
             onClick={onBackHome}
