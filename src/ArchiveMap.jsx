@@ -13,8 +13,10 @@ const COLOR_HEX = {
   red: '#ff6b6b',
   yellow: '#ffd76b',
   multicolor: '#ff9f7a',
+  'screen time': '#18d9d3',
 }
 const COLOR_ORDER = Object.keys(COLOR_HEX)
+const SCREENSHOT_TAG = 'screen time screenshot'
 const FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif'
 
 function buildLinks(nodes, k = 3) {
@@ -27,7 +29,8 @@ function buildLinks(nodes, k = 3) {
       if (i === j) continue
       const b = nodes[j]
       let s = 0
-      for (const t of a.tags) if (b.tagSet.has(t)) s += 1
+      for (const t of a.tags) if (b.tagSet.has(t)) s += (t === SCREENSHOT_TAG ? 4 : 1)
+      if (a.isShot !== b.isShot) s -= 3
       if (a.color === b.color) s += 0.5
       if (s > 0) scored.push([s, j])
     }
@@ -66,7 +69,8 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
       const t = tags?.[key] ?? {}
       const objects = Array.isArray(t.objects) ? t.objects : []
       const vibe = []
-      const color = COLOR_HEX[t.color] ? t.color : 'multicolor'
+      const isShot = objects.includes(SCREENSHOT_TAG)
+      const color = isShot ? 'screen time' : (COLOR_HEX[t.color] ? t.color : 'multicolor')
       const tagList = [...objects, ...vibe]
       return {
         index,
@@ -74,6 +78,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
         src: img.src,
         thumbSrc: img.thumbSrc,
         color,
+        isShot,
         objects,
         vibe,
         caption: t.caption ?? '',

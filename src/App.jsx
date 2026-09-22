@@ -4191,7 +4191,7 @@ function DiaryTumblrFeed({ plainPageStyle }) {
     </div>
   )
 }
-const ARCHIVE_TAGS_VERSION = '3'
+const ARCHIVE_TAGS_VERSION = '4'
 function ArchiveMapFolder({ isMobileLayout }) {
   const [tags, setTags] = useState(null)
   useEffect(() => {
