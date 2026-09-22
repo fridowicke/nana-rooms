@@ -18,6 +18,7 @@ const COLOR_HEX = {
 const COLOR_ORDER = Object.keys(COLOR_HEX)
 const SCREENSHOT_TAG = 'screen time screenshot'
 const FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif'
+const NODE_R = 16
 
 function buildLinks(nodes, k = 3) {
   const links = []
@@ -39,295 +40,295 @@ function buildLinks(nodes, k = 3) {
       const key = i < j ? `${i}-${j}` : `${j}-${i}`
       if (seen.has(key)) continue
       seen.add(key)
-      links.push({ source: i, target: j, weight: s })
+      links.push({ a: i, b: j, weight: s })
     }
   }
   return links
 }
 
 export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
-  const containerRef = useRef(null)
-  const [size, setSize] = useState({ w: 800, h: 600 })
-  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 })
-  const [tick, setTick] = useState(0)
+  const stageRef = useRef(null)
+  const canvasRef = useRef(null)
   const [selected, setSelected] = useState(null)
   const [hovered, setHovered] = useState(null)
   const [activeColors, setActiveColors] = useState(() => new Set(COLOR_ORDER))
   const [activeTags, setActiveTags] = useState(() => new Set())
   const [query, setQuery] = useState('')
   const [panelOpen, setPanelOpen] = useState(!isMobileLayout)
-  const [isPanning, setIsPanning] = useState(false)
-  const nodesRef = useRef([])
-  const linksRef = useRef([])
-  const animRef = useRef(null)
-  const panRef = useRef(null)
-  const dragRef = useRef(null)
-  const hoverTimerRef = useRef(null)
-  const targetRef = useRef({ x: 0, y: 0, scale: 1 })
+  const [, force] = useState(0)
 
-  const nodes = useMemo(() => {
-    return images.map((img, index) => {
-      const key = `${img.page}/${img.filename}`
-      const t = tags?.[key] ?? {}
-      const objects = Array.isArray(t.objects) ? t.objects : []
-      const vibe = []
-      const isShot = objects.includes(SCREENSHOT_TAG)
-      const color = isShot ? 'screen time' : (COLOR_HEX[t.color] ? t.color : 'multicolor')
-      const tagList = [...objects, ...vibe]
-      return {
-        index,
-        key,
-        src: img.src,
-        thumbSrc: img.thumbSrc,
-        color,
-        isShot,
-        objects,
-        vibe,
-        caption: t.caption ?? '',
-        date: t.date ?? null,
-        tags: tagList,
-        tagSet: new Set(tagList),
-        x: 0, y: 0, vx: 0, vy: 0,
-      }
-    })
-  }, [images, tags])
+  // mutable engine state (patchy-studies style)
+  const S = useRef({
+    W: 800, H: 600, dpr: 1,
+    view: { x: 400, y: 300, scale: 0.9 },
+    alpha: 1, drag: null, pan: null, moved: false,
+    hovered: null, selected: null,
+    visible: [], visibleSet: new Set(),
+    raf: 0,
+  }).current
+
+  const nodes = useMemo(() => images.map((img, index) => {
+    const key = `${img.page}/${img.filename}`
+    const t = tags?.[key] ?? {}
+    const objects = Array.isArray(t.objects) ? t.objects : []
+    const isShot = objects.includes(SCREENSHOT_TAG)
+    const color = isShot ? 'screen time' : (COLOR_HEX[t.color] ? t.color : 'multicolor')
+    const tagList = [...objects]
+    const im = new Image()
+    im.src = img.thumbSrc
+    return {
+      index, key, src: img.src, thumbSrc: img.thumbSrc, img: im,
+      color, isShot, caption: t.caption ?? '', date: t.date ?? null,
+      tags: tagList, tagSet: new Set(tagList),
+      x: Math.cos(index * 2.399) * 420 + (index % 4) * 25,
+      y: Math.sin(index * 2.399) * 330 + (index % 5) * 18,
+      vx: 0, vy: 0, fixed: false,
+    }
+  }), [images, tags])
 
   const links = useMemo(() => buildLinks(nodes), [nodes])
-
+  const neighbors = useMemo(() => {
+    const m = new Map()
+    links.forEach((l) => {
+      if (!m.has(l.a)) m.set(l.a, new Set())
+      if (!m.has(l.b)) m.set(l.b, new Set())
+      m.get(l.a).add(l.b); m.get(l.b).add(l.a)
+    })
+    return m
+  }, [links])
   const allTags = useMemo(() => {
     const count = new Map()
     nodes.forEach((n) => n.tags.forEach((t) => count.set(t, (count.get(t) ?? 0) + 1)))
     return [...count.entries()].sort((a, b) => b[1] - a[1])
   }, [nodes])
 
-  const neighbors = useMemo(() => {
-    const m = new Map()
-    links.forEach((l) => {
-      if (!m.has(l.source)) m.set(l.source, new Set())
-      if (!m.has(l.target)) m.set(l.target, new Set())
-      m.get(l.source).add(l.target)
-      m.get(l.target).add(l.source)
-    })
-    return m
-  }, [links])
-
   const q = query.trim().toLowerCase()
-  const isVisible = useCallback((n) => {
+  const visibleList = useMemo(() => nodes.filter((n) => {
     if (!activeColors.has(n.color)) return false
     if (activeTags.size > 0) for (const t of activeTags) if (!n.tagSet.has(t)) return false
     if (q && !(n.caption.toLowerCase().includes(q) || n.tags.some((t) => t.includes(q)) || n.color.includes(q))) return false
     return true
-  }, [activeColors, activeTags, q])
+  }).map((n) => n.index), [nodes, activeColors, activeTags, q])
 
-  const visibleList = useMemo(() => nodes.filter(isVisible).map((n) => n.index), [nodes, isVisible])
-
-  // measure
   useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    const ro = new ResizeObserver(() => setSize({ w: el.offsetWidth, h: el.offsetHeight }))
-    ro.observe(el)
-    setSize({ w: el.offsetWidth, h: el.offsetHeight })
-    return () => ro.disconnect()
-  }, [])
+    S.visible = visibleList
+    S.visibleSet = new Set(visibleList)
+    S.alpha = Math.max(S.alpha, 0.5)
+  }, [visibleList, S])
+  useEffect(() => { S.selected = selected }, [selected, S])
+  useEffect(() => { S.hovered = hovered }, [hovered, S])
 
-  // static layout: run the simulation synchronously once, nothing moves until dragged
-  const layoutDone = useRef(false)
-  const userTouched = useRef(false)
+  // ---------- engine ----------
   useEffect(() => {
-    if (layoutDone.current || size.w < 50) return
-    layoutDone.current = true
-    const n = nodes.length
-    const R = 40 * Math.sqrt(Math.max(1, n))
-    nodes.forEach((node, i) => {
-      const angle = (i / Math.max(1, n)) * Math.PI * 2 * 9
-      const r = R * Math.sqrt((i + 1) / n)
-      node.x = Math.cos(angle) * r
-      node.y = Math.sin(angle) * r
-      node.vx = 0; node.vy = 0
-    })
-    nodesRef.current = nodes
-    linksRef.current = links
-    for (let iter = 0; iter < 400; iter++) {
-      const alpha = Math.max(0.03, 1 - iter / 360)
-      for (let i = 0; i < nodes.length; i++) {
-        const a = nodes[i]
-        for (let j = i + 1; j < nodes.length; j++) {
-          const b = nodes[j]
-          let dx = a.x - b.x, dy = a.y - b.y
-          let d2 = dx * dx + dy * dy
-          if (d2 < 0.01) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d2 = 1 }
-          if (d2 > 640000) continue
-          const f = (9000 / d2) * alpha
-          const d = Math.sqrt(d2)
-          const fx = (dx / d) * f, fy = (dy / d) * f
-          a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy
+    const canvas = canvasRef.current
+    const stage = stageRef.current
+    if (!canvas || !stage) return
+    const ctx = canvas.getContext('2d')
+
+    const world = (sx, sy) => ({ x: (sx - S.view.x) / S.view.scale, y: (sy - S.view.y) / S.view.scale })
+    const local = (e) => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top } }
+    const hit = (sx, sy) => {
+      const p = world(sx, sy)
+      const r2 = (NODE_R + 3) * (NODE_R + 3)
+      for (let i = S.visible.length - 1; i >= 0; i--) {
+        const n = nodes[S.visible[i]]
+        const dx = p.x - n.x, dy = p.y - n.y
+        if (dx * dx + dy * dy <= r2) return n
+      }
+      return null
+    }
+    const relationSet = () => {
+      const idx = S.selected ?? S.hovered
+      if (idx == null) return null
+      const s = new Set([idx])
+      neighbors.get(idx)?.forEach((k) => s.add(k))
+      return s
+    }
+
+    const simulate = () => {
+      if (S.alpha < 0.002 && !S.drag) return
+      const vis = S.visible.map((i) => nodes[i])
+      const a = S.alpha
+      for (let i = 0; i < vis.length; i++) {
+        const p = vis[i]
+        for (let j = i + 1; j < vis.length; j++) {
+          const o = vis[j]
+          const dx = p.x - o.x, dy = p.y - o.y
+          const d2 = dx * dx + dy * dy + 50
+          if (d2 > 360000) continue
+          const f = 14000 / d2 * a
+          const dist = Math.sqrt(d2)
+          const fx = dx / dist * f, fy = dy / dist * f
+          if (!p.fixed) { p.vx += fx; p.vy += fy }
+          if (!o.fixed) { o.vx -= fx; o.vy -= fy }
         }
+        if (!p.fixed) { p.vx += -p.x * 0.0005 * a; p.vy += -p.y * 0.0005 * a }
       }
       for (const l of links) {
-        const a = nodes[l.source], b = nodes[l.target]
-        const dx = b.x - a.x, dy = b.y - a.y
-        const d = Math.sqrt(dx * dx + dy * dy) || 1
-        const f = ((d - 150) / d) * 0.03 * alpha * Math.min(2, l.weight)
-        a.vx += dx * f; a.vy += dy * f; b.vx -= dx * f; b.vy -= dy * f
+        if (!S.visibleSet.has(l.a) || !S.visibleSet.has(l.b)) continue
+        const A = nodes[l.a], B = nodes[l.b]
+        const dx = B.x - A.x, dy = B.y - A.y
+        const d = Math.max(1, Math.sqrt(dx * dx + dy * dy))
+        const ideal = 120
+        const f = (d - ideal) * 0.0018 * a * Math.min(2, l.weight)
+        const fx = dx / d * f, fy = dy / d * f
+        if (!A.fixed) { A.vx += fx; A.vy += fy }
+        if (!B.fixed) { B.vx -= fx; B.vy -= fy }
       }
-      for (const nd of nodes) {
-        nd.vx += (0 - nd.x) * 0.0006 * alpha
-        nd.vy += (0 - nd.y) * 0.0006 * alpha
-        nd.vx *= 0.8; nd.vy *= 0.8
-        nd.x += nd.vx; nd.y += nd.vy
+      for (const n of vis) {
+        if (n.fixed) continue
+        n.vx *= 0.86; n.vy *= 0.86
+        n.x += n.vx; n.y += n.vy
       }
+      S.alpha *= 0.992
     }
-    setTick((t) => t + 1)
-  }, [nodes, links, size.w, size.h])
-  // fit whole graph into the container (instant on first layout, animated on reset)
-  const fitTransform = useCallback(() => {
-    const ns = nodesRef.current
-    if (!ns.length || size.w < 50) return null
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    for (const nd of ns) { minX = Math.min(minX, nd.x); maxX = Math.max(maxX, nd.x); minY = Math.min(minY, nd.y); maxY = Math.max(maxY, nd.y) }
-    const pad = 60
-    const scale = Math.min((size.w - pad * 2) / Math.max(1, maxX - minX), (size.h - pad * 2) / Math.max(1, maxY - minY), 2.5)
-    return { scale, x: size.w / 2 - ((minX + maxX) / 2) * scale, y: size.h / 2 - ((minY + maxY) / 2) * scale }
-  }, [size.w, size.h])
-  useEffect(() => {
-    if (!layoutDone.current || userTouched.current) return
-    const next = fitTransform()
-    if (!next) return
-    targetRef.current = next
-    setTransform(next)
-  }, [tick, fitTransform])
-  // smooth zoom: wheel updates a target, a rAF loop eases the visible transform toward it
-  const rafRef = useRef(null)
-  const animateToTarget = useCallback(() => {
-    if (rafRef.current) return
-    const step = () => {
-      const tg = targetRef.current
-      setTransform((t) => {
-        const ease = 0.16
-        const ns = t.scale + (tg.scale - t.scale) * ease
-        const nx = t.x + (tg.x - t.x) * ease
-        const ny = t.y + (tg.y - t.y) * ease
-        const done = Math.abs(tg.scale - ns) < 0.0005 && Math.abs(tg.x - nx) < 0.3 && Math.abs(tg.y - ny) < 0.3
-        if (done) { rafRef.current = null; return { ...tg } }
-        rafRef.current = requestAnimationFrame(step)
-        return { scale: ns, x: nx, y: ny }
-      })
-    }
-    rafRef.current = requestAnimationFrame(step)
-  }, [])
-  const setTarget = useCallback((next) => {
-    targetRef.current = typeof next === 'function' ? next(targetRef.current) : next
-    animateToTarget()
-  }, [animateToTarget])
-  const jumpTo = useCallback((next) => {
-    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
-    targetRef.current = next
-    setTransform(next)
-  }, [])
-  useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }, [])
 
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
+    const draw = () => {
+      const { W, H, dpr, view } = S
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      ctx.clearRect(0, 0, W, H)
+      const rels = relationSet()
+      ctx.save()
+      ctx.translate(view.x, view.y)
+      ctx.scale(view.scale, view.scale)
+      for (const l of links) {
+        if (!S.visibleSet.has(l.a) || !S.visibleSet.has(l.b)) continue
+        const A = nodes[l.a], B = nodes[l.b]
+        const hot = rels && rels.has(l.a) && rels.has(l.b) && (l.a === (S.selected ?? S.hovered) || l.b === (S.selected ?? S.hovered))
+        ctx.strokeStyle = hot ? 'rgba(20,20,20,.8)' : 'rgba(25,25,25,.16)'
+        ctx.lineWidth = (hot ? 1.6 : 0.7) / view.scale
+        ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke()
+      }
+      const showImg = view.scale > 0.55
+      for (const i of S.visible) {
+        const n = nodes[i]
+        const dim = rels && !rels.has(i)
+        const sel = i === S.selected, hov = i === S.hovered
+        ctx.globalAlpha = dim ? 0.15 : 1
+        ctx.beginPath(); ctx.arc(n.x, n.y, NODE_R, 0, Math.PI * 2)
+        ctx.fillStyle = COLOR_HEX[n.color]; ctx.fill()
+        if (showImg && n.img.complete && n.img.naturalWidth > 0) {
+          ctx.save(); ctx.beginPath(); ctx.arc(n.x, n.y, NODE_R - 2.5, 0, Math.PI * 2); ctx.clip()
+          const iw = n.img.naturalWidth, ih = n.img.naturalHeight, s = Math.max((NODE_R * 2) / iw, (NODE_R * 2) / ih)
+          ctx.drawImage(n.img, n.x - iw * s / 2, n.y - ih * s / 2, iw * s, ih * s)
+          ctx.restore()
+        }
+        if (sel || hov) {
+          ctx.lineWidth = (sel ? 3.5 : 2) / view.scale
+          ctx.strokeStyle = '#111'
+          ctx.beginPath(); ctx.arc(n.x, n.y, NODE_R + 1, 0, Math.PI * 2); ctx.stroke()
+        }
+        ctx.globalAlpha = 1
+      }
+      ctx.restore()
+    }
+
+    const loop = () => { simulate(); draw(); S.raf = requestAnimationFrame(loop) }
+
+    const resize = () => {
+      S.dpr = Math.min(window.devicePixelRatio || 1, 2)
+      S.W = stage.clientWidth; S.H = stage.clientHeight
+      canvas.width = S.W * S.dpr; canvas.height = S.H * S.dpr
+      canvas.style.width = S.W + 'px'; canvas.style.height = S.H + 'px'
+      if (!S.viewInit) { S.view = { x: S.W / 2, y: S.H / 2, scale: Math.min(S.W / 1500, S.H / 1100, 1) }; S.viewInit = true }
+    }
+    const ro = new ResizeObserver(resize)
+    ro.observe(stage)
+    resize()
+
+    const onDown = (e) => {
+      if (e.button !== undefined && e.button !== 0) return
+      canvas.setPointerCapture(e.pointerId)
+      const { x, y } = local(e)
+      const n = hit(x, y)
+      S.moved = false
+      if (n) { S.drag = n; n.fixed = true } else S.pan = { x, y, vx: S.view.x, vy: S.view.y }
+      canvas.classList.add('grabbing')
+    }
+    const onMove = (e) => {
+      const { x, y } = local(e)
+      if (S.drag) {
+        const p = world(x, y); S.drag.x = p.x; S.drag.y = p.y; S.moved = true; S.alpha = Math.max(S.alpha, 0.2)
+      } else if (S.pan) {
+        S.view.x = S.pan.vx + x - S.pan.x; S.view.y = S.pan.vy + y - S.pan.y; S.moved = true
+      } else {
+        const h = hit(x, y)
+        const idx = h ? h.index : null
+        if (idx !== S.hovered) { S.hovered = idx; setHovered(idx) }
+        canvas.style.cursor = h ? 'pointer' : 'default'
+      }
+    }
+    const onUp = (e) => {
+      const { x, y } = local(e)
+      if (S.drag) {
+        const n = S.drag; S.drag = null; n.fixed = false
+        if (!S.moved) { setSelected(n.index); S.alpha = Math.max(S.alpha, 0.3) }
+      } else if (!S.moved && !hit(x, y)) {
+        setSelected(null)
+      }
+      S.pan = null
+      canvas.classList.remove('grabbing')
+    }
     const onWheel = (e) => {
       e.preventDefault()
-      userTouched.current = true
-      const rect = el.getBoundingClientRect()
-      const mx = e.clientX - rect.left, my = e.clientY - rect.top
-      // normalise delta: trackpads send many small deltas, mice send ~100 per notch
-      const raw = e.deltaMode === 1 ? e.deltaY * 20 : e.deltaY
-      const delta = Math.max(-120, Math.min(120, raw))
-      const factor = Math.exp(-delta * 0.0035)
-      setTarget((t) => {
-        const scale = Math.min(8, Math.max(0.2, t.scale * factor))
-        const k = scale / t.scale
-        return { scale, x: mx - (mx - t.x) * k, y: my - (my - t.y) * k }
-      })
+      const { x, y } = local(e)
+      const old = S.view.scale
+      const f = Math.max(0.15, Math.min(4, old * Math.exp(-e.deltaY * 0.001)))
+      const wx = (x - S.view.x) / old, wy = (y - S.view.y) / old
+      S.view.x = x - wx * f; S.view.y = y - wy * f; S.view.scale = f
     }
-    el.addEventListener('wheel', onWheel, { passive: false })
-    return () => el.removeEventListener('wheel', onWheel)
-  }, [setTarget])
-
-  const toWorld = (clientX, clientY) => {
-    const rect = containerRef.current.getBoundingClientRect()
-    return { x: (clientX - rect.left - transform.x) / transform.scale, y: (clientY - rect.top - transform.y) / transform.scale }
-  }
-
-  const onPointerDown = (e) => {
-    if (e.button !== undefined && e.button !== 0) return
-    userTouched.current = true
-    setIsPanning(true)
-    panRef.current = { sx: e.clientX, sy: e.clientY, tx: transform.x, ty: transform.y, moved: false }
-  }
-  const onPointerMove = (e) => {
-    if (dragRef.current) {
-      const p = toWorld(e.clientX, e.clientY)
-      const nd = nodesRef.current[dragRef.current.index]
-      nd.x = p.x; nd.y = p.y
-      dragRef.current.moved = true
-      setTick((t) => t + 1)
-      return
+    canvas.addEventListener('pointerdown', onDown)
+    canvas.addEventListener('pointermove', onMove)
+    canvas.addEventListener('pointerup', onUp)
+    canvas.addEventListener('pointercancel', onUp)
+    canvas.addEventListener('wheel', onWheel, { passive: false })
+    S.raf = requestAnimationFrame(loop)
+    return () => {
+      cancelAnimationFrame(S.raf)
+      ro.disconnect()
+      canvas.removeEventListener('pointerdown', onDown)
+      canvas.removeEventListener('pointermove', onMove)
+      canvas.removeEventListener('pointerup', onUp)
+      canvas.removeEventListener('pointercancel', onUp)
+      canvas.removeEventListener('wheel', onWheel)
     }
-    const p = panRef.current
-    if (!p) return
-    const dx = e.clientX - p.sx, dy = e.clientY - p.sy
-    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) p.moved = true
-    jumpTo({ ...targetRef.current, x: p.tx + dx, y: p.ty + dy })
-  }
-  const onPointerUp = () => {
-    if (dragRef.current) {
-      const d = dragRef.current
-      dragRef.current = null
-      if (!d.moved) { setSelected(d.index); setHovered(null) }
-      return
-    }
-    if (panRef.current && !panRef.current.moved) { setHovered(null); setSelected(null) }
-    panRef.current = null
-    setIsPanning(false)
-  }
+  }, [nodes, links, neighbors, S])
 
+  // ---------- controls ----------
   const focusNode = useCallback((index) => {
-    const nd = nodesRef.current[index]
-    if (!nd) return
+    const n = nodes[index]
+    if (!n) return
     setSelected(index)
-    setTarget((t) => {
-      const scale = Math.max(t.scale, 1.6)
-      return { scale, x: size.w / 2 - nd.x * scale, y: size.h / 2 - nd.y * scale }
-    })
-  }, [size.w, size.h, setTarget])
-
+    const scale = Math.max(S.view.scale, 1.2)
+    S.view = { scale, x: S.W / 2 - n.x * scale, y: S.H / 2 - n.y * scale }
+    S.alpha = Math.max(S.alpha, 0.3)
+  }, [nodes, S])
   const goRelative = (delta) => {
     if (visibleList.length === 0) return
     const cur = selected != null ? visibleList.indexOf(selected) : -1
     const next = ((cur + delta) % visibleList.length + visibleList.length) % visibleList.length
     focusNode(visibleList[next])
   }
-  const goRandom = () => {
-    if (visibleList.length === 0) return
-    focusNode(visibleList[Math.floor(Math.random() * visibleList.length)])
+  const goRandom = () => { if (visibleList.length) focusNode(visibleList[Math.floor(Math.random() * visibleList.length)]) }
+  const fit = () => { S.view = { x: S.W / 2, y: S.H / 2, scale: Math.min(S.W / 1500, S.H / 1100, 1) } }
+  const zoomBy = (k) => {
+    const old = S.view.scale, f = Math.max(0.15, Math.min(4, old * k))
+    const cx = S.W / 2, cy = S.H / 2
+    const wx = (cx - S.view.x) / old, wy = (cy - S.view.y) / old
+    S.view = { x: cx - wx * f, y: cy - wy * f, scale: f }
   }
   const reset = () => {
-    setActiveColors(new Set(COLOR_ORDER))
-    setActiveTags(new Set())
-    setQuery('')
-    setSelected(null)
-    const next = fitTransform()
-    if (next) setTarget(next)
+    setActiveColors(new Set(COLOR_ORDER)); setActiveTags(new Set()); setQuery(''); setSelected(null)
+    nodes.forEach((n, i) => { n.x = Math.cos(i * 2.399) * 420 + (i % 4) * 25; n.y = Math.sin(i * 2.399) * 330 + (i % 5) * 18; n.vx = n.vy = 0 })
+    fit(); S.alpha = 1
   }
-
   const toggleColor = (c) => setActiveColors((prev) => {
     const next = new Set(prev)
     if (next.has(c) && next.size === COLOR_ORDER.length) return new Set([c])
     if (next.has(c)) next.delete(c); else next.add(c)
-    if (next.size === 0) return new Set(COLOR_ORDER)
-    return next
+    return next.size === 0 ? new Set(COLOR_ORDER) : next
   })
-  const toggleTag = (t) => setActiveTags((prev) => {
-    const next = new Set(prev)
-    if (next.has(t)) next.delete(t); else next.add(t)
-    return next
-  })
+  const toggleTag = (t) => setActiveTags((prev) => { const next = new Set(prev); if (next.has(t)) next.delete(t); else next.add(t); return next })
 
   useEffect(() => {
     const onKey = (e) => {
@@ -341,58 +342,36 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
   })
 
   const sel = selected != null ? nodes[selected] : null
-  const focusSet = useMemo(() => {
-    const idx = hovered ?? selected
-    if (idx == null) return null
-    const s = new Set([idx])
-    neighbors.get(idx)?.forEach((n) => s.add(n))
-    return s
-  }, [hovered, selected, neighbors])
-
-  const visibleSet = useMemo(() => new Set(visibleList), [visibleList])
+  const hov = hovered != null ? nodes[hovered] : null
+  const markNode = hov ?? sel
   const anyFilter = activeTags.size > 0 || q || activeColors.size !== COLOR_ORDER.length
 
-  const panelW = isMobileLayout ? '100%' : '220px'
-  const previewW = isMobileLayout ? '100%' : '440px'
-
-  const markNode = hovered != null ? nodes[hovered] : sel
   const chip = (label, active, onClick, colorDot, marked = false) => (
-    <button
-      key={label}
-      type="button"
-      onClick={onClick}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: '5px',
-        border: '1px solid ' + (active ? '#000' : marked ? '#ff69b4' : '#ddd'),
-        background: active ? '#000' : marked ? '#ffe4f3' : '#fff', color: active ? '#fff' : '#000',
-        borderRadius: '999px', padding: '2px 8px', margin: '0 4px 4px 0',
-        fontFamily: FONT, fontSize: '11px', fontWeight: 300, cursor: 'pointer', lineHeight: 1.5,
-      }}
-    >
+    <button key={label} type="button" onClick={onClick}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', border: '1px solid ' + (active ? '#000' : marked ? '#ff69b4' : '#ddd'), background: active ? '#000' : marked ? '#ffe4f3' : '#fff', color: active ? '#fff' : '#000', borderRadius: '999px', padding: '2px 8px', margin: '0 4px 4px 0', fontFamily: FONT, fontSize: '11px', fontWeight: 300, cursor: 'pointer', lineHeight: 1.5 }}>
       {colorDot && <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: colorDot, border: '1px solid rgba(0,0,0,0.15)', display: 'inline-block' }} />}
       {label}
     </button>
   )
-
   const navBtn = (label, onClick, disabled) => (
     <button type="button" onClick={onClick} disabled={disabled} style={{ border: '1px solid #000', background: '#fff', color: '#000', padding: '3px 9px', fontFamily: FONT, fontSize: '12px', fontWeight: 300, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1, borderRadius: '3px' }}>{label}</button>
   )
+  const roundBtn = (label, onClick, title) => (
+    <button type="button" onClick={onClick} title={title} style={{ width: '32px', height: '32px', borderRadius: '50%', border: '1px solid rgba(0,0,0,0.2)', background: 'rgba(255,255,255,0.9)', fontSize: '17px', lineHeight: '30px', padding: 0, cursor: 'pointer', fontFamily: FONT }}>{label}</button>
+  )
+
+  const cardW = isMobileLayout ? 'calc(100% - 18px)' : '320px'
 
   return (
     <div className="archive-map" style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', background: '#fff', fontFamily: FONT, display: 'flex', flexDirection: isMobileLayout ? 'column' : 'row' }}>
       {/* Left panel */}
-      <div style={{ width: panelW, flex: isMobileLayout ? '0 0 auto' : '0 0 220px', borderRight: isMobileLayout ? 'none' : '1px solid #eee', borderBottom: isMobileLayout ? '1px solid #eee' : 'none', padding: '14px 14px 10px', boxSizing: 'border-box', overflowY: 'auto', maxHeight: isMobileLayout ? (panelOpen ? '45%' : '44px') : '100%', transition: 'max-height 200ms', fontSize: '12px', fontWeight: 300, lineHeight: 1.4 }}>
+      <div style={{ flex: isMobileLayout ? '0 0 auto' : '0 0 220px', width: isMobileLayout ? '100%' : '220px', borderRight: isMobileLayout ? 'none' : '1px solid #eee', borderBottom: isMobileLayout ? '1px solid #eee' : 'none', padding: '14px 14px 10px', boxSizing: 'border-box', overflowY: 'auto', maxHeight: isMobileLayout ? (panelOpen ? '45%' : '44px') : '100%', transition: 'max-height 200ms', fontSize: '12px', fontWeight: 300, lineHeight: 1.4 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px' }}>
           <span style={{ fontSize: '13px', fontWeight: 400 }}>global collective bedrooms archive</span>
           {isMobileLayout && <button type="button" onClick={() => setPanelOpen((p) => !p)} style={{ border: 'none', background: 'none', fontSize: '14px', cursor: 'pointer' }}>{panelOpen ? '−' : '+'}</button>}
         </div>
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="search tags…"
-          style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #ddd', padding: '5px 8px', fontFamily: FONT, fontSize: '12px', fontWeight: 300, marginBottom: '10px', outline: 'none' }}
-        />
-        <div style={{ color: '#666', marginBottom: '10px' }}>{visibleList.length} / {nodes.length} rooms · {links.length} links</div>
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="search tags…" style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #ddd', padding: '5px 8px', fontFamily: FONT, fontSize: '12px', fontWeight: 300, marginBottom: '10px', outline: 'none' }} />
+        <div style={{ color: '#666', marginBottom: '10px' }}>{visibleList.length} / {nodes.length} rooms · {links.filter((l) => visibleList.includes(l.a) && visibleList.includes(l.b)).length} links</div>
         <div style={{ display: 'flex', gap: '4px', marginBottom: '12px', flexWrap: 'wrap' }}>
           {navBtn('← prev', () => goRelative(-1), visibleList.length === 0)}
           {navBtn('next →', () => goRelative(1), visibleList.length === 0)}
@@ -404,122 +383,66 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
           {COLOR_ORDER.map((c) => chip(c, activeColors.has(c) && activeColors.size !== COLOR_ORDER.length, () => toggleColor(c), COLOR_HEX[c], markNode?.color === c))}
         </div>
         <div style={{ color: '#666', marginBottom: '4px' }}>tags</div>
-        <div>
-          {allTags.map(([t, n]) => chip(`${t} ${n}`, activeTags.has(t), () => toggleTag(t), null, Boolean(markNode?.tagSet.has(t))))}
+        <div>{allTags.map(([t, n]) => chip(`${t} ${n}`, activeTags.has(t), () => toggleTag(t), null, Boolean(markNode?.tagSet.has(t))))}</div>
+      </div>
+
+      {/* Stage */}
+      <div ref={stageRef} style={{ flex: 1, position: 'relative', minHeight: 0 }}>
+        <canvas ref={canvasRef} className="am-canvas" style={{ display: 'block', touchAction: 'none' }} />
+
+        <div style={{ position: 'absolute', right: '12px', top: '12px', display: 'flex', gap: '6px', zIndex: 8 }}>
+          {roundBtn('+', () => zoomBy(1.2), 'zoom in')}
+          {roundBtn('−', () => zoomBy(1 / 1.2), 'zoom out')}
+          {roundBtn('⌂', fit, 'fit')}
+        </div>
+
+        {/* hover tooltip: small, near cursor-free corner so it never covers neighbours */}
+        {hov && !sel && (
+          <div style={{ position: 'absolute', left: '12px', bottom: '12px', width: '200px', background: '#fff', border: '1px solid #111', padding: '6px', zIndex: 8, pointerEvents: 'none' }}>
+            <img src={hov.src} alt="" style={{ width: '100%', height: '150px', objectFit: 'cover', display: 'block' }} />
+            <div style={{ fontSize: '11px', fontWeight: 300, marginTop: '5px', lineHeight: 1.3 }}>room {hov.index + 1} · {hov.date ?? 'date unknown'}</div>
+            <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>click to open</div>
+          </div>
+        )}
+
+        {/* pinned detail card, docked bottom-right like patchy studies */}
+        {sel && (
+          <section style={{ position: 'absolute', right: isMobileLayout ? '9px' : '12px', bottom: isMobileLayout ? '9px' : '12px', width: cardW, maxHeight: isMobileLayout ? '40%' : '62%', overflowY: 'auto', boxSizing: 'border-box', background: 'rgba(255,255,255,0.98)', border: '1px solid rgba(0,0,0,0.18)', borderRadius: '14px', padding: '14px', zIndex: 9, boxShadow: '0 12px 40px rgba(0,0,0,0.15)' }}>
+            <button type="button" onClick={() => setSelected(null)} aria-label="close" style={{ position: 'absolute', right: '10px', top: '8px', border: 0, background: 'none', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+            <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '8px' }}>
+              <span style={{ display: 'inline-block', width: '9px', height: '9px', borderRadius: '50%', background: COLOR_HEX[sel.color], marginRight: '6px', verticalAlign: '-1px' }} />
+              room {sel.index + 1} · {sel.color} · {sel.date ?? 'date unknown'}
+            </div>
+            <a href={sel.src} target="_blank" rel="noreferrer"><img src={sel.src} alt="" style={{ width: '100%', height: 'auto', display: 'block', borderRadius: '8px', marginBottom: '10px' }} /></a>
+            <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: 300, lineHeight: 1.4 }}>{sel.caption || sel.tags.join(', ')}</p>
+            <div style={{ marginBottom: '10px' }}>
+              {chip(sel.color, activeColors.size === 1 && activeColors.has(sel.color), () => toggleColor(sel.color), COLOR_HEX[sel.color])}
+              {sel.tags.map((t) => chip(t, activeTags.has(t), () => toggleTag(t)))}
+            </div>
+            {neighbors.get(sel.index)?.size > 0 && (
+              <div style={{ borderTop: '1px solid rgba(0,0,0,0.16)', paddingTop: '9px', fontSize: '11px' }}>
+                <div style={{ marginBottom: '6px' }}>direct relations</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                  {[...neighbors.get(sel.index)].map((ni) => (
+                    <button key={ni} type="button" onClick={() => focusNode(ni)} title={`room ${ni + 1}`} style={{ border: '1px solid #eee', background: 'none', padding: 0, cursor: 'pointer', lineHeight: 0, borderRadius: '4px', overflow: 'hidden' }}>
+                      <img src={nodes[ni].thumbSrc} alt="" style={{ width: '52px', height: '52px', objectFit: 'cover', display: 'block' }} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: '4px', marginTop: '10px' }}>
+              {navBtn('← prev', () => goRelative(-1), false)}
+              {navBtn('next →', () => goRelative(1), false)}
+              {navBtn('random', goRandom, false)}
+            </div>
+          </section>
+        )}
+
+        <div style={{ position: 'absolute', left: '50%', bottom: '10px', transform: 'translateX(-50%)', fontSize: '10px', color: '#777', fontWeight: 300, pointerEvents: 'none', background: 'rgba(255,255,255,0.85)', padding: '3px 8px', borderRadius: '8px', display: hov || sel ? 'none' : 'block' }}>
+          drag to move · scroll to zoom · click a room to open it
         </div>
       </div>
-
-      {/* Graph */}
-      <div
-        ref={containerRef}
-        className={`am-canvas${isPanning ? ' grabbing' : ''}`}
-        style={{ flex: 1, position: 'relative', minHeight: 0, touchAction: 'none' }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerLeave={onPointerUp}
-      >
-        <svg width={size.w} height={size.h} style={{ display: 'block' }}>
-          <g transform={`translate(${transform.x},${transform.y}) scale(${transform.scale})`}>
-            {links.map((l, i) => {
-              const a = nodesRef.current[l.source], b = nodesRef.current[l.target]
-              if (!a || !b) return null
-              const vis = visibleSet.has(l.source) && visibleSet.has(l.target)
-              const inFocus = focusSet ? (focusSet.has(l.source) && focusSet.has(l.target) && (l.source === (hovered ?? selected) || l.target === (hovered ?? selected))) : false
-              return (
-                <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-                  stroke={inFocus ? '#000' : '#bbb'}
-                  strokeWidth={(inFocus ? 1.2 : 0.6) / transform.scale}
-                  opacity={vis ? (focusSet && !inFocus ? 0.25 : 0.8) : 0.06}
-                />
-              )
-            })}
-            {nodesRef.current.map((n) => {
-              const vis = visibleSet.has(n.index)
-              const isSel = selected === n.index
-              const isHov = hovered === n.index
-              const dim = focusSet && !focusSet.has(n.index)
-              const r = (isSel ? 11 : isHov ? 10 : 8) / Math.sqrt(transform.scale)
-              return (
-                <circle
-                  key={n.index}
-                  cx={n.x} cy={n.y} r={r}
-                  fill={COLOR_HEX[n.color]}
-                  stroke={isSel ? '#000' : 'rgba(0,0,0,0.25)'}
-                  strokeWidth={(isSel ? 2 : 0.8) / transform.scale}
-                  opacity={vis ? (dim ? 0.3 : 1) : 0.08}
-                  style={{ cursor: 'pointer' }}
-                  onPointerDown={(e) => { e.stopPropagation(); userTouched.current = true; e.currentTarget.setPointerCapture?.(e.pointerId); dragRef.current = { index: n.index, moved: false } }}
-                  onPointerMove={(e) => { if (dragRef.current && dragRef.current.index === n.index) onPointerMove(e) }}
-                  onPointerUp={(e) => { e.stopPropagation(); onPointerUp() }}
-                  onPointerEnter={() => { if (dragRef.current || panRef.current) return; clearTimeout(hoverTimerRef.current); setHovered(n.index) }}
-                  onPointerLeave={() => { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = setTimeout(() => setHovered(null), 900) }}
-                />
-              )
-            })}
-          </g>
-          {(() => { const idx = hovered ?? selected; const n = idx != null ? nodesRef.current[idx] : null; if (!n) return null; const px = n.x * transform.scale + transform.x, py = n.y * transform.scale + transform.y; const W = isMobileLayout ? Math.min(300, size.w - 16) : 300; return <line x1={px} y1={py} x2={size.w - 12 - W / 2} y2={40} stroke='#ff69b4' strokeWidth={1} strokeDasharray='3 3' opacity={0.7} pointerEvents='none' /> })()}
-        </svg>
-        {(() => {
-          const idx = hovered ?? selected
-          if (idx == null) return null
-          const n = nodesRef.current[idx]
-          if (!n) return null
-          const pinned = hovered == null && selected != null
-          const nb = [...(neighbors.get(n.index) ?? [])]
-          const W = isMobileLayout ? Math.min(300, size.w - 16) : 300
-          const maxH = size.h - 16
-          return (
-            <div
-              onPointerDown={(e) => e.stopPropagation()}
-              onPointerEnter={() => clearTimeout(hoverTimerRef.current)}
-              onPointerLeave={() => { if (!pinned) { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = setTimeout(() => setHovered(null), 200) } }}
-              style={{ position: 'absolute', right: 12, top: 12, width: `${W}px`, maxHeight: `${maxH}px`, overflowY: 'auto', boxSizing: 'border-box', pointerEvents: 'auto', background: '#fde4ee', borderRadius: '14px', padding: '10px', zIndex: 7, boxShadow: '0 10px 30px rgba(0,0,0,0.18)', fontFamily: FONT }}
-            >
-              {pinned && (
-                <button type="button" onClick={() => setSelected(null)} aria-label="close" style={{ position: 'absolute', top: '14px', right: '14px', width: '26px', height: '26px', borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.85)', fontSize: '15px', cursor: 'pointer', lineHeight: '26px', padding: 0 }}>×</button>
-              )}
-              <img src={n.src} alt="" style={{ width: '100%', height: `${Math.round(W * 0.78)}px`, objectFit: 'cover', display: 'block', borderRadius: '10px', background: '#f6f6f6' }} />
-              <div style={{ fontSize: '15px', fontWeight: 400, lineHeight: 1.3, margin: '10px 0 4px', color: '#111' }}>
-                room {n.index + 1}
-              </div>
-              <div style={{ fontSize: '12px', fontWeight: 300, color: '#555', marginBottom: '6px' }}>
-                {n.date ? n.date : 'date unknown'} · {n.color}
-              </div>
-              <div style={{ fontSize: '12px', fontWeight: 300, color: '#333', marginBottom: '8px', lineHeight: 1.4 }}>
-                {n.caption || n.tags.join(', ')}
-              </div>
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: nb.length ? '10px' : 0 }}>
-                <span style={{ background: '#fff', borderRadius: '999px', padding: '2px 9px', fontSize: '11px', fontWeight: 300 }}>{nb.length} relations</span>
-                <span style={{ background: '#fff', borderRadius: '999px', padding: '2px 9px', fontSize: '11px', fontWeight: 300 }}>{n.tags.length} tags</span>
-              </div>
-              {nb.length > 0 && (
-                <>
-                  <div style={{ borderTop: '1px solid rgba(0,0,0,0.12)', paddingTop: '8px', fontSize: '12px', fontWeight: 400, color: '#444', marginBottom: '6px' }}>connected rooms</div>
-                  <div style={{ background: '#fff', borderRadius: '8px', padding: '4px' }}>
-                    {nb.map((ni) => {
-                      const m = nodes[ni]
-                      const shared = m.tags.filter((t) => n.tagSet.has(t))
-                      return (
-                        <button key={ni} type="button" onClick={() => { clearTimeout(hoverTimerRef.current); setHovered(null); focusNode(ni) }} style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%', border: 'none', background: 'transparent', padding: '4px', cursor: 'pointer', textAlign: 'left', fontFamily: FONT, borderBottom: '1px solid #f3e3ea' }}>
-                          <img src={m.thumbSrc} alt="" style={{ width: '38px', height: '38px', objectFit: 'cover', borderRadius: '4px', flexShrink: 0 }} />
-                          <span style={{ fontSize: '11px', fontWeight: 300, lineHeight: 1.3, color: '#111' }}>
-                            room {ni + 1}
-                            {shared.length > 0 && <span style={{ color: '#888' }}> — {shared.slice(0, 3).join(', ')}</span>}
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </>
-              )}
-              
-            </div>
-          )
-        })()}
-        <div style={{ position: 'absolute', right: '10px', bottom: '8px', fontSize: '10px', color: '#999', fontWeight: 300, pointerEvents: 'none' }}>scroll to zoom · drag to pan · ← → to browse</div>
-      </div>
-
     </div>
   )
 }
