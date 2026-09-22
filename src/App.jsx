@@ -4206,7 +4206,7 @@ function ArchiveMapFolder({ isMobileLayout }) {
   return <ArchiveMap images={OPEN_ARCHIVE_IMAGES} tags={tags} isMobileLayout={isMobileLayout} />
 }
 
-function DraggableFolderIcon({ label, onOpen, initial = { x: 24, y: 24 } }) {
+function DraggableFolderIcon({ label, onOpen, initial = { x: 24, y: 24 }, inline = false }) {
   const [pos, setPos] = useState(initial)
   const dragRef = useRef(null)
 
@@ -4219,7 +4219,7 @@ function DraggableFolderIcon({ label, onOpen, initial = { x: 24, y: 24 } }) {
     const dx = clientX - d.startX
     const dy = clientY - d.startY
     if (Math.abs(dx) > 3 || Math.abs(dy) > 3) d.moved = true
-    setPos({ x: Math.max(0, d.originX + dx), y: Math.max(0, d.originY + dy) })
+    if (!inline) setPos({ x: Math.max(0, d.originX + dx), y: Math.max(0, d.originY + dy) })
   }
   const endDrag = () => {
     const d = dragRef.current
@@ -4251,9 +4251,10 @@ function DraggableFolderIcon({ label, onOpen, initial = { x: 24, y: 24 } }) {
       onTouchStart={(e) => { if (e.touches[0]) startDrag(e.touches[0].clientX, e.touches[0].clientY) }}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onOpen?.() }}
       style={{
-        position: 'absolute', left: pos.x, top: pos.y, zIndex: 5,
+        ...(inline ? { position: 'relative', margin: '28px 0 0' } : { position: 'absolute', left: pos.x, top: pos.y }),
+        zIndex: 5,
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', width: '120px',
-        cursor: 'grab', userSelect: 'none', font: 'inherit',
+        cursor: inline ? 'pointer' : 'grab', userSelect: 'none', font: 'inherit',
       }}
     >
       <img src={DEFAULT_FOLDER_ICON} alt="" draggable={false} style={{ width: '64px', height: '64px', objectFit: 'contain', pointerEvents: 'none' }} />
@@ -4552,7 +4553,8 @@ function AboutFolderContent({
         <DraggableFolderIcon
           label="global collective bedrooms archive"
           onOpen={() => onOpenFolderRoute?.('open-collective-archive')}
-          initial={isMobileLayout ? { x: 16, y: 56 } : { x: 780, y: 70 }}
+          initial={{ x: 780, y: 70 }}
+          inline={isMobileLayout}
         />
       </div>
     )
