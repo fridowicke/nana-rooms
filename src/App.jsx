@@ -3181,14 +3181,14 @@ function AboutPage({
 
   const folderArcLayout = isMobileLayout
     ? [
-        { id: 'press', left: '18%', top: '44%' },
-        { id: 'writing', left: '52%', top: '41%' },
-        { id: 'exhibitions', left: '82%', top: '46%' },
-        { id: 'filmmaking', left: '30%', top: '56%' },
-        { id: 'research', left: '66%', top: '57%' },
-        { id: 'local-group', left: '16%', top: '68%' },
-        { id: 'cv', left: '84%', top: '69%' },
-        { id: 'she-is-so-hot', left: '48%', top: '71%' },
+        { id: 'press', left: '17%', top: '43%' },
+        { id: 'writing', left: '50%', top: '41%' },
+        { id: 'exhibitions', left: '82%', top: '44%' },
+        { id: 'filmmaking', left: '30%', top: '55%' },
+        { id: 'research', left: '66%', top: '56%' },
+        { id: 'local-group', left: '16%', top: '67%' },
+        { id: 'she-is-so-hot', left: '48%', top: '68%' },
+        { id: 'cv', left: '83%', top: '67%' },
       ]
     : [
         { id: 'press', left: '25%', top: '36%' },
@@ -3210,32 +3210,31 @@ function AboutPage({
   }, [isMobileLayout]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const leftColumnWidth = isMobileLayout
-    ? Math.max(180, Math.min(Math.round(viewport.width * 0.58), 260))
+    ? Math.max(200, Math.min(viewport.width - 28 - 34, 330))
     : Math.max(188, Math.min(viewport.width * 0.15, 218))
   const aboutWindowWidth = leftColumnWidth + 34
-  const welcomeWidth = 126
+  const welcomeWidth = isMobileLayout ? 96 : 126
   const welcomeHeight = Math.round(welcomeWidth * (55 / 135))
   const leftColumnX = isMobileLayout ? 14 : 24
-  const aboutWindowTop = isMobileLayout ? 86 : 148
-  const aboutWindowHeight = isMobileLayout ? 160 : 181
+  const aboutWindowTop = isMobileLayout ? 132 : 148
+  const aboutWindowHeight = isMobileLayout ? 132 : 181
   const BROWSER_CHROME_HEIGHT = 62
   const aboutWindowLeft = isMobileLayout && mobileAboutWindowPosition ? mobileAboutWindowPosition.x : leftColumnX
   const aboutWindowTopPosition = isMobileLayout && mobileAboutWindowPosition ? mobileAboutWindowPosition.y : aboutWindowTop
-  const welcomeTop = Math.round(BROWSER_CHROME_HEIGHT + ((aboutWindowTop - BROWSER_CHROME_HEIGHT - welcomeHeight) / 2))
-  const playerWindowHeight = Math.round(132 * (leftColumnWidth / 290))
+  const welcomeTop = isMobileLayout ? BROWSER_CHROME_HEIGHT + 10 : Math.round(BROWSER_CHROME_HEIGHT + ((aboutWindowTop - BROWSER_CHROME_HEIGHT - welcomeHeight) / 2))
+  const playerWidth = isMobileLayout ? Math.min(210, viewport.width - 150) : leftColumnWidth
+  const playerWindowHeight = Math.round(132 * (playerWidth / 290))
   const playerWindowTop = isMobileLayout
     ? Math.max(aboutWindowTop + aboutWindowHeight + 24, viewport.height - playerWindowHeight - 14)
     : Math.max(aboutWindowTop + aboutWindowHeight + 430, viewport.height - playerWindowHeight - 28)
   const diaryHeight = isMobileLayout
-    ? Math.max(110, Math.min(aboutWindowHeight + 20, 160))
+    ? 64
     : Math.max(154, Math.min(playerWindowTop - aboutWindowTop - aboutWindowHeight - 96, 220))
   const diaryTop = isMobileLayout
-    ? aboutWindowTop + 10
+    ? BROWSER_CHROME_HEIGHT + 4
     : Math.max(aboutWindowTop + aboutWindowHeight + 96, playerWindowTop - diaryHeight - 260)
-  const diaryWidth = isMobileLayout
-    ? Math.max(72, Math.min(96, viewport.width - (leftColumnX + aboutWindowWidth) - 30))
-    : Math.max(Math.min(leftColumnWidth - 34, 132), 106)
-  const mobileDiaryLeft = leftColumnX + aboutWindowWidth + Math.max(8, Math.round((viewport.width - (leftColumnX + aboutWindowWidth) - diaryWidth) / 2))
+  const diaryWidth = isMobileLayout ? 62 : Math.max(Math.min(leftColumnWidth - 34, 132), 106)
+  const mobileDiaryLeft = viewport.width - diaryWidth - 22
   const mobileAboutMinY = BROWSER_CHROME_HEIGHT + 8
 
   const clampMobileAboutPosition = useCallback((position) => {
@@ -3694,7 +3693,7 @@ function AboutPage({
 
       {/* ── Safety pin (between left col and right stage) ── */}
       {!isFolderView && (
-        <div style={{ position: 'absolute', left: isMobileLayout ? 'auto' : `${leftColumnX + aboutWindowWidth + 24}px`, right: isMobileLayout ? '10px' : 'auto', top: isMobileLayout ? `${aboutWindowTop + aboutWindowHeight + 22}px` : '48%', zIndex: 20, pointerEvents: 'none' }}>
+        <div style={{ position: 'absolute', left: isMobileLayout ? `${leftColumnX + welcomeWidth + 14}px` : `${leftColumnX + aboutWindowWidth + 24}px`, top: isMobileLayout ? `${welcomeTop + 2}px` : '48%', zIndex: 20, pointerEvents: 'none' }}>
           <img
             src="assets/safety-pin.gif"
             alt=""
@@ -3713,7 +3712,7 @@ function AboutPage({
             top: playerWindowTop - 40,
             zIndex: 21,
             pointerEvents: 'none',
-            width: `${leftColumnWidth}px`,
+            width: `${playerWidth}px`,
             display: 'flex',
             justifyContent: 'center',
           }}
@@ -3730,11 +3729,11 @@ function AboutPage({
             left: leftColumnX,
             top: playerWindowTop,
             zIndex: 35,
-            width: `${leftColumnWidth}px`,
+            width: `${playerWidth}px`,
           }}
           onClick={(event) => event.stopPropagation()}
         >
-          <TinyPlayer width={leftColumnWidth} />
+          <TinyPlayer width={playerWidth} />
         </div>
       )}
 
@@ -3850,7 +3849,7 @@ function AboutPage({
               right: '16px',
               bottom: '16px',
               zIndex: 22,
-              width: '100px',
+              width: isMobileLayout ? '72px' : '100px',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -3860,12 +3859,12 @@ function AboutPage({
             <img
               src="assets/envelope.gif"
               alt="knock knock"
-              style={{ width: '56px', height: 'auto', objectFit: 'contain' }}
+              style={{ width: isMobileLayout ? '40px' : '56px', height: 'auto', objectFit: 'contain' }}
             />
             <img
               src="assets/knock-knock.gif"
               alt="knock knock"
-              style={{ width: '100px', height: 'auto', objectFit: 'contain' }}
+              style={{ width: isMobileLayout ? '72px' : '100px', height: 'auto', objectFit: 'contain' }}
             />
           </a>
         )}
