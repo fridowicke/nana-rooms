@@ -120,15 +120,19 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
 
     const world = (sx, sy) => ({ x: (sx - S.view.x) / S.view.scale, y: (sy - S.view.y) / S.view.scale })
     const local = (e) => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top } }
+    const nodeScreenRadius = () => Math.max(NODE_R * S.view.scale, 9)
     const hit = (sx, sy) => {
-      const p = world(sx, sy)
-      const r2 = (NODE_R + 3) * (NODE_R + 3)
+      const rPx = Math.max(nodeScreenRadius() + 4, 22)
+      const r2 = rPx * rPx
+      let best = null, bestD = Infinity
       for (let i = S.visible.length - 1; i >= 0; i--) {
         const n = nodes[S.visible[i]]
-        const dx = p.x - n.x, dy = p.y - n.y
-        if (dx * dx + dy * dy <= r2) return n
+        const nx = S.view.x + n.x * S.view.scale, ny = S.view.y + n.y * S.view.scale
+        const dx = sx - nx, dy = sy - ny
+        const d2 = dx * dx + dy * dy
+        if (d2 <= r2 && d2 < bestD) { best = n; bestD = d2 }
       }
-      return null
+      return best
     }
     const relationSet = () => {
       const idx = S.selected ?? S.hovered
@@ -198,8 +202,10 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
         const dim = rels && !rels.has(i)
         const sel = i === S.selected, hov = i === S.hovered
         ctx.globalAlpha = dim ? 0.15 : 1
-        ctx.beginPath(); ctx.arc(n.x, n.y, NODE_R, 0, Math.PI * 2)
+        const rr = Math.max(NODE_R, 9 / view.scale)
+        ctx.beginPath(); ctx.arc(n.x, n.y, rr, 0, Math.PI * 2)
         ctx.fillStyle = COLOR_HEX[n.color]; ctx.fill()
+        ctx.lineWidth = 1 / view.scale; ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.stroke()
         if (showImg && n.img.complete && n.img.naturalWidth > 0) {
           ctx.save(); ctx.beginPath(); ctx.arc(n.x, n.y, NODE_R - 2.5, 0, Math.PI * 2); ctx.clip()
           const iw = n.img.naturalWidth, ih = n.img.naturalHeight, s = Math.max((NODE_R * 2) / iw, (NODE_R * 2) / ih)
@@ -209,21 +215,40 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
         if (sel || hov) {
           ctx.lineWidth = (sel ? 3.5 : 2) / view.scale
           ctx.strokeStyle = '#111'
-          ctx.beginPath(); ctx.arc(n.x, n.y, NODE_R + 1, 0, Math.PI * 2); ctx.stroke()
+          ctx.beginPath(); ctx.arc(n.x, n.y, rr + 1, 0, Math.PI * 2); ctx.stroke()
         }
         ctx.globalAlpha = 1
       }
       ctx.restore()
     }
 
-    const loop = () => { simulate(); draw(); S.raf = requestAnimationFrame(loop) }
+    const fitView = () => {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+      for (const i of S.visible.length ? S.visible : nodes.map((n) => n.index)) {
+        const n = nodes[i]
+        if (n.x < minX) minX = n.x; if (n.x > maxX) maxX = n.x
+        if (n.y < minY) minY = n.y; if (n.y > maxY) maxY = n.y
+      }
+      if (!Number.isFinite(minX)) return
+      const pad = 40
+      const scale = Math.max(0.1, Math.min((S.W - pad * 2) / Math.max(1, maxX - minX), (S.H - pad * 2) / Math.max(1, maxY - minY), 2))
+      S.view = { scale, x: S.W / 2 - ((minX + maxX) / 2) * scale, y: S.H / 2 - ((minY + maxY) / 2) * scale }
+    }
+    S.fitView = fitView
+    let settleFrames = 0
+    const loop = () => {
+      simulate(); draw()
+      // re-fit while the initial layout is still settling so nothing starts cut off
+      if (!S.userTouched && settleFrames < 240) { settleFrames++; if (settleFrames % 12 === 0) fitView() }
+      S.raf = requestAnimationFrame(loop)
+    }
 
     const resize = () => {
       S.dpr = Math.min(window.devicePixelRatio || 1, 2)
       S.W = stage.clientWidth; S.H = stage.clientHeight
       canvas.width = S.W * S.dpr; canvas.height = S.H * S.dpr
       canvas.style.width = S.W + 'px'; canvas.style.height = S.H + 'px'
-      if (!S.viewInit) { S.view = { x: S.W / 2, y: S.H / 2, scale: Math.min(S.W / 1500, S.H / 1100, 1) }; S.viewInit = true }
+      if (!S.viewInit) { fitView(); S.viewInit = true }
     }
     const ro = new ResizeObserver(resize)
     ro.observe(stage)
@@ -249,6 +274,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
         S.moved = true
         return
       }
+      S.userTouched = true
       const n = hit(x, y)
       S.moved = false
       if (n) { S.drag = n; n.fixed = true } else S.pan = { x, y, vx: S.view.x, vy: S.view.y }
@@ -293,6 +319,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
     }
     const onWheel = (e) => {
       e.preventDefault()
+      S.userTouched = true
       const { x, y } = local(e)
       const old = S.view.scale
       const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY
@@ -334,7 +361,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
     focusNode(visibleList[next])
   }
   const goRandom = () => { if (visibleList.length) focusNode(visibleList[Math.floor(Math.random() * visibleList.length)]) }
-  const fit = () => { S.view = { x: S.W / 2, y: S.H / 2, scale: Math.min(S.W / 1500, S.H / 1100, 1) } }
+  const fit = () => { S.fitView?.() }
   const zoomBy = (k) => {
     const old = S.view.scale, f = Math.max(0.1, Math.min(6, old * k))
     const cx = S.W / 2, cy = S.H / 2
@@ -344,7 +371,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
   const reset = () => {
     setActiveColors(new Set(COLOR_ORDER)); setActiveTags(new Set()); setQuery(''); setSelected(null)
     nodes.forEach((n, i) => { n.x = Math.cos(i * 2.399) * 420 + (i % 4) * 25; n.y = Math.sin(i * 2.399) * 330 + (i % 5) * 18; n.vx = n.vy = 0 })
-    fit(); S.alpha = 1
+    S.userTouched = false; S.alpha = 1; fit()
   }
   const toggleColor = (c) => setActiveColors((prev) => {
     const next = new Set(prev)
@@ -421,7 +448,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
         </div>
 
         {/* hover tooltip: small, near cursor-free corner so it never covers neighbours */}
-        {hov && !sel && (
+        {hov && !sel && !isMobileLayout && (
           <div style={{ position: 'absolute', left: '12px', bottom: '12px', width: '200px', background: '#fff', border: '1px solid #111', padding: '6px', zIndex: 8, pointerEvents: 'none' }}>
             <img src={hov.src} alt="" style={{ width: '100%', height: '150px', objectFit: 'cover', display: 'block' }} />
             <div style={{ fontSize: '11px', fontWeight: 300, marginTop: '5px', lineHeight: 1.3 }}>room {hov.index + 1} · {hov.date ?? 'date unknown'}</div>
@@ -431,13 +458,13 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
 
         {/* pinned detail card, docked bottom-right like patchy studies */}
         {sel && (
-          <section style={{ position: 'absolute', right: isMobileLayout ? '9px' : '12px', bottom: isMobileLayout ? '9px' : '12px', width: cardW, maxHeight: isMobileLayout ? '40%' : '62%', overflowY: 'auto', boxSizing: 'border-box', background: 'rgba(255,255,255,0.98)', border: '1px solid rgba(0,0,0,0.18)', borderRadius: '14px', padding: '14px', zIndex: 9, boxShadow: '0 12px 40px rgba(0,0,0,0.15)' }}>
+          <section style={{ position: 'absolute', right: isMobileLayout ? '9px' : '12px', bottom: isMobileLayout ? '9px' : '12px', width: cardW, maxHeight: isMobileLayout ? '46%' : '62%', overflowY: 'auto', boxSizing: 'border-box', background: 'rgba(255,255,255,0.98)', border: '1px solid rgba(0,0,0,0.18)', borderRadius: '14px', padding: '14px', zIndex: 9, boxShadow: '0 12px 40px rgba(0,0,0,0.15)' }}>
             <button type="button" onClick={() => setSelected(null)} aria-label="close" style={{ position: 'absolute', right: '10px', top: '8px', border: 0, background: 'none', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}>×</button>
             <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '8px' }}>
               <span style={{ display: 'inline-block', width: '9px', height: '9px', borderRadius: '50%', background: COLOR_HEX[sel.color], marginRight: '6px', verticalAlign: '-1px' }} />
               room {sel.index + 1} · {CAT_LABEL[sel.color]} · {sel.date ?? 'date unknown'}
             </div>
-            <a href={sel.src} target="_blank" rel="noreferrer"><img src={sel.src} alt="" style={{ width: '100%', height: 'auto', display: 'block', borderRadius: '8px', marginBottom: '10px' }} /></a>
+            <a href={sel.src} target="_blank" rel="noreferrer"><img src={sel.src} alt="" style={{ width: '100%', height: isMobileLayout ? '150px' : 'auto', maxHeight: isMobileLayout ? '150px' : '48vh', objectFit: 'contain', background: '#f4f4f4', display: 'block', borderRadius: '8px', marginBottom: '10px' }} /></a>
             <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: 300, lineHeight: 1.4 }}>{sel.caption || sel.tags.join(', ')}</p>
             <div style={{ marginBottom: '10px' }}>
               {chip(CAT_LABEL[sel.color], activeColors.size === 1 && activeColors.has(sel.color), () => toggleColor(sel.color), COLOR_HEX[sel.color])}
