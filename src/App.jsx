@@ -3225,16 +3225,17 @@ function AboutPage({
   // so there is no dead air between blocks regardless of screen height.
   const mobileColumn = (() => {
     if (!isMobileLayout) return null
-    const top = BROWSER_CHROME_HEIGHT + 8
-    const bottom = viewport.height - 14
-    const radioHeight = 40
+    const top = BROWSER_CHROME_HEIGHT
+    const bottom = viewport.height
+    const radioHeight = 44
     const diaryH = 150
     const fixed = welcomeHeight + aboutWindowHeight + diaryH + radioHeight + playerWindowHeight
-    const gap = Math.max(10, Math.min(28, Math.floor((bottom - top - fixed) / 4)))
-    const welcomeY = top
+    // 5 equal gaps: above welcome, between each block, below the player
+    const gap = Math.max(18, Math.floor((bottom - top - fixed) / 5))
+    const welcomeY = top + gap
     const aboutY = welcomeY + welcomeHeight + gap
     const diaryY = aboutY + aboutWindowHeight + gap
-    const playerY = Math.max(diaryY + diaryH + gap + radioHeight, bottom - playerWindowHeight)
+    const playerY = diaryY + diaryH + gap + radioHeight
     return { welcomeY, aboutY, diaryY, diaryH, playerY }
   })()
   const aboutWindowTop = isMobileLayout ? mobileColumn.aboutY : 148
