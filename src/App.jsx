@@ -2923,7 +2923,7 @@ function DiaryDeck({ left, top, width, availableHeight, inline = false, compact 
   const [currentIndex, setCurrentIndex] = useState(0)
   const photoCount = DIARY_PHOTOS.length
   const autoplayTimerRef = useRef(null)
-  const deckHeight = compact ? availableHeight : inline ? Math.max(280, Math.min(availableHeight ?? 360, 360)) : Math.max(100, Math.min(availableHeight, 220))
+  const deckHeight = compact ? availableHeight : inline ? Math.max(280, Math.min(availableHeight ?? 360, 360)) : Math.max(90, Math.min(availableHeight, 220))
   const cardWidth = compact ? Math.max(48, width - 12) : inline ? Math.max(164, Math.min(width - 36, 240)) : Math.max(64, Math.min(width - 24, 142))
   const cardHeight = Math.min(deckHeight - 30, cardWidth * 1.52)
   const scale = inline ? cardWidth / 198 : cardWidth / 142
@@ -3174,6 +3174,20 @@ function AboutPage({
   const [activeBrowserTab, setActiveBrowserTab] = useState(getAboutTabId(activeFolderId))
   const [browserAddress, setBrowserAddress] = useState(() => getAboutAddress(activeFolderId, getAboutTabId(activeFolderId), activeFolderDetailId, activeFolderImageIndex))
   const [isMobileAboutWindowOpen, setIsMobileAboutWindowOpen] = useState(true)
+  const [measuredHeights, setMeasuredHeights] = useState({ about: 0, player: 0 })
+  const aboutMeasureRef = useRef(null)
+  const playerMeasureRef = useRef(null)
+  useLayoutEffect(() => {
+    const read = () => {
+      const about = aboutMeasureRef.current?.offsetHeight ?? 0
+      const player = playerMeasureRef.current?.offsetHeight ?? 0
+      setMeasuredHeights((prev) => (prev.about === about && prev.player === player ? prev : { about, player }))
+    }
+    read()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(read) : null
+    if (ro) { if (aboutMeasureRef.current) ro.observe(aboutMeasureRef.current); if (playerMeasureRef.current) ro.observe(playerMeasureRef.current) }
+    return () => ro?.disconnect()
+  })
   const [isAboutExpanded, setIsAboutExpanded] = useState(false)
   const [mobileAboutWindowPosition, setMobileAboutWindowPosition] = useState(null)
   const mobileAboutWindowPositionRef = useRef(null)
@@ -3226,15 +3240,17 @@ function AboutPage({
   const mobileColumn = (() => {
     if (!isMobileLayout) return null
     const top = BROWSER_CHROME_HEIGHT
-    const bottom = viewport.height
+    const bottom = viewport.height - 8
     const radioHeight = 44
-    const diaryH = 150
-    const fixed = welcomeHeight + aboutWindowHeight + diaryH + radioHeight + playerWindowHeight
+    const diaryH = 118
+    const aboutH = measuredHeights.about || aboutWindowHeight + 24
+    const playerH = measuredHeights.player || Math.round(playerWidth * 0.58)
+    const fixed = welcomeHeight + aboutH + diaryH + radioHeight + playerH
     // 5 equal gaps: above welcome, between each block, below the player
-    const gap = Math.max(18, Math.floor((bottom - top - fixed) / 5))
+    const gap = Math.max(16, Math.floor((bottom - top - fixed) / 5))
     const welcomeY = top + gap
     const aboutY = welcomeY + welcomeHeight + gap
-    const diaryY = aboutY + aboutWindowHeight + gap
+    const diaryY = aboutY + aboutH + gap
     const playerY = diaryY + diaryH + gap + radioHeight
     return { welcomeY, aboutY, diaryY, diaryH, playerY }
   })()
@@ -3582,6 +3598,7 @@ function AboutPage({
       {/* ── About window (draggable) ── */}
       {shouldShowAboutWindow && (
         <div
+          ref={aboutMeasureRef}
           style={{
             position: 'fixed',
             left: aboutWindowLeft,
@@ -3743,6 +3760,7 @@ function AboutPage({
       {/* ── Player (draggable) ── */}
       {!isFolderView && (
         <div
+          ref={playerMeasureRef}
           style={{
             position: 'fixed',
             left: leftColumnX,
