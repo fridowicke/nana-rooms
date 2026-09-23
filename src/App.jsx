@@ -3179,7 +3179,6 @@ function AboutPage({
   const [mobileLayout, setMobileLayout] = useState(loadMobileLayout)
   useEffect(() => { if (layoutTuner && mobileLayout) { try { localStorage.setItem(MOBILE_LAYOUT_KEY, JSON.stringify(mobileLayout)) } catch { /* ignore */ } } }, [layoutTuner, mobileLayout])
   const tuneBlock = useCallback((id, v) => setMobileLayout((prev) => ({ ...(prev ?? {}), [id]: v })), [])
-  const tbProps = { layout: mobileLayout, tuner: layoutTuner, onChange: tuneBlock, mobile: isMobileLayout }
   const [measuredHeights, setMeasuredHeights] = useState({ about: 0, player: 0, diary: 0 })
   const aboutMeasureRef = useRef(null)
   const playerMeasureRef = useRef(null)
@@ -3208,6 +3207,7 @@ function AboutPage({
   const [mobileAboutWindowPosition, setMobileAboutWindowPosition] = useState(null)
   const mobileAboutWindowPositionRef = useRef(null)
   const isMobileLayout = shouldUseMobileLayout({ viewportWidth: viewport.width, isTouch })
+  const tbProps = { layout: mobileLayout, tuner: layoutTuner, onChange: tuneBlock, mobile: isMobileLayout }
 
   const folderArcLayout = isMobileLayout
     ? [
