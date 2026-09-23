@@ -3369,6 +3369,45 @@ function AboutPage({
     }
   }, [isTouch, layoutTuner, isMobileLayout])
 
+  const folderGestureRef = useRef(null)
+  const folderTouch = useCallback((folderId, e) => {
+    if (!(layoutTuner && isMobileLayout)) return
+    const container = rightStageRef.current
+    if (!container) return
+    e.preventDefault(); e.stopPropagation()
+    const rect = container.getBoundingClientRect()
+    const t = e.touches
+    const cur = folderPositions.get(folderId)
+    const el = e.currentTarget
+    const er = el.getBoundingClientRect()
+    const cx0 = er.left + er.width / 2 - rect.left, cy0 = er.top + er.height / 2 - rect.top
+    const s0 = mobileLayout?.folders?.[folderId]?.s ?? 1
+    if (e.type === 'touchstart' || (folderGestureRef.current && folderGestureRef.current.id !== folderId)) {
+      if (t.length >= 2) folderGestureRef.current = { id: folderId, mode: 'pinch', d0: Math.hypot(t[1].clientX - t[0].clientX, t[1].clientY - t[0].clientY), s0, cx0, cy0 }
+      else folderGestureRef.current = { id: folderId, mode: 'drag', sx: t[0].clientX, sy: t[0].clientY, cx0, cy0, s0, moved: false }
+      return
+    }
+    const g = folderGestureRef.current
+    if (!g) return
+    if (e.type === 'touchmove') {
+      let px = g.cx0, py = g.cy0, s = g.s0
+      if (t.length >= 2) {
+        if (g.mode !== 'pinch') { folderGestureRef.current = { id: folderId, mode: 'pinch', d0: Math.hypot(t[1].clientX - t[0].clientX, t[1].clientY - t[0].clientY), s0: g.s0, cx0: g.cx0, cy0: g.cy0 }; return }
+        s = Math.max(0.3, Math.min(3, g.s0 * Math.hypot(t[1].clientX - t[0].clientX, t[1].clientY - t[0].clientY) / g.d0))
+      } else if (g.mode === 'drag') {
+        px = g.cx0 + t[0].clientX - g.sx; py = g.cy0 + t[0].clientY - g.sy; g.moved = true
+      } else return
+      draggedFolderRef.current = folderId
+      setFolderPositions((prev) => { const next = new Map(prev); next.set(folderId, { left: px, top: py, isPx: true }); return next })
+      const lp = +((px / rect.width) * 100).toFixed(1), tp = +((py / rect.height) * 100).toFixed(1)
+      setMobileLayout((prev) => ({ ...(prev ?? {}), folders: { ...((prev ?? {}).folders ?? {}), [folderId]: { left: `${lp}%`, top: `${tp}%`, s } } }))
+      return
+    }
+    if (e.type === 'touchend' || e.type === 'touchcancel') {
+      if (t.length === 0) { const g2 = folderGestureRef.current; folderGestureRef.current = null; if (g2 && g2.mode === 'drag' && !g2.moved) draggedFolderRef.current = null }
+    }
+  }, [layoutTuner, isMobileLayout, folderPositions, mobileLayout])
+
   const startMobileAboutWindowDrag = useCallback((event) => {
     if (!isMobileLayout) return
     if (event.button !== undefined && event.button !== 0) return
@@ -3983,9 +4022,12 @@ function AboutPage({
             <button
               key={folder.id}
               type="button"
-              onMouseDown={(e) => { if (!(layoutTuner && isMobileLayout)) startFolderDrag(folder.id, e) }}
-              onPointerDown={(e) => { if (layoutTuner && isMobileLayout) startFolderDrag(folder.id, e) }}
-              onClick={(e) => handleFolderClick(folder.id, e)}
+              onMouseDown={(e) => startFolderDrag(folder.id, e)}
+              onTouchStart={(e) => folderTouch(folder.id, e)}
+              onTouchMove={(e) => folderTouch(folder.id, e)}
+              onTouchEnd={(e) => folderTouch(folder.id, e)}
+              onTouchCancel={(e) => folderTouch(folder.id, e)}
+              onClick={(e) => { if (layoutTuner && isMobileLayout) { e.preventDefault(); return } handleFolderClick(folder.id, e) }}
               className="cursor-grab"
               style={{
                 position: 'absolute',
@@ -4340,6 +4382,7 @@ function TunableBlock({ id, layout, tuner, onChange, mobile = true, passthrough 
 function MobileLayoutTunerPanel({ layout, setLayout, ids, folderIds = [] }) {
   const [active, setActive] = useState(ids[0])
   const [copied, setCopied] = useState(false)
+  const [open, setOpen] = useState(true)
   const isFolder = folderIds.includes(active)
   const cur = isFolder ? layout?.folders?.[active] : layout?.[active]
   const bump = (ds) => setLayout((prev) => {
@@ -4359,24 +4402,34 @@ function MobileLayoutTunerPanel({ layout, setLayout, ids, folderIds = [] }) {
   }, [])
   const btn = { border: '1px solid #fff', background: 'transparent', color: '#fff', borderRadius: '6px', padding: '4px 8px', fontFamily: 'monospace', fontSize: '11px', touchAction: 'manipulation' }
   return (
-    <div style={{ position: 'fixed', left: 8, right: 8, bottom: 8, zIndex: 600, background: 'rgba(15,8,30,0.95)', color: '#fff', borderRadius: '10px', padding: '8px', fontFamily: 'monospace', fontSize: '11px' }}>
-      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '6px', maxHeight: '64px', overflowY: 'auto' }}>
-        {[...ids, ...folderIds].map((id) => <button key={id} type="button" onClick={() => setActive(id)} style={{ ...btn, background: active === id ? '#ff2fd6' : 'transparent', borderColor: active === id ? '#ff2fd6' : '#fff' }}>{id}</button>)}
+    <div
+      onPointerDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+      onTouchMove={(e) => { e.stopPropagation(); e.preventDefault() }}
+      onClick={(e) => e.stopPropagation()}
+      style={{ position: 'fixed', left: 8, right: 8, top: 'calc(50% + 40px)', zIndex: 600, background: 'rgba(15,8,30,0.95)', color: '#fff', borderRadius: '10px', padding: '8px', fontFamily: 'monospace', fontSize: '11px', touchAction: 'none', overscrollBehavior: 'contain' }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+        <span style={{ color: '#ff2fd6' }}>layout · {active}</span>
+        <button type="button" onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((o) => !o) }} style={btn}>{open ? 'свернуть' : 'развернуть'}</button>
       </div>
+      {open && <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '6px', maxHeight: '64px', overflowY: 'auto' }}>
+        {[...ids, ...folderIds].map((id) => <button key={id} type="button" onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); setActive(id) }} style={{ ...btn, background: active === id ? '#ff2fd6' : 'transparent', borderColor: active === id ? '#ff2fd6' : '#fff' }}>{id}</button>)}
+      </div>}
       <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
-        <span style={{ opacity: 0.7 }}>тащи блоки пальцем · размер:</span>
-        <button type="button" onClick={() => bump(-0.05)} style={btn}>−</button>
-        <button type="button" onClick={() => bump(0.05)} style={btn}>+</button>
+        <span style={{ opacity: 0.7 }}>1 палец — двигать · 2 пальца (щипок) — размер · или:</span>
+        <button type="button" onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); bump(-0.1) }} style={btn}>−</button>
+        <button type="button" onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); bump(0.1) }} style={btn}>+</button>
         <button
           type="button"
-          onClick={() => { const j = JSON.stringify(layout ?? {}); navigator.clipboard?.writeText(j).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) }); try { localStorage.setItem(MOBILE_LAYOUT_KEY, j) } catch { /* ignore */ } }}
+          onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); const j = JSON.stringify(layout ?? {}); navigator.clipboard?.writeText(j).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) }); try { localStorage.setItem(MOBILE_LAYOUT_KEY, j) } catch { /* ignore */ } }}
           style={{ ...btn, background: '#ff2fd6', borderColor: '#ff2fd6', marginLeft: 'auto' }}
         >
           {copied ? 'скопировано ✓' : 'copy layout'}
         </button>
-        <button type="button" onClick={() => { setLayout(null); try { localStorage.removeItem(MOBILE_LAYOUT_KEY) } catch { /* ignore */ } }} style={btn}>reset</button>
+        <button type="button" onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); setLayout(null); try { localStorage.removeItem(MOBILE_LAYOUT_KEY) } catch { /* ignore */ } }} style={btn}>reset</button>
       </div>
-      <textarea readOnly value={JSON.stringify(layout ?? {})} style={{ width: '100%', boxSizing: 'border-box', marginTop: '6px', height: '46px', background: 'rgba(255,255,255,0.08)', color: '#fff', border: 'none', borderRadius: '6px', fontFamily: 'monospace', fontSize: '10px' }} onFocus={(e) => e.target.select()} />
+      {open && <textarea readOnly value={JSON.stringify(layout ?? {})} style={{ width: '100%', boxSizing: 'border-box', marginTop: '6px', height: '46px', background: 'rgba(255,255,255,0.08)', color: '#fff', border: 'none', borderRadius: '6px', fontFamily: 'monospace', fontSize: '10px' }} onFocus={(e) => e.target.select()} />}
     </div>
   )
 }
