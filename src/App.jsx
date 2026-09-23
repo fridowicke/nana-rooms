@@ -3177,13 +3177,20 @@ function AboutPage({
   const [isMobileAboutWindowOpen, setIsMobileAboutWindowOpen] = useState(true)
   const [layoutTuner] = useState(isLayoutTunerEnabled)
   const [mobileLayout, setMobileLayout] = useState(loadMobileLayout)
-  useEffect(() => { if (layoutTuner && mobileLayout) { try { localStorage.setItem(MOBILE_LAYOUT_KEY, JSON.stringify(mobileLayout)) } catch { /* ignore */ } } }, [layoutTuner, mobileLayout])
+  useEffect(() => {
+    if (!layoutTuner || !mobileLayout) return undefined
+    const t = setTimeout(() => { try { localStorage.setItem(MOBILE_LAYOUT_KEY, JSON.stringify(mobileLayout)) } catch { /* ignore */ } }, 300)
+    return () => clearTimeout(t)
+  }, [layoutTuner, mobileLayout])
   const tuneBlock = useCallback((id, v) => setMobileLayout((prev) => ({ ...(prev ?? {}), [id]: v })), [])
   const [measuredHeights, setMeasuredHeights] = useState({ about: 0, player: 0, diary: 0 })
   const aboutMeasureRef = useRef(null)
   const playerMeasureRef = useRef(null)
   const diaryMeasureRef = useRef(null)
+  const measureFrozen = layoutTuner || Boolean(mobileLayout)
   useLayoutEffect(() => {
+    if (measureFrozen) return undefined
+    let frame = 0
     const read = () => {
       const about = aboutMeasureRef.current?.offsetHeight ?? 0
       const player = playerMeasureRef.current?.offsetHeight ?? 0
@@ -3196,13 +3203,14 @@ function AboutPage({
         deck.querySelectorAll('img').forEach((img) => { const b = img.getBoundingClientRect().bottom; if (b > maxBottom) maxBottom = b })
         diary = Math.round(maxBottom - r.top)
       }
-      setMeasuredHeights((prev) => (prev.about === about && prev.player === player && prev.diary === diary ? prev : { about, player, diary }))
+      setMeasuredHeights((prev) => (Math.abs(prev.about - about) < 2 && Math.abs(prev.player - player) < 2 && Math.abs(prev.diary - diary) < 2 ? prev : { about, player, diary }))
     }
-    read()
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(read) : null
+    const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(read) }
+    schedule()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null
     if (ro) { [aboutMeasureRef, playerMeasureRef, diaryMeasureRef].forEach((ref) => { if (ref.current) ro.observe(ref.current) }) }
-    return () => ro?.disconnect()
-  })
+    return () => { cancelAnimationFrame(frame); ro?.disconnect() }
+  }, [measureFrozen, activeFolderId, viewport.width, viewport.height])
   const [isAboutExpanded, setIsAboutExpanded] = useState(false)
   const [mobileAboutWindowPosition, setMobileAboutWindowPosition] = useState(null)
   const mobileAboutWindowPositionRef = useRef(null)
