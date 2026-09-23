@@ -2919,7 +2919,7 @@ function TinyPlayer({ onTitleBarMouseDown, width = 290 }) {
   )
 }
 
-function DiaryDeck({ left, top, width, availableHeight, inline = false, compact = false, onOpenDiary }) {
+function DiaryDeck({ left, top, width, availableHeight, inline = false, compact = false, onOpenDiary, measureRef }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const photoCount = DIARY_PHOTOS.length
   const autoplayTimerRef = useRef(null)
@@ -2974,6 +2974,7 @@ function DiaryDeck({ left, top, width, availableHeight, inline = false, compact 
 
   return (
     <div
+      ref={measureRef}
       style={{
         position: inline ? 'relative' : 'fixed',
         left,
@@ -3169,23 +3170,33 @@ function AboutPage({
   const draggedFolderRef = useRef(null)
   const [viewport, setViewport] = useState(() => ({
     width: viewportOverride?.width ?? (typeof window !== 'undefined' ? window.innerWidth : 1440),
-    height: viewportOverride?.height ?? (typeof window !== 'undefined' ? window.innerHeight : 900),
+    height: viewportOverride?.height ?? (typeof window !== 'undefined' ? Math.round(window.visualViewport?.height ?? window.innerHeight) : 900),
   }))
   const [activeBrowserTab, setActiveBrowserTab] = useState(getAboutTabId(activeFolderId))
   const [browserAddress, setBrowserAddress] = useState(() => getAboutAddress(activeFolderId, getAboutTabId(activeFolderId), activeFolderDetailId, activeFolderImageIndex))
   const [isMobileAboutWindowOpen, setIsMobileAboutWindowOpen] = useState(true)
-  const [measuredHeights, setMeasuredHeights] = useState({ about: 0, player: 0 })
+  const [measuredHeights, setMeasuredHeights] = useState({ about: 0, player: 0, diary: 0 })
   const aboutMeasureRef = useRef(null)
   const playerMeasureRef = useRef(null)
+  const diaryMeasureRef = useRef(null)
   useLayoutEffect(() => {
     const read = () => {
       const about = aboutMeasureRef.current?.offsetHeight ?? 0
       const player = playerMeasureRef.current?.offsetHeight ?? 0
-      setMeasuredHeights((prev) => (prev.about === about && prev.player === player ? prev : { about, player }))
+      // diary: measure the visual bounds (rotated cards stick out of the box)
+      let diary = 0
+      const deck = diaryMeasureRef.current
+      if (deck) {
+        const r = deck.getBoundingClientRect()
+        let maxBottom = r.bottom
+        deck.querySelectorAll('img').forEach((img) => { const b = img.getBoundingClientRect().bottom; if (b > maxBottom) maxBottom = b })
+        diary = Math.round(maxBottom - r.top)
+      }
+      setMeasuredHeights((prev) => (prev.about === about && prev.player === player && prev.diary === diary ? prev : { about, player, diary }))
     }
     read()
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(read) : null
-    if (ro) { if (aboutMeasureRef.current) ro.observe(aboutMeasureRef.current); if (playerMeasureRef.current) ro.observe(playerMeasureRef.current) }
+    if (ro) { [aboutMeasureRef, playerMeasureRef, diaryMeasureRef].forEach((ref) => { if (ref.current) ro.observe(ref.current) }) }
     return () => ro?.disconnect()
   })
   const [isAboutExpanded, setIsAboutExpanded] = useState(false)
@@ -3241,17 +3252,18 @@ function AboutPage({
     if (!isMobileLayout) return null
     const top = BROWSER_CHROME_HEIGHT
     const bottom = viewport.height - 8
-    const radioHeight = 44
+    const radioHeight = 40
     const diaryH = 118
+    const diaryVisualH = measuredHeights.diary || diaryH
     const aboutH = measuredHeights.about || aboutWindowHeight + 24
     const playerH = measuredHeights.player || Math.round(playerWidth * 0.58)
-    const fixed = welcomeHeight + aboutH + diaryH + radioHeight + playerH
+    const fixed = welcomeHeight + aboutH + diaryVisualH + radioHeight + playerH
     // 5 equal gaps: above welcome, between each block, below the player
-    const gap = Math.max(16, Math.floor((bottom - top - fixed) / 5))
+    const gap = Math.max(14, Math.floor((bottom - top - fixed) / 5))
     const welcomeY = top + gap
     const aboutY = welcomeY + welcomeHeight + gap
     const diaryY = aboutY + aboutH + gap
-    const playerY = diaryY + diaryH + gap + radioHeight
+    const playerY = diaryY + diaryVisualH + gap + radioHeight
     return { welcomeY, aboutY, diaryY, diaryH, playerY }
   })()
   const aboutWindowTop = isMobileLayout ? mobileColumn.aboutY : 148
@@ -3421,11 +3433,14 @@ function AboutPage({
     }
 
     const onResize = () => {
-      setViewport({ width: window.innerWidth, height: window.innerHeight })
+      const vv = window.visualViewport
+      setViewport({ width: window.innerWidth, height: vv ? Math.round(vv.height) : window.innerHeight })
       updateEditorScrollbar()
     }
+    onResize()
     window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
+    window.visualViewport?.addEventListener('resize', onResize)
+    return () => { window.removeEventListener('resize', onResize); window.visualViewport?.removeEventListener('resize', onResize) }
   }, [updateEditorScrollbar, viewportOverride?.height, viewportOverride?.width])
 
   useEffect(() => {
@@ -3694,6 +3709,7 @@ function AboutPage({
                   width: '14px',
                   pointerEvents: 'none',
                   opacity: editorScrollbar.enabled ? 1 : 0.55,
+                  display: isMobileLayout ? 'none' : 'block',
                 }}
               >
                 <img
@@ -3719,6 +3735,7 @@ function AboutPage({
       {!isFolderView && (
         <DiaryDeck
           compact={false}
+          measureRef={isMobileLayout ? diaryMeasureRef : undefined}
           left={isMobileLayout ? mobileDiaryLeft : leftColumnX + (leftColumnWidth - diaryWidth) / 2}
           top={diaryTop}
           width={diaryWidth}
