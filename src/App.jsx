@@ -3175,6 +3175,11 @@ function AboutPage({
   const [activeBrowserTab, setActiveBrowserTab] = useState(getAboutTabId(activeFolderId))
   const [browserAddress, setBrowserAddress] = useState(() => getAboutAddress(activeFolderId, getAboutTabId(activeFolderId), activeFolderDetailId, activeFolderImageIndex))
   const [isMobileAboutWindowOpen, setIsMobileAboutWindowOpen] = useState(true)
+  const [layoutTuner] = useState(isLayoutTunerEnabled)
+  const [mobileLayout, setMobileLayout] = useState(loadMobileLayout)
+  useEffect(() => { if (layoutTuner && mobileLayout) { try { localStorage.setItem(MOBILE_LAYOUT_KEY, JSON.stringify(mobileLayout)) } catch { /* ignore */ } } }, [layoutTuner, mobileLayout])
+  const tuneBlock = useCallback((id, v) => setMobileLayout((prev) => ({ ...(prev ?? {}), [id]: v })), [])
+  const tbProps = { layout: mobileLayout, tuner: layoutTuner, onChange: tuneBlock, mobile: isMobileLayout }
   const [measuredHeights, setMeasuredHeights] = useState({ about: 0, player: 0, diary: 0 })
   const aboutMeasureRef = useRef(null)
   const playerMeasureRef = useRef(null)
@@ -3231,7 +3236,8 @@ function AboutPage({
   const rightStageWidth = `${viewport.width}px`
 
   useEffect(() => {
-    setFolderPositions(new Map(folderArcLayout.map((p) => [p.id, { left: p.left, top: p.top }])))
+    const saved = isMobileLayout ? mobileLayout?.folders : null
+    setFolderPositions(new Map(folderArcLayout.map((p) => [p.id, saved?.[p.id] ?? { left: p.left, top: p.top }])))
   }, [isMobileLayout]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // mobile = desktop layout scaled to the phone: left column ≈ 44% of the width
@@ -3312,8 +3318,9 @@ function AboutPage({
   }, [clampMobileAboutPosition, isMobileLayout])
 
   const startFolderDrag = useCallback((folderId, e) => {
-    if (isTouch) return
-    if (e.button !== 0) return
+    const tunerDrag = layoutTuner && isMobileLayout
+    if (isTouch && !tunerDrag) return
+    if (e.button !== undefined && e.button !== 0) return
     e.preventDefault()
     e.stopPropagation()
     draggedFolderRef.current = null
@@ -3334,21 +3341,33 @@ function AboutPage({
       if (!moved && Math.abs(dx) < FOLDER_DRAG_THRESHOLD_PX && Math.abs(dy) < FOLDER_DRAG_THRESHOLD_PX) return
       moved = true
       draggedFolderRef.current = folderId
+      const px = startPx + dx, py = startPy + dy
       setFolderPositions((prev) => {
         const next = new Map(prev)
-        next.set(folderId, { left: startPx + dx, top: startPy + dy, isPx: true })
+        next.set(folderId, { left: px, top: py, isPx: true })
         return next
       })
+      if (tunerDrag) {
+        const lp = +((px / containerRect.width) * 100).toFixed(1), tp = +((py / containerRect.height) * 100).toFixed(1)
+        setMobileLayout((prev) => ({ ...(prev ?? {}), folders: { ...((prev ?? {}).folders ?? {}), [folderId]: { left: `${lp}%`, top: `${tp}%` } } }))
+      }
     }
 
     const onUp = () => {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
     }
 
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-  }, [isTouch])
+    if (tunerDrag) {
+      window.addEventListener('pointermove', onMove)
+      window.addEventListener('pointerup', onUp)
+    } else {
+      window.addEventListener('mousemove', onMove)
+      window.addEventListener('mouseup', onUp)
+    }
+  }, [isTouch, layoutTuner, isMobileLayout])
 
   const startMobileAboutWindowDrag = useCallback((event) => {
     if (!isMobileLayout) return
@@ -3536,13 +3555,13 @@ function AboutPage({
     >
       {/* ── Welcome gif (static) ── */}
       {!isFolderView && (
-        <div style={{ position: 'fixed', left: leftColumnX, top: welcomeTop, zIndex: 21, pointerEvents: 'none' }}>
+        <TunableBlock {...tbProps} id="welcome" baseLeft={leftColumnX} baseTop={welcomeTop} zIndex={21} pointerEvents="none">
           <img
             src="assets/welcome.webp"
             alt="welcome to my page"
-            style={{ width: `${welcomeWidth}px`, maxWidth: `${aboutWindowWidth}px`, height: 'auto', objectFit: 'contain' }}
+            style={{ width: `${welcomeWidth}px`, maxWidth: `${aboutWindowWidth}px`, height: 'auto', objectFit: 'contain', display: 'block' }}
           />
-        </div>
+        </TunableBlock>
       )}
 
       {/* ── About expanded fullscreen window ── */}
@@ -3612,13 +3631,11 @@ function AboutPage({
 
       {/* ── About window (draggable) ── */}
       {shouldShowAboutWindow && (
+        <TunableBlock {...tbProps} id="about" baseLeft={aboutWindowLeft} baseTop={aboutWindowTopPosition} zIndex={21}>
         <div
           ref={aboutMeasureRef}
           style={{
-            position: 'fixed',
-            left: aboutWindowLeft,
-            top: aboutWindowTopPosition,
-            zIndex: 21,
+            position: 'relative',
             width: `${aboutWindowWidth}px`,
           }}
           onClick={(event) => event.stopPropagation()}
@@ -3730,65 +3747,60 @@ function AboutPage({
             </div>
           </div>
         </div>
+        </TunableBlock>
       )}
 
-      {!isFolderView && (
+      {!isFolderView && (isMobileLayout ? (
+        <TunableBlock {...tbProps} id="diary" baseLeft={mobileDiaryLeft} baseTop={diaryTop} zIndex={21}>
+          <DiaryDeck compact={false} inline measureRef={diaryMeasureRef} left={0} top={0} width={diaryWidth} availableHeight={diaryHeight} onOpenDiary={handleDiaryOpen} />
+        </TunableBlock>
+      ) : (
         <DiaryDeck
           compact={false}
-          measureRef={isMobileLayout ? diaryMeasureRef : undefined}
-          left={isMobileLayout ? mobileDiaryLeft : leftColumnX + (leftColumnWidth - diaryWidth) / 2}
+          left={leftColumnX + (leftColumnWidth - diaryWidth) / 2}
           top={diaryTop}
           width={diaryWidth}
           availableHeight={diaryHeight}
           onOpenDiary={handleDiaryOpen}
         />
-      )}
+      ))}
 
       {/* ── Safety pin (between left col and right stage) ── */}
-      {!isFolderView && (
-        <div style={{ position: 'absolute', left: `${leftColumnX + aboutWindowWidth + (isMobileLayout ? 6 : 24)}px`, top: isMobileLayout ? `${aboutWindowTop + aboutWindowHeight + 40}px` : '48%', zIndex: 20, pointerEvents: 'none' }}>
+      {!isFolderView && (isMobileLayout ? (
+        <TunableBlock {...tbProps} id="pin" baseLeft={leftColumnX + aboutWindowWidth + 6} baseTop={aboutWindowTop + aboutWindowHeight + 40} zIndex={20} pointerEvents="none">
+          <img src="assets/safety-pin.gif" alt="" aria-hidden="true" style={{ width: '34px', height: 'auto', objectFit: 'contain', display: 'block' }} />
+        </TunableBlock>
+      ) : (
+        <div style={{ position: 'absolute', left: `${leftColumnX + aboutWindowWidth + 24}px`, top: '48%', zIndex: 20, pointerEvents: 'none' }}>
           <img
             src="assets/safety-pin.gif"
             alt=""
             aria-hidden="true"
-            style={{ width: isMobileLayout ? '34px' : '50px', height: 'auto', objectFit: 'contain' }}
+            style={{ width: '50px', height: 'auto', objectFit: 'contain' }}
           />
         </div>
-      )}
+      ))}
 
       {/* ── Radio gif (static) ── */}
       {!isFolderView && (
-        <div
-          style={{
-            position: 'fixed',
-            left: leftColumnX,
-            top: playerWindowTop - 40,
-            zIndex: 21,
-            pointerEvents: 'none',
-            width: `${playerWidth}px`,
-            display: 'flex',
-            justifyContent: 'center',
-          }}
-        >
-          <img src="assets/radio.gif" alt="" aria-hidden="true" style={{ width: '42px', height: 'auto', objectFit: 'contain' }} />
-        </div>
+        <TunableBlock {...tbProps} id="radio" baseLeft={leftColumnX} baseTop={playerWindowTop - 40} zIndex={21} pointerEvents="none">
+          <div style={{ width: `${playerWidth}px`, display: 'flex', justifyContent: 'center' }}>
+            <img src="assets/radio.gif" alt="" aria-hidden="true" style={{ width: '42px', height: 'auto', objectFit: 'contain' }} />
+          </div>
+        </TunableBlock>
       )}
 
       {/* ── Player (draggable) ── */}
       {!isFolderView && (
-        <div
-          ref={playerMeasureRef}
-          style={{
-            position: 'fixed',
-            left: leftColumnX,
-            top: playerWindowTop,
-            zIndex: 35,
-            width: `${playerWidth}px`,
-          }}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <TinyPlayer width={playerWidth} />
-        </div>
+        <TunableBlock {...tbProps} id="player" baseLeft={leftColumnX} baseTop={playerWindowTop} zIndex={35}>
+          <div ref={playerMeasureRef} style={{ width: `${playerWidth}px` }} onClick={(event) => event.stopPropagation()}>
+            <TinyPlayer width={playerWidth} />
+          </div>
+        </TunableBlock>
+      )}
+
+      {isMobileLayout && layoutTuner && !isFolderView && (
+        <MobileLayoutTunerPanel layout={mobileLayout} setLayout={setMobileLayout} ids={['welcome', 'about', 'diary', 'pin', 'radio', 'player']} />
       )}
 
       {/* ── Right stage ── */}
@@ -3964,7 +3976,8 @@ function AboutPage({
             <button
               key={folder.id}
               type="button"
-              onMouseDown={(e) => startFolderDrag(folder.id, e)}
+              onMouseDown={(e) => { if (!(layoutTuner && isMobileLayout)) startFolderDrag(folder.id, e) }}
+              onPointerDown={(e) => { if (layoutTuner && isMobileLayout) startFolderDrag(folder.id, e) }}
               onClick={(e) => handleFolderClick(folder.id, e)}
               className="cursor-grab"
               style={{
@@ -4261,6 +4274,86 @@ function ArchiveMapFolder({ isMobileLayout }) {
     return <div style={{ padding: '24px', fontSize: '13px', fontWeight: 300, color: '#666' }}>loading archive…</div>
   }
   return <ArchiveMap images={OPEN_ARCHIVE_IMAGES} tags={tags} isMobileLayout={isMobileLayout} />
+}
+
+const MOBILE_LAYOUT_KEY = 'shelest-mobile-layout-v1'
+// Nana's saved mobile layout (from ?layout=1 tuner). Values are relative to the viewport:
+// x,y in % of viewport width/height (top-left of the block), s = scale.
+const MOBILE_LAYOUT_DEFAULT = null
+
+function isLayoutTunerEnabled() {
+  if (typeof window === 'undefined') return false
+  try { return new URLSearchParams(window.location.search).get('layout') === '1' } catch { return false }
+}
+function loadMobileLayout() {
+  try { const raw = localStorage.getItem(MOBILE_LAYOUT_KEY); if (raw) return JSON.parse(raw) } catch { /* ignore */ }
+  return MOBILE_LAYOUT_DEFAULT
+}
+
+// Wraps a positioned block on mobile so it can be dragged / scaled in tuner mode, and applies saved overrides.
+function TunableBlock({ id, layout, tuner, onChange, mobile = true, baseLeft, baseTop, zIndex = 21, children, pointerEvents = 'auto' }) {
+  const ov = mobile ? layout?.[id] : null
+  const active = mobile && tuner
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 390
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+  const left = ov ? (ov.x / 100) * vw : baseLeft
+  const top = ov ? (ov.y / 100) * vh : baseTop
+  const scale = ov?.s ?? 1
+  const dragRef = useRef(null)
+  const startDrag = (e) => {
+    if (!active) return
+    e.preventDefault(); e.stopPropagation()
+    const t = e.touches ? e.touches[0] : e
+    dragRef.current = { sx: t.clientX, sy: t.clientY, ox: left, oy: top }
+    const move = (ev) => {
+      const p = ev.touches ? ev.touches[0] : ev
+      const d = dragRef.current; if (!d) return
+      onChange(id, { x: ((d.ox + p.clientX - d.sx) / vw) * 100, y: ((d.oy + p.clientY - d.sy) / vh) * 100, s: scale })
+    }
+    const up = () => { dragRef.current = null; window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('touchmove', move); window.removeEventListener('touchend', up) }
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up)
+    window.addEventListener('touchmove', move, { passive: false }); window.addEventListener('touchend', up)
+  }
+  return (
+    <div
+      onPointerDown={active ? startDrag : undefined}
+      style={{ position: 'fixed', left, top, zIndex: active ? 500 : zIndex, transform: scale !== 1 ? `scale(${scale})` : undefined, transformOrigin: 'top left', pointerEvents: active ? 'auto' : pointerEvents, outline: active ? '1px dashed #ff2fd6' : 'none', touchAction: active ? 'none' : 'auto' }}
+    >
+      {children}
+      {active && (
+        <div style={{ position: 'absolute', left: 0, top: -18, fontFamily: 'monospace', fontSize: '10px', background: '#ff2fd6', color: '#fff', padding: '1px 5px', borderRadius: '4px', whiteSpace: 'nowrap', pointerEvents: 'none' }}>{id} ×{scale.toFixed(2)}</div>
+      )}
+    </div>
+  )
+}
+
+function MobileLayoutTunerPanel({ layout, setLayout, ids }) {
+  const [active, setActive] = useState(ids[0])
+  const [copied, setCopied] = useState(false)
+  const cur = layout?.[active]
+  const bump = (ds) => setLayout((prev) => ({ ...(prev ?? {}), [active]: { x: cur?.x ?? 5, y: cur?.y ?? 20, s: Math.max(0.3, Math.min(3, (cur?.s ?? 1) + ds)) } }))
+  const btn = { border: '1px solid #fff', background: 'transparent', color: '#fff', borderRadius: '6px', padding: '4px 8px', fontFamily: 'monospace', fontSize: '11px' }
+  return (
+    <div style={{ position: 'fixed', left: 8, right: 8, bottom: 8, zIndex: 600, background: 'rgba(15,8,30,0.95)', color: '#fff', borderRadius: '10px', padding: '8px', fontFamily: 'monospace', fontSize: '11px' }}>
+      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '6px' }}>
+        {ids.map((id) => <button key={id} type="button" onClick={() => setActive(id)} style={{ ...btn, background: active === id ? '#ff2fd6' : 'transparent', borderColor: active === id ? '#ff2fd6' : '#fff' }}>{id}</button>)}
+      </div>
+      <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ opacity: 0.7 }}>тащи блоки пальцем · размер:</span>
+        <button type="button" onClick={() => bump(-0.05)} style={btn}>−</button>
+        <button type="button" onClick={() => bump(0.05)} style={btn}>+</button>
+        <button
+          type="button"
+          onClick={() => { const j = JSON.stringify(layout ?? {}); navigator.clipboard?.writeText(j).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) }); try { localStorage.setItem(MOBILE_LAYOUT_KEY, j) } catch { /* ignore */ } }}
+          style={{ ...btn, background: '#ff2fd6', borderColor: '#ff2fd6', marginLeft: 'auto' }}
+        >
+          {copied ? 'скопировано ✓' : 'copy layout'}
+        </button>
+        <button type="button" onClick={() => { setLayout(null); try { localStorage.removeItem(MOBILE_LAYOUT_KEY) } catch { /* ignore */ } }} style={btn}>reset</button>
+      </div>
+      <textarea readOnly value={JSON.stringify(layout ?? {})} style={{ width: '100%', boxSizing: 'border-box', marginTop: '6px', height: '46px', background: 'rgba(255,255,255,0.08)', color: '#fff', border: 'none', borderRadius: '6px', fontFamily: 'monospace', fontSize: '10px' }} onFocus={(e) => e.target.select()} />
+    </div>
+  )
 }
 
 function DraggableFolderIcon({ label, onOpen, initial = { x: 24, y: 24 }, inline = false }) {
