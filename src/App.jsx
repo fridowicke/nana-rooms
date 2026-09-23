@@ -5168,11 +5168,12 @@ function PressArticleWindow({ url, label, onClose, isMobileLayout = false }) {
   const dragOffset = useRef({ x: 0, y: 0 })
   const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1440
   const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 900
-  const winW = isMobileLayout ? viewportWidth : Math.min(viewportWidth - 80, 900)
-  const winH = isMobileLayout ? 0 : Math.min(viewportHeight - 100, 680)
+  const MOBILE_TOP = 118 // below the fake browser chrome (tabs + address bar)
+  const winW = isMobileLayout ? viewportWidth - 16 : Math.min(viewportWidth - 80, 900)
+  const winH = isMobileLayout ? Math.max(260, viewportHeight - MOBILE_TOP - 40 - 34) : Math.min(viewportHeight - 100, 680)
   const [pos, setPos] = useState({
     x: Math.max(8, (viewportWidth - winW) / 2),
-    y: Math.max(40, (viewportHeight - winH) / 2 - 20),
+    y: isMobileLayout ? MOBILE_TOP : Math.max(40, (viewportHeight - winH) / 2 - 20),
   })
   const posRef = useRef(pos)
   posRef.current = pos
@@ -5221,20 +5222,7 @@ function PressArticleWindow({ url, label, onClose, isMobileLayout = false }) {
       />
       {/* Window */}
       <div
-        style={isMobileLayout ? {
-          position: 'fixed',
-          left: 0,
-          right: 0,
-          top: 0,
-          bottom: 0,
-          height: '100dvh',
-          zIndex: 201,
-          display: 'flex',
-          flexDirection: 'column',
-          background: '#fff',
-          fontFamily: MAC_LIGHT_FONT_STACK,
-          userSelect: 'none',
-        } : {
+        style={{
           position: 'fixed',
           left: pos.x,
           top: pos.y,
@@ -5255,7 +5243,7 @@ function PressArticleWindow({ url, label, onClose, isMobileLayout = false }) {
           onTouchStart={isMobileLayout ? undefined : startDrag}
           style={{
             background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)',
-            padding: isMobileLayout ? 'max(8px, env(safe-area-inset-top)) 10px 8px' : '5px 8px',
+            padding: isMobileLayout ? '6px 10px' : '5px 8px',
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
@@ -5290,7 +5278,7 @@ function PressArticleWindow({ url, label, onClose, isMobileLayout = false }) {
           )}
         </div>
         {/* Body */}
-        <div style={{ height: isMobileLayout ? 'auto' : winH, flex: isMobileLayout ? 1 : undefined, minHeight: 0, background: '#fff', position: 'relative' }}>
+        <div style={{ height: winH, background: '#fff', position: 'relative' }}>
           {!iframeBlocked ? (
             <iframe
               src={url}
