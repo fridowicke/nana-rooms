@@ -3217,22 +3217,38 @@ function AboutPage({
   const welcomeWidth = isMobileLayout ? Math.min(100, leftColumnWidth - 8) : 126
   const welcomeHeight = Math.round(welcomeWidth * (55 / 135))
   const leftColumnX = isMobileLayout ? 14 : 24
-  const aboutWindowTop = isMobileLayout ? 124 : 148
-  const aboutWindowHeight = isMobileLayout ? 150 : 181
   const BROWSER_CHROME_HEIGHT = 62
-  const aboutWindowLeft = isMobileLayout && mobileAboutWindowPosition ? mobileAboutWindowPosition.x : leftColumnX
-  const aboutWindowTopPosition = isMobileLayout && mobileAboutWindowPosition ? mobileAboutWindowPosition.y : aboutWindowTop
-  const welcomeTop = Math.round(BROWSER_CHROME_HEIGHT + ((aboutWindowTop - BROWSER_CHROME_HEIGHT - welcomeHeight) / 2))
+  const aboutWindowHeight = isMobileLayout ? 150 : 181
   const playerWidth = leftColumnWidth
   const playerWindowHeight = Math.round(132 * (playerWidth / 290))
+  // Mobile: distribute the left column evenly — welcome, about, diary, radio+player — with equal gaps,
+  // so there is no dead air between blocks regardless of screen height.
+  const mobileColumn = (() => {
+    if (!isMobileLayout) return null
+    const top = BROWSER_CHROME_HEIGHT + 8
+    const bottom = viewport.height - 14
+    const radioHeight = 40
+    const diaryH = 150
+    const fixed = welcomeHeight + aboutWindowHeight + diaryH + radioHeight + playerWindowHeight
+    const gap = Math.max(10, Math.min(28, Math.floor((bottom - top - fixed) / 4)))
+    const welcomeY = top
+    const aboutY = welcomeY + welcomeHeight + gap
+    const diaryY = aboutY + aboutWindowHeight + gap
+    const playerY = Math.max(diaryY + diaryH + gap + radioHeight, bottom - playerWindowHeight)
+    return { welcomeY, aboutY, diaryY, diaryH, playerY }
+  })()
+  const aboutWindowTop = isMobileLayout ? mobileColumn.aboutY : 148
+  const aboutWindowLeft = isMobileLayout && mobileAboutWindowPosition ? mobileAboutWindowPosition.x : leftColumnX
+  const aboutWindowTopPosition = isMobileLayout && mobileAboutWindowPosition ? mobileAboutWindowPosition.y : aboutWindowTop
+  const welcomeTop = isMobileLayout ? mobileColumn.welcomeY : Math.round(BROWSER_CHROME_HEIGHT + ((aboutWindowTop - BROWSER_CHROME_HEIGHT - welcomeHeight) / 2))
   const playerWindowTop = isMobileLayout
-    ? Math.max(aboutWindowTop + aboutWindowHeight + 200, viewport.height - playerWindowHeight - 14)
+    ? mobileColumn.playerY
     : Math.max(aboutWindowTop + aboutWindowHeight + 430, viewport.height - playerWindowHeight - 28)
   const diaryHeight = isMobileLayout
-    ? Math.max(110, Math.min(playerWindowTop - 40 - (aboutWindowTop + aboutWindowHeight) - 40, 150))
+    ? mobileColumn.diaryH
     : Math.max(154, Math.min(playerWindowTop - aboutWindowTop - aboutWindowHeight - 96, 220))
   const diaryTop = isMobileLayout
-    ? aboutWindowTop + aboutWindowHeight + 18
+    ? mobileColumn.diaryY
     : Math.max(aboutWindowTop + aboutWindowHeight + 96, playerWindowTop - diaryHeight - 260)
   const diaryWidth = isMobileLayout ? Math.max(84, Math.min(leftColumnWidth - 24, 110)) : Math.max(Math.min(leftColumnWidth - 34, 132), 106)
   const mobileDiaryLeft = leftColumnX + (leftColumnWidth - diaryWidth) / 2
