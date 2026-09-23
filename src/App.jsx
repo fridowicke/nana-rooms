@@ -3349,7 +3349,7 @@ function AboutPage({
       })
       if (tunerDrag) {
         const lp = +((px / containerRect.width) * 100).toFixed(1), tp = +((py / containerRect.height) * 100).toFixed(1)
-        setMobileLayout((prev) => ({ ...(prev ?? {}), folders: { ...((prev ?? {}).folders ?? {}), [folderId]: { left: `${lp}%`, top: `${tp}%` } } }))
+        setMobileLayout((prev) => ({ ...(prev ?? {}), folders: { ...((prev ?? {}).folders ?? {}), [folderId]: { left: `${lp}%`, top: `${tp}%`, s: (prev?.folders?.[folderId]?.s ?? 1) } } }))
       }
     }
 
@@ -3800,7 +3800,7 @@ function AboutPage({
       )}
 
       {isMobileLayout && layoutTuner && !isFolderView && (
-        <MobileLayoutTunerPanel layout={mobileLayout} setLayout={setMobileLayout} ids={['welcome', 'about', 'diary', 'pin', 'radio', 'player']} />
+        <MobileLayoutTunerPanel layout={mobileLayout} setLayout={setMobileLayout} ids={['welcome', 'about', 'diary', 'pin', 'radio', 'player', 'title', 'house', 'knock']} folderIds={folderArcLayout.map((p) => p.id)} />
       )}
 
       {/* ── Right stage ── */}
@@ -3840,12 +3840,13 @@ function AboutPage({
 
         {/* Title banner + subtitle */}
         {!isFolderView && (
+          <TunableBlock {...tbProps} id="title" baseLeft={isMobileLayout ? viewport.width - 10 - 150 : 0} baseTop={isMobileLayout ? 78 : 0} zIndex={12} pointerEvents="none" passthrough={!isMobileLayout}>
           <div
             style={{
-              position: 'absolute',
-              top: isMobileLayout ? '78px' : '112px',
-              left: isMobileLayout ? 'auto' : '50%',
-              right: isMobileLayout ? '10px' : 'auto',
+              position: isMobileLayout ? 'relative' : 'absolute',
+              top: isMobileLayout ? 0 : '112px',
+              left: isMobileLayout ? 0 : '50%',
+              right: 'auto',
               transform: isMobileLayout ? 'none' : 'translateX(-50%)',
               zIndex: 12,
               display: 'flex',
@@ -3875,18 +3876,20 @@ function AboutPage({
               />
             </div>
           </div>
+          </TunableBlock>
         )}
 
         {(!isFolderView || activeFolderId === 'she-is-so-hot') && (
+          <TunableBlock {...tbProps} id="house" baseLeft={viewport.width - 18 - 51} baseTop={activeFolderId === 'she-is-so-hot' ? 104 : 92} zIndex={13} passthrough={!isMobileLayout || isFolderView}>
           <button
             type="button"
             onClick={onBackHome}
             aria-label="Go back home"
             className="cursor-pointer"
             style={{
-              position: 'absolute',
-              top: activeFolderId === 'she-is-so-hot' ? '104px' : '92px',
-              right: '18px',
+              position: isMobileLayout && !isFolderView ? 'relative' : 'absolute',
+              top: isMobileLayout && !isFolderView ? 0 : (activeFolderId === 'she-is-so-hot' ? '104px' : '92px'),
+              right: isMobileLayout && !isFolderView ? 'auto' : '18px',
               zIndex: 13,
               border: 'none',
               background: 'transparent',
@@ -3905,16 +3908,19 @@ function AboutPage({
               style={{ width: '51px', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
             />
           </button>
+          </TunableBlock>
         )}
 
         {/* Knock knock button */}
         {!isFolderView && (
+          <TunableBlock {...tbProps} id="knock" baseLeft={viewport.width - 16 - 72} baseTop={viewport.height - 16 - 90} zIndex={22} passthrough={!isMobileLayout}>
           <a
             href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('knock knock')}`}
+            onClick={(e) => { if (layoutTuner && isMobileLayout) e.preventDefault() }}
             style={{
-              position: 'absolute',
-              right: '16px',
-              bottom: '16px',
+              position: isMobileLayout ? 'relative' : 'absolute',
+              right: isMobileLayout ? 'auto' : '16px',
+              bottom: isMobileLayout ? 'auto' : '16px',
               zIndex: 22,
               width: isMobileLayout ? '72px' : '100px',
               display: 'flex',
@@ -3934,6 +3940,7 @@ function AboutPage({
               style={{ width: isMobileLayout ? '72px' : '100px', height: 'auto', objectFit: 'contain' }}
             />
           </a>
+          </TunableBlock>
         )}
 
         {isFolderView && activeFolderId === 'she-is-so-hot' && (
@@ -3984,8 +3991,10 @@ function AboutPage({
                 position: 'absolute',
                 left: posLeft,
                 top: posTop,
-                transform: 'translate(-50%, -50%)',
+                transform: `translate(-50%, -50%) scale(${isMobileLayout ? (mobileLayout?.folders?.[folder.id]?.s ?? 1) : 1})`,
                 zIndex: 25,
+                outline: layoutTuner && isMobileLayout ? '1px dashed #ff2fd6' : 'none',
+                touchAction: layoutTuner && isMobileLayout ? 'none' : 'auto',
                 border: '1px solid transparent',
                 background: 'transparent',
                 borderRadius: '3px',
@@ -4291,9 +4300,9 @@ function loadMobileLayout() {
 }
 
 // Wraps a positioned block on mobile so it can be dragged / scaled in tuner mode, and applies saved overrides.
-function TunableBlock({ id, layout, tuner, onChange, mobile = true, baseLeft, baseTop, zIndex = 21, children, pointerEvents = 'auto' }) {
+function TunableBlock({ id, layout, tuner, onChange, mobile = true, passthrough = false, baseLeft, baseTop, zIndex = 21, children, pointerEvents = 'auto' }) {
   const ov = mobile ? layout?.[id] : null
-  const active = mobile && tuner
+  const active = mobile && tuner && !passthrough
   const vw = typeof window !== 'undefined' ? window.innerWidth : 390
   const vh = typeof window !== 'undefined' ? window.innerHeight : 800
   const left = ov ? (ov.x / 100) * vw : baseLeft
@@ -4314,6 +4323,7 @@ function TunableBlock({ id, layout, tuner, onChange, mobile = true, baseLeft, ba
     window.addEventListener('pointermove', move); window.addEventListener('pointerup', up)
     window.addEventListener('touchmove', move, { passive: false }); window.addEventListener('touchend', up)
   }
+  if (passthrough) return children
   return (
     <div
       onPointerDown={active ? startDrag : undefined}
@@ -4327,16 +4337,31 @@ function TunableBlock({ id, layout, tuner, onChange, mobile = true, baseLeft, ba
   )
 }
 
-function MobileLayoutTunerPanel({ layout, setLayout, ids }) {
+function MobileLayoutTunerPanel({ layout, setLayout, ids, folderIds = [] }) {
   const [active, setActive] = useState(ids[0])
   const [copied, setCopied] = useState(false)
-  const cur = layout?.[active]
-  const bump = (ds) => setLayout((prev) => ({ ...(prev ?? {}), [active]: { x: cur?.x ?? 5, y: cur?.y ?? 20, s: Math.max(0.3, Math.min(3, (cur?.s ?? 1) + ds)) } }))
-  const btn = { border: '1px solid #fff', background: 'transparent', color: '#fff', borderRadius: '6px', padding: '4px 8px', fontFamily: 'monospace', fontSize: '11px' }
+  const isFolder = folderIds.includes(active)
+  const cur = isFolder ? layout?.folders?.[active] : layout?.[active]
+  const bump = (ds) => setLayout((prev) => {
+    const base = prev ?? {}
+    if (isFolder) {
+      const f = base.folders?.[active] ?? {}
+      return { ...base, folders: { ...(base.folders ?? {}), [active]: { left: f.left, top: f.top, s: Math.max(0.3, Math.min(3, (f.s ?? 1) + ds)) } } }
+    }
+    const c = base[active]
+    return { ...base, [active]: { x: c?.x ?? 5, y: c?.y ?? 20, s: Math.max(0.3, Math.min(3, (c?.s ?? 1) + ds)) } }
+  })
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="viewport"]')
+    const prev = meta?.getAttribute('content')
+    meta?.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
+    return () => { if (meta && prev) meta.setAttribute('content', prev) }
+  }, [])
+  const btn = { border: '1px solid #fff', background: 'transparent', color: '#fff', borderRadius: '6px', padding: '4px 8px', fontFamily: 'monospace', fontSize: '11px', touchAction: 'manipulation' }
   return (
     <div style={{ position: 'fixed', left: 8, right: 8, bottom: 8, zIndex: 600, background: 'rgba(15,8,30,0.95)', color: '#fff', borderRadius: '10px', padding: '8px', fontFamily: 'monospace', fontSize: '11px' }}>
-      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '6px' }}>
-        {ids.map((id) => <button key={id} type="button" onClick={() => setActive(id)} style={{ ...btn, background: active === id ? '#ff2fd6' : 'transparent', borderColor: active === id ? '#ff2fd6' : '#fff' }}>{id}</button>)}
+      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '6px', maxHeight: '64px', overflowY: 'auto' }}>
+        {[...ids, ...folderIds].map((id) => <button key={id} type="button" onClick={() => setActive(id)} style={{ ...btn, background: active === id ? '#ff2fd6' : 'transparent', borderColor: active === id ? '#ff2fd6' : '#fff' }}>{id}</button>)}
       </div>
       <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
         <span style={{ opacity: 0.7 }}>тащи блоки пальцем · размер:</span>
