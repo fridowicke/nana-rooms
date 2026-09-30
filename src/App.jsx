@@ -221,6 +221,7 @@ const EXHIBITIONS = [
       'The performance references the internet culture phenomenon of the NPC (Non-Player Character)—entities typically overseen by a gamemaster in tabletop role-playing games rather than controlled by a live player. Within this piece, each character symbolizes an imaginary post-internet culture, reflecting its distinct philosophical, political, and ontological values.',
     ],
     links: [],
+    imageFolder: 'Tama Art University 2023',
     videoFolder: 'Tama Art University 2023',
   },
 ]
