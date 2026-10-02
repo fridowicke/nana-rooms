@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
+import { reactionImages, reactionAudio, hasReactionWindow } from './roomReactions.js'
 
 const ROOM_DATA_VERSION = 2
 const draftKey = (roomNumber) => `shelest-hotspots-v2-r${roomNumber}`
@@ -20,6 +21,7 @@ const HOVER_TYPES = [
   { value: 'image', label: 'картинка' },
   { value: 'gif', label: 'гифка' },
   { value: 'audio', label: 'звук' },
+  { value: 'gallery', label: 'картинки + гифки' },
 ]
 
 const REACTION_TYPES = [
@@ -221,6 +223,13 @@ class ScanPicker {
     const { gl } = this
     this.mesh.updateWorldMatrix(true, false)
     this.pickMesh.matrix.copy(this.mesh.matrixWorld)
+    // Match the visible scan: back-facing ceilings must not mask the objects
+    // when a lasso was drawn from above or outside an open scan.
+    const scanMaterial = Array.isArray(this.mesh.material) ? this.mesh.material[0] : this.mesh.material
+    if (this.pickMesh.material.side !== scanMaterial.side) {
+      this.pickMesh.material.side = scanMaterial.side
+      this.pickMesh.material.needsUpdate = true
+    }
     const target = new THREE.WebGLRenderTarget(width, height, {
       minFilter: THREE.NearestFilter,
       magFilter: THREE.NearestFilter,
@@ -385,7 +394,10 @@ function createFaceHighlight(mesh, faces, color, opacity) {
 
 // Sparkles: the site's cursor-trail sparkle gifs, spawned over the hotspot's surface (hover hint).
 const SPARKLE_GIFS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map((k) => new URL(`../target/cursor/sparkle_${k}.gif`, import.meta.url).href)
-function createSparkles(engine, faces) {
+function createSparkles(engine, faces, options = {}) {
+  if (!faces?.length) return null
+  const sources = options.sources?.length ? options.sources : SPARKLE_GIFS
+  const large = Boolean(options.large)
   const mesh = engine.mesh
   const canvas = engine.canvas
   const geometry = mesh.geometry
@@ -416,16 +428,16 @@ function createSparkles(engine, faces) {
   const spawn = () => {
     const world = pickPoint()
     const img = document.createElement('img')
-    img.src = SPARKLE_GIFS[Math.floor(Math.random() * SPARKLE_GIFS.length)]
+    img.src = sources[Math.floor(Math.random() * sources.length)]
     img.alt = ''
-    const size = 18 + Math.random() * 18
+    const size = large ? 60 + Math.random() * 40 : 18 + Math.random() * 18
     img.style.cssText = `position:absolute;width:${size}px;height:${size}px;transform:translate(-50%,-50%);opacity:0;transition:opacity 160ms;will-change:transform`
     layer.appendChild(img)
-    live.push({ img, world, born: performance.now(), life: 700 + Math.random() * 500 })
+    live.push({ img, world, born: performance.now(), life: large ? 1600 : 700 + Math.random() * 500, dx: large ? (Math.random() - 0.5) * 120 : 0, dy: large ? (Math.random() - 0.5) * 120 : 0 })
   }
   const tick = (now) => {
     raf = requestAnimationFrame(tick)
-    if (now - last > 70 && live.length < 18) { last = now; spawn() }
+    if (now - last > (large ? 180 : 70) && live.length < (large ? 8 : 18)) { last = now; spawn() }
     const rect = canvas.getBoundingClientRect()
     const cam = engine.camera
     const v = new THREE.Vector3()
@@ -434,8 +446,8 @@ function createSparkles(engine, faces) {
       const age = now - sp.born
       if (age > sp.life) { sp.img.remove(); live.splice(i, 1); continue }
       v.copy(sp.world).project(cam)
-      const x = (v.x + 1) / 2 * rect.width
-      const y = (1 - v.y) / 2 * rect.height
+      const x = (v.x + 1) / 2 * rect.width + sp.dx
+      const y = (1 - v.y) / 2 * rect.height + sp.dy
       const behind = v.z > 1
       sp.img.style.left = `${x}px`
       sp.img.style.top = `${y}px`
@@ -525,7 +537,9 @@ function ReactionPopup({ reaction, onClose, isMobileLayout }) {
       return <div style={{ whiteSpace: 'pre-wrap', fontSize: '14px', lineHeight: 1.5, padding: '18px 20px', fontWeight: 300 }}>{reaction.value}</div>
     }
     if (reaction.type === 'image') {
-      return <img src={reaction.value} alt={reaction.title || ''} style={{ display: 'block', maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', margin: '0 auto' }} />
+      return <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '12px', padding: '16px' }}>
+        {reactionImages(reaction).map((src, index) => <img key={src} src={src} alt={index === 0 ? reaction.title || '' : ''} style={{ display: 'block', maxWidth: '100%', maxHeight: index === 0 ? '55vh' : '120px', objectFit: 'contain' }} />)}
+      </div>
     }
     if (reaction.type === 'video') {
       const embed = toEmbedUrl(reaction.value)
@@ -538,11 +552,17 @@ function ReactionPopup({ reaction, onClose, isMobileLayout }) {
       }
       return <video src={reaction.value} controls autoPlay playsInline style={{ display: 'block', width: '100%', maxHeight: '70vh', background: '#000' }} />
     }
+    if (reaction.type === 'link') {
+      return <div style={{ padding: '20px', fontSize: '14px', lineHeight: 1.5, fontWeight: 300 }}>
+        <a href={reaction.value} target="_blank" rel="noopener noreferrer" style={{ color: '#111' }}>{reaction.label || reaction.title || 'open link'} ↗</a>
+        <div style={{ marginTop: '8px', color: '#666', fontSize: '12px', overflowWrap: 'anywhere' }}>{reaction.value}</div>
+      </div>
+    }
     return null
   })()
   if (!body) return null
 
-  const winW = isMobileLayout ? 'calc(100vw - 24px)' : 'min(720px, calc(100vw - 80px))'
+  const winW = isMobileLayout ? 'calc(100vw - 24px)' : reaction.type === 'link' ? 'min(420px, calc(100vw - 80px))' : 'min(720px, calc(100vw - 80px))'
   const startDrag = (e) => {
     if (e.button != null && e.button !== 0) return
     const el = e.currentTarget.parentElement
@@ -567,6 +587,9 @@ function ReactionPopup({ reaction, onClose, isMobileLayout }) {
       style={{ position: 'fixed', inset: 0, zIndex: 9500, background: 'rgba(0,0,0,0.35)' }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={reaction.title || 'Object reaction'}
         onPointerDown={(e) => e.stopPropagation()}
         style={{ ...winStyle, width: winW, background: '#fff', color: '#111', borderRadius: '10px', boxShadow: '0 24px 70px rgba(0,0,0,0.45)', overflow: 'hidden', fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}
       >
@@ -588,26 +611,10 @@ function ReactionPopup({ reaction, onClose, isMobileLayout }) {
           <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'block' }} />
           <span style={{ flex: 1, textAlign: 'center', opacity: 0.7, fontWeight: 300, paddingRight: '58px' }}>{reaction.title || ''}</span>
         </div>
-        {body}
+        <div style={{ maxHeight: 'calc(100dvh - 100px)', overflowY: 'auto' }}>{body}</div>
       </div>
     </div>
   )
-}
-
-function triggerReaction(reaction, setPopup) {
-  if (!reaction || !reaction.type || !reaction.value) return
-  if (reaction.type === 'link') {
-    window.open(reaction.value, '_blank', 'noopener')
-    return
-  }
-  if (reaction.type === 'audio') {
-    try {
-      const audio = new Audio(reaction.value)
-      audio.play().catch(() => {})
-    } catch { /* unsupported */ }
-    return
-  }
-  setPopup(reaction)
 }
 
 // ─── game panel (2000s hidden-object style) ──────────────────────────────────
@@ -927,6 +934,19 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
   const [timeLeft, setTimeLeft] = useState(null)
   const [timeUp, setTimeUp] = useState(false)
   const [popup, setPopup] = useState(null)
+  const reactionAudioRef = useRef(null)
+  const reactionEffectsRef = useRef(null)
+  const closeReaction = useCallback(() => {
+    reactionAudioRef.current?.pause()
+    reactionAudioRef.current = null
+    removeHighlight(reactionEffectsRef.current)
+    reactionEffectsRef.current = null
+    setPopup(null)
+  }, [])
+  useEffect(() => {
+    closeReaction()
+    return closeReaction
+  }, [roomNumber, closeReaction])
   const [editorEnabled] = useState(isEditorEnabled)
   useEffect(() => { try { localStorage.removeItem(EDITOR_FLAG_KEY) } catch { /* ignore */ } }, [])
   const [editMode, setEditMode] = useState(false)
@@ -1065,8 +1085,24 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
     })
     setHintId(null)
     flashFaces(runtimeRef.current.hotspotFaces.get(hotspot.id))
-    triggerReaction(hotspot.reaction, setPopup)
-  }, [roomNumber, flashFaces])
+    closeReaction()
+    const reaction = hotspot.reaction
+    // Numuki does not allow embedded pages. Launch during the click gesture so
+    // browsers permit the game tab, while shopping links stay in a room window.
+    if (reaction?.type === 'link' && reaction.openInNewTab && reaction.value) {
+      window.open(reaction.value, '_blank', 'noopener,noreferrer')
+    }
+    const audioSrc = reactionAudio(reaction)
+    if (audioSrc) {
+      try { const audio = new Audio(audioSrc); reactionAudioRef.current = audio; audio.play().catch(() => {}) } catch { /* unsupported */ }
+    }
+    if (reaction?.surfaceGifs?.length) {
+      const engine = engineRef.current
+      const faces = runtimeRef.current.hotspotFaces.get(hotspot.id)
+      if (engine && faces) reactionEffectsRef.current = createSparkles(engine, faces, { sources: reaction.surfaceGifs, large: true })
+    }
+    if (hasReactionWindow(reaction)) setPopup({ ...reaction })
+  }, [roomNumber, flashFaces, closeReaction])
 
   // Visitor hover: glow the hotspot under the pointer, show its name, run its hover reaction.
   const [hoverInfo, setHoverInfo] = useState(null)
@@ -1087,7 +1123,7 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
         if (hoverAudioRef.current) { hoverAudioRef.current.pause(); hoverAudioRef.current = null }
         if (hotspot) {
           const faces = runtimeRef.current.hotspotFaces.get(hotspot.id)
-          if (faces) highlightsRef.current.visitorHover = createSparkles(engine, faces)
+          if (faces) highlightsRef.current.visitorHover = createSparkles(engine, faces, { sources: hotspot.hover?.sparkles })
           if (hotspot.hover?.type === 'audio' && hotspot.hover.value) {
             try { const a = new Audio(hotspot.hover.value); a.loop = true; a.volume = 0.7; a.play().catch(() => {}); hoverAudioRef.current = a } catch { /* ignore */ }
           }
@@ -1348,21 +1384,23 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
       {hoverInfo && !editMode && (() => {
         const { hotspot, x, y } = hoverInfo
         const hv = hotspot.hover
-        const media = hv?.type === 'image' || hv?.type === 'gif' ? hv.value : null
+        const media = hv?.type === 'image' || hv?.type === 'gif' || hv?.type === 'gallery' ? hv.value : null
         const text = hv?.type === 'text' ? hv.value : null
         const W = media ? 220 : 'auto'
         const left = Math.min(x + 16, (typeof window !== 'undefined' ? window.innerWidth : 9999) - (media ? 240 : 200))
         const top = Math.max(8, y - (media ? 190 : 40))
         return (
           <div style={{ position: 'fixed', left, top, width: W, zIndex: 9400, pointerEvents: 'none', background: '#fff', border: '1px solid #111', padding: media ? '6px' : '4px 9px', fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif', fontSize: '12px', fontWeight: 300, color: '#111', boxShadow: '0 6px 20px rgba(0,0,0,0.18)' }}>
-            {media && <img src={media} alt="" style={{ display: 'block', width: '100%', height: '150px', objectFit: 'cover', marginBottom: '5px' }} />}
+            {media && <div style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'center', marginBottom: '5px' }}>
+              {[media, ...(hv.images ?? [])].map((src) => <img key={src} src={src} alt="" style={{ display: 'block', maxWidth: hv.images?.length ? '48%' : '100%', maxHeight: '150px', objectFit: 'contain' }} />)}
+            </div>}
             <div>{hotspot.name}</div>
             {text && <div style={{ opacity: 0.7, marginTop: '2px' }}>{text}</div>}
           </div>
         )
       })()}
 
-      <ReactionPopup reaction={popup} onClose={() => setPopup(null)} isMobileLayout={isMobileLayout} />
+      <ReactionPopup reaction={popup} onClose={closeReaction} isMobileLayout={isMobileLayout} />
     </div>
   )
 }
