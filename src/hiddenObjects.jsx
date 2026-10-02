@@ -376,7 +376,7 @@ function ReactionPopup({ reaction, onClose, isMobileLayout }) {
 
 // ─── game panel (2000s hidden-object style) ──────────────────────────────────
 
-function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp, allFound, onRestart, isMobileLayout }) {
+function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp, allFound, isMobileLayout }) {
   const remaining = hotspots.filter((s) => !found.includes(s.id))
   const foundList = hotspots.filter((s) => found.includes(s.id))
   const FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif'
@@ -420,18 +420,7 @@ function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp
   })
   const timerLabel = timeLeft != null ? `${Math.floor(timeLeft / 60)}:${String(timeLeft % 60).padStart(2, '0')}` : null
 
-  if (allFound || timeUp) {
-    return (
-      <div style={{ ...panelStyle, alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center', display: 'flex', flexDirection: isMobileLayout ? 'row' : 'column', alignItems: 'center', gap: '8px' }}>
-          <div style={{ fontSize: isMobileLayout ? '18px' : '26px' }}>{allFound ? '✨' : '⏱'}</div>
-          <div style={{ fontSize: '13px', fontWeight: 400 }}>{allFound ? 'all found!' : "time's up"}</div>
-          <div style={{ fontSize: '11px', fontWeight: 300, color: '#666' }}>{found.length} / {hotspots.length}</div>
-          <button type="button" onClick={onRestart} style={{ ...buttonStyle(false), marginTop: 0 }}>play again</button>
-        </div>
-      </div>
-    )
-  }
+  if (allFound || timeUp) return null
 
   return (
     <div style={panelStyle}>
@@ -986,15 +975,6 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
     setHintUsed(true)
   }
 
-  const handleRestart = () => {
-    setFound([])
-    saveFound(roomNumber, [])
-    setHintUsed(false)
-    setHintId(null)
-    setTimeUp(false)
-    setTimeLeft(room.timerSeconds)
-  }
-
   // ── editor actions ──
   const applyStroke = useCallback((polygon, op) => {
     const engine = engineRef.current
@@ -1102,7 +1082,6 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
           timeLeft={timeLeft}
           timeUp={timeUp}
           allFound={allFound}
-          onRestart={handleRestart}
           isMobileLayout={isMobileLayout}
         />
       )}
