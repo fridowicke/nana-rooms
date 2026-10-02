@@ -5,7 +5,8 @@ import { OrbitControls, Stage, Html, KeyboardControls, useKeyboardControls } fro
 import * as THREE from 'three'
 import { HiddenObjectGame, HiddenObjectScene } from './hiddenObjects.jsx'
 import ArchiveMap from './ArchiveMap.jsx'
-import { ROOM_FILES, HOME_ASSET_URL, getRoomAssetUrl, roomPreloadPlan, modelPreloader, RoomAssetLoader } from './roomAssets.js'
+import { ROOM_FILES, HOME_ASSET_URL, getRoomAssetUrl, roomPreloadPlan, modelPreloader, RoomAssetLoader, canPrepareRooms, releaseModelGpu } from './roomAssets.js'
+import { createGpuRoomCache } from './gpuRoomCache.js'
 
 const keyboardMap = [
   { name: 'forward', keys: ['ArrowUp', 'w', 'W'] },
@@ -809,7 +810,11 @@ function captureCurrentCanvasFrame() {
   if (!canvas) return null
 
   try {
-    return canvas.toDataURL('image/png')
+    const snapshot = document.createElement('canvas')
+    snapshot.width = canvas.width
+    snapshot.height = canvas.height
+    snapshot.getContext('2d').drawImage(canvas, 0, 0)
+    return snapshot
   } catch {
     return null
   }
@@ -931,6 +936,90 @@ function prepareRoomNavigation(roomIndex) {
   const url = getRoomAssetUrl(roomIndex)
   modelPreloader.enter(url)
   modelPreloader.load(url).catch(() => {})
+}
+
+function GpuRoomPreparation({ roomIndex, prepareScene, cacheRef, isMobileLayout }) {
+  const { gl, camera, scene, controls } = useThree()
+  const preparationRef = useRef(prepareScene)
+  preparationRef.current = prepareScene
+  const lastInteraction = useRef(0)
+  const cache = useMemo(() => createGpuRoomCache({
+    prepare: (asset) => {
+      preparationRef.current(asset.scene)
+      const textures = new Set()
+      asset.scene.traverse((object) => {
+        if (!object.isMesh) return
+        for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+          for (const value of Object.values(material)) if (value?.isTexture) textures.add(value)
+        }
+      })
+      for (const texture of textures) gl.initTexture(texture)
+      // Start compilation during idle; avoid a polling promise surviving renderer disposal.
+      gl.compile(asset.scene, camera, scene)
+    },
+    release: releaseModelGpu,
+    canPrepare: canPrepareRooms,
+    // Give camera motion, dragging and hover interactions time to settle before GPU work.
+    requestIdle: (callback) => {
+      const task = { timer: null, idle: null }
+      const attempt = () => {
+        const delay = 500 - (performance.now() - lastInteraction.current)
+        if (delay > 0) { task.timer = window.setTimeout(attempt, delay); return }
+        if (window.requestIdleCallback) task.idle = window.requestIdleCallback(callback)
+        else task.timer = window.setTimeout(callback, 0)
+      }
+      task.timer = window.setTimeout(attempt, 500)
+      return task
+    },
+    cancelIdle: (task) => { window.clearTimeout(task.timer); if (task.idle != null) window.cancelIdleCallback(task.idle) },
+  }), [gl, camera, scene])
+  useLayoutEffect(() => {
+    cacheRef.current = cache
+    const next = getRoomAssetUrl((roomIndex + 1) % ROOM_FILES.length)
+    cache.enter(getRoomAssetUrl(roomIndex), next)
+    cache.target(next, modelPreloader.getCached(next))
+  }, [cache, cacheRef, roomIndex])
+  useLayoutEffect(() => {
+    cache.setLimit(isMobileLayout || navigator.deviceMemory <= 4 ? 2 : 3)
+  }, [cache, isMobileLayout])
+  useEffect(() => {
+    const unsubscribeCached = modelPreloader.onCached((url, asset) => cache.offer(url, asset))
+    const unsubscribeIntent = modelPreloader.onIntent((url) => {
+      // Home has its own renderer; preparing its graphics here would be discarded.
+      if (url.startsWith('rooms/')) cache.target(url, modelPreloader.getCached(url))
+    })
+    const touch = () => { lastInteraction.current = performance.now() }
+    const refresh = () => cache.refresh()
+    const restore = () => cache.reset()
+    const canvas = gl.domElement
+    canvas.addEventListener('pointermove', touch)
+    canvas.addEventListener('pointerdown', touch)
+    canvas.addEventListener('webglcontextrestored', restore)
+    window.addEventListener('keydown', touch)
+    window.addEventListener('online', refresh)
+    window.addEventListener('offline', refresh)
+    document.addEventListener('visibilitychange', refresh)
+    navigator.connection?.addEventListener('change', refresh)
+    return () => {
+      unsubscribeCached(); unsubscribeIntent()
+      canvas.removeEventListener('pointermove', touch)
+      canvas.removeEventListener('pointerdown', touch)
+      canvas.removeEventListener('webglcontextrestored', restore)
+      window.removeEventListener('keydown', touch)
+      window.removeEventListener('online', refresh)
+      window.removeEventListener('offline', refresh)
+      document.removeEventListener('visibilitychange', refresh)
+      navigator.connection?.removeEventListener('change', refresh)
+      cache.dispose()
+      if (cacheRef.current === cache) cacheRef.current = null
+    }
+  }, [cache, cacheRef, gl])
+  useEffect(() => {
+    const touch = () => { lastInteraction.current = performance.now() }
+    controls?.addEventListener('change', touch)
+    return () => controls?.removeEventListener('change', touch)
+  }, [controls])
+  return null
 }
 
 function RendererSettings({ toneMapping, exposure }) {
@@ -2075,19 +2164,20 @@ function HomeEditorScene({ corners, activeCornerIndex, onPickPoint }) {
   )
 }
 
-function CameraReset({ position, target = DEFAULT_CAMERA_TARGET }) {
+function CameraReset({ position, target = DEFAULT_CAMERA_TARGET, fov }) {
   const camera = useThree((state) => state.camera)
   const controls = useThree((state) => state.controls)
 
   useLayoutEffect(() => {
     camera.position.set(...position)
+    if (fov != null && camera.fov !== fov) { camera.fov = fov; camera.updateProjectionMatrix() }
     if (controls?.target) {
       controls.target.set(...target)
       controls.update()
     } else {
       camera.lookAt(...target)
     }
-  }, [camera, controls, position, target])
+  }, [camera, controls, position, target, fov])
 
   return null
 }
@@ -2533,8 +2623,14 @@ function HotspotPickerOverlay({ roomNumber, roomFile }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenNextRoom, onOpenSubmit, canGoBack, onReady, isMobileLayout = false }) {
+function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenNextRoom, onOpenSubmit, canGoBack, previousRoomIndex, onReady, isMobileLayout = false }) {
   const positionControlsApiRef = useRef(null)
+  const gpuCacheRef = useRef(null)
+  const handleReady = useCallback(() => {
+    const url = getRoomAssetUrl(roomNumber - 1)
+    gpuCacheRef.current?.ready(url, modelPreloader.getCached(url))
+    onReady?.()
+  }, [roomNumber, onReady])
   const roomRenderVariantState = useMemo(readRoomRenderVariantFromUrl, [])
   const [roomRenderVariantId, setRoomRenderVariantId] = useState(roomRenderVariantState.variant.id)
   const roomRenderVariant = ROOM_RENDER_VARIANT_MAP.get(roomRenderVariantId) ?? DEFAULT_ROOM_RENDER_VARIANT
@@ -2585,7 +2681,8 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
               style={{ cursor: 'inherit', touchAction: isMobileLayout ? 'none' : 'auto', width: '100%', height: '100%' }}
             >
               <color attach="background" args={['#fff']} />
-              <Suspense fallback={<LoadingCanvasFallback />}>
+              <GpuRoomPreparation roomIndex={roomNumber - 1} prepareScene={prepareRoomScene} cacheRef={gpuCacheRef} isMobileLayout={isMobileLayout} />
+              <Suspense key={roomNumber} fallback={<LoadingCanvasFallback />}>
                 <RendererSettings toneMapping={roomRenderSettings.toneMapping} exposure={roomRenderSettings.exposure} />
                 {roomRenderVariant.ambientLightIntensity > 0 && <ambientLight intensity={roomRenderVariant.ambientLightIntensity} />}
                 <Stage environment={roomRenderVariant.stageEnvironment} intensity={roomRenderSettings.environmentIntensity} shadows={false} adjustCamera={false}>
@@ -2606,10 +2703,10 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
                   maxDistance={roomRenderVariant.controls.maxDistance}
                   positionControlsApiRef={showPositionControls ? positionControlsApiRef : null}
                 />
-                <CameraReset position={cameraDefault.position} target={cameraDefault.target} />
-                <FirstFrameSignal onReady={onReady} />
+                <CameraReset position={cameraDefault.position} target={cameraDefault.target} fov={isMobileLayout ? 54 : 47.5} />
+                <FirstFrameSignal onReady={handleReady} />
                 {showHotspotPicker && <HotspotPickerScene roomNumber={roomNumber} />}
-                <HiddenObjectScene {...sceneProps} />
+                <HiddenObjectScene roomNumber={roomNumber} {...sceneProps} />
               </Suspense>
             </Canvas>
           </KeyboardControls>
@@ -2627,6 +2724,8 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
       <button
         type="button"
         onClick={onBack}
+        onPointerEnter={() => modelPreloader.intent(getRoomAssetUrl(previousRoomIndex))}
+        onFocus={() => modelPreloader.intent(getRoomAssetUrl(previousRoomIndex))}
         disabled={!canGoBack}
         style={{
           position: 'absolute',
@@ -2700,11 +2799,20 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
   )
 }
 
-function SceneTransitionCover({ snapshotUrl }) {
-  if (!snapshotUrl) return null
+function SceneTransitionCover({ snapshot }) {
+  const host = useRef(null)
+  useLayoutEffect(() => {
+    if (!snapshot || !host.current) return undefined
+    snapshot.style.cssText = 'width:100%;height:100%;display:block;object-fit:cover;user-select:none'
+    host.current.appendChild(snapshot)
+    return () => snapshot.remove()
+  }, [snapshot])
+  if (!snapshot) return null
 
   return (
     <div
+      ref={host}
+      data-scene-transition="cover"
       aria-hidden="true"
       style={{
         position: 'fixed',
@@ -2715,18 +2823,6 @@ function SceneTransitionCover({ snapshotUrl }) {
         backgroundColor: '#fff',
       }}
     >
-      <img
-        src={snapshotUrl}
-        alt=""
-        draggable="false"
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'block',
-          objectFit: 'cover',
-          userSelect: 'none',
-        }}
-      />
     </div>
   )
 }
@@ -6011,7 +6107,7 @@ export default function App() {
   const [savedSnapshots, setSavedSnapshots] = useState([])
   const pendingRoomNavigationRef = useRef(0)
   const [visitedRoomHistory, setVisitedRoomHistory] = useState([])
-  const [transitionSnapshotUrl, setTransitionSnapshotUrl] = useState(null)
+  const [transitionSnapshot, setTransitionSnapshot] = useState(null)
   const [isSceneTransitioning, setIsSceneTransitioning] = useState(false)
 
   useEffect(() => {
@@ -6152,7 +6248,7 @@ export default function App() {
   }, [isTouch, route.type])
 
   const clearTransitionCover = useCallback(() => {
-    setTransitionSnapshotUrl(null)
+    setTransitionSnapshot(null)
     setIsSceneTransitioning(false)
   }, [])
 
@@ -6168,7 +6264,7 @@ export default function App() {
 
   const beginSceneTransition = useCallback(() => {
     setIsSceneTransitioning(true)
-    setTransitionSnapshotUrl(captureCurrentCanvasFrame())
+    setTransitionSnapshot(captureCurrentCanvasFrame())
   }, [])
 
   const openRoom = useCallback((roomNumber) => {
@@ -6342,7 +6438,7 @@ export default function App() {
   )
   const sceneTransitionLayer = (
     <>
-      <SceneTransitionCover snapshotUrl={transitionSnapshotUrl} />
+      <SceneTransitionCover snapshot={transitionSnapshot} />
       <LoadingGlitterOverlay active={isSceneTransitioning} reducedMotion={prefersReducedMotion} />
     </>
   )
@@ -6353,7 +6449,6 @@ export default function App() {
     return (
       <>
         <RoomPage
-          key={roomFile}
           roomNumber={roomNumber}
           roomFile={roomFile}
           cameraDefault={ROOM_CAMERA_DEFAULTS[route.roomIndex] ?? ROOM_CAMERA_DEFAULTS[0]}
@@ -6362,6 +6457,7 @@ export default function App() {
           onOpenNextRoom={() => openNextRoom(roomNumber)}
           onOpenSubmit={openSubmitRoom}
           canGoBack={visitedRoomHistory.length > 0}
+          previousRoomIndex={visitedRoomHistory[visitedRoomHistory.length - 1]}
           onReady={handleRoomReady}
           isMobileLayout={isMobileLayout}
         />

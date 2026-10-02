@@ -3,12 +3,13 @@
 // by mesh name; a hotspot is a set of triangle ids collected by drawing lassos over the scan.
 // The pick goes through a GPU id buffer rendered from the lasso's camera, so only surfaces that
 // were actually visible inside the lasso are selected (nothing behind walls or furniture).
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { ScanPicker, cameraStateFrom, triangleVertexIndex } from './scanPicker.js'
 import { createHoverPicker } from './hoverPicking.js'
 import { reactionImages, reactionAudio, hasReactionWindow } from './roomReactions.js'
+import { fetchPublishedRoom, peekPublishedRoom } from './publishedRooms.js'
 
 const ROOM_DATA_VERSION = 2
 const draftKey = (roomNumber) => `shelest-hotspots-v2-r${roomNumber}`
@@ -59,13 +60,7 @@ function normalizeRoom(raw) {
 }
 
 async function loadPublishedRoom(roomNumber) {
-  try {
-    const response = await fetch(`hotspots/room-${roomNumber}.json`, { cache: 'no-cache' })
-    if (!response.ok) return null
-    return normalizeRoom(await response.json())
-  } catch {
-    return null
-  }
+  return normalizeRoom(await fetchPublishedRoom(roomNumber, { refresh: true }))
 }
 
 function loadDraftRoom(roomNumber) {
@@ -229,24 +224,27 @@ function removeHighlight(highlight) {
 
 // Finds the scan mesh once it is loaded and hands renderer, camera and mesh to the game logic,
 // which does everything else imperatively (picking, highlights, pointer handling).
-export function HiddenObjectScene({ engineRef, onEngineReady }) {
+export function HiddenObjectScene({ engineRef, onEngineReady, roomNumber, activeRoomRef }) {
   const { gl, camera, scene } = useThree()
+  const ownedEngine = useRef(null)
 
   useFrame(() => {
+    if (activeRoomRef.current !== roomNumber) return
     const engine = engineRef.current
-    if (engine && engine.mesh && engine.mesh.parent) return
+    if (engine?.roomNumber === roomNumber && engine.mesh?.parent) return
     const mesh = findScanMesh(scene)
     if (!mesh) return
     engineRef.current?.picker?.dispose()
-    engineRef.current = { gl, camera, mesh, picker: null, canvas: gl.domElement }
+    ownedEngine.current = { gl, camera, mesh, picker: null, canvas: gl.domElement, roomNumber }
+    engineRef.current = ownedEngine.current
     onEngineReady?.()
   })
 
-  useEffect(() => () => {
-    const engine = engineRef.current
+  useLayoutEffect(() => () => {
+    const engine = ownedEngine.current
     if (engine) {
       engine.picker?.dispose()
-      engineRef.current = null
+      if (engineRef.current === engine) engineRef.current = null
     }
   }, [engineRef])
 
@@ -684,8 +682,9 @@ function newDraft() {
 
 export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
   const engineRef = useRef(null)
+  const activeRoomRef = useRef(roomNumber)
   const [engineVersion, setEngineVersion] = useState(0)
-  const [room, setRoom] = useState(emptyRoom)
+  const [room, setRoom] = useState(() => loadDraftRoom(roomNumber) ?? normalizeRoom(peekPublishedRoom(roomNumber)) ?? emptyRoom())
   const [hasDraftOverride, setHasDraftOverride] = useState(false)
   const [found, setFound] = useState(() => loadFound(roomNumber))
   const [hintId, setHintId] = useState(null)
@@ -719,9 +718,21 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
   const hotspotsSignature = JSON.stringify(room.hotspots)
 
   // Load hotspots: the published file is the default, a local draft (from editing) overrides it.
-  useEffect(() => {
+  useLayoutEffect(() => {
     let cancelled = false
+    // The renderer persists between rooms; reset only the game/editor state before paint.
+    activeRoomRef.current = roomNumber
+    if (engineRef.current?.roomNumber !== roomNumber) {
+      engineRef.current?.picker?.dispose()
+      engineRef.current = null
+    }
     setFound(loadFound(roomNumber))
+    setEditMode(false)
+    setTool('lasso')
+    setHoverId(null)
+    setHoverInfo(null)
+    setFaceCounts(new Map())
+    runtimeRef.current = { faceToHotspot: null, hotspotFaces: new Map(), hotspotIds: [] }
     setHintId(null)
     setHintUsed(false)
     setTimeUp(false)
@@ -732,11 +743,11 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
       setRoom(draftRoom)
       setHasDraftOverride(true)
     } else {
-      setRoom(emptyRoom())
+      setRoom(normalizeRoom(peekPublishedRoom(roomNumber)) ?? emptyRoom())
       setHasDraftOverride(false)
       loadPublishedRoom(roomNumber).then((published) => {
         if (cancelled || !published) return
-        setRoom((current) => (loadDraftRoom(roomNumber) ? current : published))
+        setRoom((current) => (loadDraftRoom(roomNumber) || JSON.stringify(current) === JSON.stringify(published) ? current : published))
       })
     }
     return () => { cancelled = true }
@@ -762,7 +773,7 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
   // Replay every hotspot's lassos against the loaded scan and build the triangle → hotspot map.
   useEffect(() => {
     const engine = engineRef.current
-    if (!engine?.mesh) return
+    if (!engine?.mesh || engine.roomNumber !== roomNumber) return
     const picker = ensurePicker(engine)
     const faceToHotspot = new Int32Array(picker.triangles).fill(-1)
     const hotspotFaces = new Map()
@@ -891,6 +902,7 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
     }
     const hoverPicker = createHoverPicker({
       pick: ([cx, cy]) => {
+        if (engineRef.current !== engine) return -1
         const rect = canvas.getBoundingClientRect()
         const picker = ensurePicker(engine)
         return picker.pickPointAsync(engine.camera, (cx - rect.left) / rect.width, (cy - rect.top) / rect.height)
@@ -925,6 +937,7 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
     let pressed = null
     const onDown = (e) => { pressed = [e.clientX, e.clientY] }
     const onUp = (e) => {
+      if (engineRef.current !== engine) { pressed = null; return }
       if (!pressed) return
       const [x, y] = pressed
       pressed = null
@@ -1054,6 +1067,7 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
 
   const sceneProps = useMemo(() => ({
     engineRef,
+    activeRoomRef,
     onEngineReady: () => setEngineVersion((v) => v + 1),
   }), [])
 

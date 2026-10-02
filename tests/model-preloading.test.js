@@ -122,3 +122,31 @@ test('all room paths use the optimized cache version and the last room wraps to 
   assert.equal(getRoomAssetUrl(11), null)
   assert.equal(roomPreloadPlan(10, false)[0], getRoomAssetUrl(0))
 })
+
+test('cache listeners can prime renderer caches and never receive cancelled results', async () => {
+  const h = harness(), cached = []
+  const unsubscribe = h.manager.onCached((url, asset) => {
+    assert.equal(h.manager.getCached(url), asset)
+    cached.push([url, asset])
+  })
+  h.manager.enter('current'); h.manager.ready('current', ['next']); await h.tick()
+  h.manager.enter('other'); h.reads[0].resolve('abandoned'); await flush()
+  assert.deepEqual(cached, [])
+  const visited = h.manager.load('other'); await flush(); h.reads[1].resolve('model other'); await visited
+  assert.deepEqual(cached, [['other', 'model other']])
+  const late = []; const stop = h.manager.onCached((url, asset) => late.push([url, asset]))
+  assert.deepEqual(late, cached)
+  unsubscribe(); stop()
+})
+
+test('intent for an already decoded room reaches GPU preparation without aborting a background download', async () => {
+  const h = harness(), intents = []
+  h.manager.enter('current'); h.manager.ready('current', ['next']); await h.tick()
+  h.reads[0].resolve('next model'); await flush()
+  h.manager.ready('current', ['later']); await h.tick()
+  const stop = h.manager.onIntent(url => intents.push(url))
+  h.manager.intent('next')
+  assert.deepEqual(intents, ['next'])
+  assert.equal(h.reads[1].signal.aborted, false)
+  stop(); h.reads[1].resolve('later model'); await flush()
+})

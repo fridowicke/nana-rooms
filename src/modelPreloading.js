@@ -3,6 +3,8 @@
 export function createModelPreloader({ loadAsset, disposeAsset = () => {}, canPrefetch = () => true,
   requestIdle = (fn) => setTimeout(fn, 100), cancelIdle = clearTimeout }) {
   const entries = new Map()
+  const cachedListeners = new Set()
+  const intentListeners = new Set()
   let activeUrl = null
   let sceneReady = false
   let queue = []
@@ -37,6 +39,8 @@ export function createModelPreloader({ loadAsset, disposeAsset = () => {}, canPr
         throw entry.controller.signal.reason
       }
       entry.ready = true
+      entry.asset = asset
+      for (const listener of cachedListeners) listener(url, asset)
       return asset
     }).catch((error) => {
       if (entries.get(url) === entry) entries.delete(url)
@@ -63,6 +67,16 @@ export function createModelPreloader({ loadAsset, disposeAsset = () => {}, canPr
     })
   }
   return {
+    getCached(url) { return entries.get(url)?.asset },
+    onCached(listener) {
+      cachedListeners.add(listener)
+      for (const entry of entries.values()) if (entry.ready) listener(entry.url, entry.asset)
+      return () => cachedListeners.delete(listener)
+    },
+    onIntent(listener) {
+      intentListeners.add(listener)
+      return () => intentListeners.delete(listener)
+    },
     enter(url) {
       if (url === activeUrl) return
       activeUrl = url
@@ -87,7 +101,9 @@ export function createModelPreloader({ loadAsset, disposeAsset = () => {}, canPr
       schedule()
     },
     intent(url) {
-      if (!url || url === activeUrl || !sceneReady || !canPrefetch() || entries.get(url)?.ready) return
+      if (!url || url === activeUrl || !sceneReady || !canPrefetch()) return
+      for (const listener of intentListeners) listener(url)
+      if (entries.get(url)?.ready) return
       cancelScheduled()
       if (background && background.url !== url) {
         queue.unshift(background.url)
