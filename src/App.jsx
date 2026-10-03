@@ -741,6 +741,9 @@ function readResponsiveState() {
 }
 
 function shouldUseMobileLayout({ viewportWidth, isTouch }) {
+  // Browser zoom on a desktop shrinks the CSS viewport; judge by the physical screen instead so that
+  // zooming in never flips a laptop into the phone layout.
+  if (!isTouch && typeof window !== 'undefined' && window.screen && window.screen.width >= TOUCH_MOBILE_VIEWPORT_WIDTH) return false
   return viewportWidth <= MOBILE_VIEWPORT_WIDTH || (isTouch && viewportWidth < TOUCH_MOBILE_VIEWPORT_WIDTH)
 }
 
