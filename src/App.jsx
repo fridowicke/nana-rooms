@@ -4406,7 +4406,16 @@ function ArchiveMapFolder({ isMobileLayout }) {
 
 const MOBILE_LAYOUT_KEY = 'shelest-mobile-layout-v1'
 const DESKTOP_LAYOUT_KEY = 'shelest-desktop-layout-v1'
-const DESKTOP_LAYOUT_DEFAULT = null
+// Nana's desktop layout (from the ?layout=1 tuner). x,y = % of viewport, s = scale.
+const DESKTOP_LAYOUT_DEFAULT = {
+  welcome: { x: 5.62, y: 9.88, s: 1.2 },
+  about: { x: 1.01, y: 18.02, s: 1.3 },
+  diary: { x: 4.68, y: 46.01, s: 1 },
+  radio: { x: 1.88, y: 78.4, s: 1 },
+  player: { x: 1.59, y: 83.88, s: 1.1 },
+  knock: { x: 90.39, y: 89.21, s: 1.5 },
+  house: { x: 94.52, y: 7.65, s: 1.4 },
+}
 // Nana's saved mobile layout (from ?layout=1 tuner). Values are relative to the viewport:
 // x,y in % of viewport width/height (top-left of the block), s = scale.
 const MOBILE_LAYOUT_DEFAULT = null
