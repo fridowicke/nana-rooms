@@ -3,15 +3,18 @@
 // by mesh name; a hotspot is a set of triangle ids collected by drawing lassos over the scan.
 // The pick goes through a GPU id buffer rendered from the lasso's camera, so only surfaces that
 // were actually visible inside the lasso are selected (nothing behind walls or furniture).
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
+import { ScanPicker, cameraStateFrom, triangleVertexIndex } from './scanPicker.js'
+import { createHoverPicker } from './hoverPicking.js'
+import { reactionImages, reactionAudio, hasReactionWindow } from './roomReactions.js'
+import { fetchPublishedRoom, peekPublishedRoom } from './publishedRooms.js'
 
 const ROOM_DATA_VERSION = 2
 const draftKey = (roomNumber) => `shelest-hotspots-v2-r${roomNumber}`
 const foundKey = (roomNumber) => `shelest-found-r${roomNumber}`
 const EDITOR_FLAG_KEY = 'shelest-editor'
-const PICK_WIDTH = 2000
 const CLICK_SLOP_PX = 6
 
 const HOVER_TYPES = [
@@ -20,6 +23,7 @@ const HOVER_TYPES = [
   { value: 'image', label: 'картинка' },
   { value: 'gif', label: 'гифка' },
   { value: 'audio', label: 'звук' },
+  { value: 'gallery', label: 'картинки + гифки' },
 ]
 
 const REACTION_TYPES = [
@@ -56,13 +60,7 @@ function normalizeRoom(raw) {
 }
 
 async function loadPublishedRoom(roomNumber) {
-  try {
-    const response = await fetch(`hotspots/room-${roomNumber}.json`, { cache: 'no-cache' })
-    if (!response.ok) return null
-    return normalizeRoom(await response.json())
-  } catch {
-    return null
-  }
+  return normalizeRoom(await fetchPublishedRoom(roomNumber, { refresh: true }))
 }
 
 function loadDraftRoom(roomNumber) {
@@ -102,27 +100,6 @@ function isEditorEnabled() {
 
 // ─── GPU face picking ────────────────────────────────────────────────────────
 
-const PICK_VERTEX_SHADER = `
-  attribute float faceId;
-  varying float vFaceId;
-  void main() {
-    vFaceId = faceId;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
-`
-// Triangle id + 1 packed into RGB (0 = background). All three vertices of a triangle carry the
-// same id, so the varying is constant across the triangle and decodes exactly.
-const PICK_FRAGMENT_SHADER = `
-  varying float vFaceId;
-  void main() {
-    float id = floor(vFaceId + 0.5);
-    float r = mod(id, 256.0);
-    float g = mod(floor(id / 256.0), 256.0);
-    float b = floor(id / 65536.0);
-    gl_FragColor = vec4(r / 255.0, g / 255.0, b / 255.0, 1.0);
-  }
-`
-
 function findScanMesh(root) {
   let best = null
   let bestCount = 0
@@ -135,220 +112,6 @@ function findScanMesh(root) {
     }
   })
   return bestCount >= 3000 ? best : null
-}
-
-function triangleCount(geometry) {
-  return Math.floor((geometry.index ? geometry.index.count : geometry.attributes.position.count) / 3)
-}
-
-function triangleVertexIndex(geometry, triangle, corner) {
-  const flat = triangle * 3 + corner
-  return geometry.index ? geometry.index.getX(flat) : flat
-}
-
-function pointInPolygon(x, y, polygon) {
-  let inside = false
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const [xi, yi] = polygon[i]
-    const [xj, yj] = polygon[j]
-    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside
-  }
-  return inside
-}
-
-function cameraStateFrom(camera) {
-  return {
-    p: camera.position.toArray().map((v) => +v.toFixed(5)),
-    q: camera.quaternion.toArray().map((v) => +v.toFixed(6)),
-    fov: camera.fov,
-    aspect: +camera.aspect.toFixed(5),
-    near: camera.near,
-    far: camera.far,
-  }
-}
-
-function cameraFromState(state) {
-  const camera = new THREE.PerspectiveCamera(state.fov, state.aspect, state.near ?? 0.1, state.far ?? 2000)
-  camera.position.fromArray(state.p)
-  camera.quaternion.fromArray(state.q)
-  camera.updateMatrixWorld(true)
-  camera.updateProjectionMatrix()
-  return camera
-}
-
-class ScanPicker {
-  constructor(gl, mesh) {
-    this.gl = gl
-    this.mesh = mesh
-    this.triangles = triangleCount(mesh.geometry)
-    this.pickMesh = this.buildPickMesh(mesh)
-    this.pickScene = new THREE.Scene()
-    this.pickScene.add(this.pickMesh)
-    this.faceCache = new Map()
-  }
-
-  buildPickMesh(mesh) {
-    const source = mesh.geometry
-    const position = source.attributes.position
-    const count = this.triangles
-    const positions = new Float32Array(count * 9)
-    const ids = new Float32Array(count * 3)
-    for (let t = 0; t < count; t++) {
-      for (let corner = 0; corner < 3; corner++) {
-        const vertex = triangleVertexIndex(source, t, corner)
-        const flat = t * 3 + corner
-        positions[flat * 3] = position.getX(vertex)
-        positions[flat * 3 + 1] = position.getY(vertex)
-        positions[flat * 3 + 2] = position.getZ(vertex)
-        ids[flat] = t + 1
-      }
-    }
-    const geometry = new THREE.BufferGeometry()
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-    geometry.setAttribute('faceId', new THREE.BufferAttribute(ids, 1))
-    const material = new THREE.ShaderMaterial({
-      vertexShader: PICK_VERTEX_SHADER,
-      fragmentShader: PICK_FRAGMENT_SHADER,
-      side: THREE.DoubleSide,
-    })
-    const pickMesh = new THREE.Mesh(geometry, material)
-    pickMesh.matrixAutoUpdate = false
-    pickMesh.frustumCulled = false
-    return pickMesh
-  }
-
-  renderIds(camera, width, height) {
-    const { gl } = this
-    this.mesh.updateWorldMatrix(true, false)
-    this.pickMesh.matrix.copy(this.mesh.matrixWorld)
-    const target = new THREE.WebGLRenderTarget(width, height, {
-      minFilter: THREE.NearestFilter,
-      magFilter: THREE.NearestFilter,
-      format: THREE.RGBAFormat,
-      type: THREE.UnsignedByteType,
-      depthBuffer: true,
-      stencilBuffer: false,
-    })
-    const previousTarget = gl.getRenderTarget()
-    const previousClearColor = gl.getClearColor(new THREE.Color())
-    const previousClearAlpha = gl.getClearAlpha()
-    const previousAutoClear = gl.autoClear
-    gl.setRenderTarget(target)
-    gl.setClearColor(0x000000, 1)
-    gl.autoClear = true
-    gl.clear(true, true, false)
-    gl.render(this.pickScene, camera)
-    gl.setRenderTarget(previousTarget)
-    gl.setClearColor(previousClearColor, previousClearAlpha)
-    gl.autoClear = previousAutoClear
-    return target
-  }
-
-  // polygon: [[u, v], ...] normalized to the view (v grows downwards). Returns sorted triangle ids.
-  pickPolygon(cameraState, polygon) {
-    const width = PICK_WIDTH
-    const height = Math.max(2, Math.round(PICK_WIDTH / (cameraState.aspect || 1.5)))
-    const camera = cameraFromState(cameraState)
-    const target = this.renderIds(camera, width, height)
-    const pixelPolygon = polygon.map(([u, v]) => [u * width, (1 - v) * height])
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    for (const [x, y] of pixelPolygon) {
-      minX = Math.min(minX, x); maxX = Math.max(maxX, x)
-      minY = Math.min(minY, y); maxY = Math.max(maxY, y)
-    }
-    // Read a margin around the lasso too, so we can see how much of each triangle lies outside.
-    const marginX = Math.max(24, (maxX - minX) * 0.5)
-    const marginY = Math.max(24, (maxY - minY) * 0.5)
-    const x0 = Math.max(0, Math.floor(minX - marginX))
-    const y0 = Math.max(0, Math.floor(minY - marginY))
-    const x1 = Math.min(width - 1, Math.ceil(maxX + marginX))
-    const y1 = Math.min(height - 1, Math.ceil(maxY + marginY))
-    const faces = new Set()
-    if (x1 >= x0 && y1 >= y0) {
-      const regionWidth = x1 - x0 + 1
-      const regionHeight = y1 - y0 + 1
-      const pixels = new Uint8Array(regionWidth * regionHeight * 4)
-      this.gl.readRenderTargetPixels(target, x0, y0, regionWidth, regionHeight, pixels)
-      const inside = new Map()
-      const total = new Map()
-      for (let row = 0; row < regionHeight; row++) {
-        for (let column = 0; column < regionWidth; column++) {
-          const offset = (row * regionWidth + column) * 4
-          const id = pixels[offset] + pixels[offset + 1] * 256 + pixels[offset + 2] * 65536
-          if (id === 0) continue
-          const face = id - 1
-          total.set(face, (total.get(face) ?? 0) + 1)
-          if (pointInPolygon(x0 + column + 0.5, y0 + row + 0.5, pixelPolygon)) inside.set(face, (inside.get(face) ?? 0) + 1)
-        }
-      }
-      // A triangle counts as selected only when most of its visible area is inside the lasso.
-      // This stops big flat scan triangles (bedding, floor) from bleeding out past the outline.
-      for (const [face, count] of inside) {
-        const all = total.get(face) ?? count
-        if (count / all >= 0.6 || (all <= 6 && count >= 1)) faces.add(face)
-      }
-    }
-    target.dispose()
-    return Uint32Array.from(faces).sort()
-  }
-
-  // u, v normalized to the live canvas (v grows downwards). Returns a triangle id or -1.
-  pickPoint(camera, u, v) {
-    const width = Math.max(2, this.gl.domElement.width)
-    const height = Math.max(2, this.gl.domElement.height)
-    const target = this.renderIds(camera, width, height)
-    const x = Math.min(width - 1, Math.max(0, Math.floor(u * width)))
-    const y = Math.min(height - 1, Math.max(0, Math.floor((1 - v) * height)))
-    const pixel = new Uint8Array(4)
-    this.gl.readRenderTargetPixels(target, x, y, 1, 1, pixel)
-    target.dispose()
-    const id = pixel[0] + pixel[1] * 256 + pixel[2] * 65536
-    return id === 0 ? -1 : id - 1
-  }
-
-  // Replays a hotspot's lasso strokes and returns its triangle ids (memoized per hotspot).
-  facesForHotspot(hotspot) {
-    const key = JSON.stringify(hotspot.strokes)
-    if (this.faceCache.has(key)) return this.faceCache.get(key)
-    let faces = new Set()
-    for (const stroke of hotspot.strokes) {
-      if (!stroke?.cam || !Array.isArray(stroke.poly) || stroke.poly.length < 3) continue
-      const picked = this.pickPolygon(stroke.cam, stroke.poly)
-      if (stroke.op === 'sub') {
-        for (const face of picked) faces.delete(face)
-      } else {
-        for (const face of picked) faces.add(face)
-      }
-    }
-    const result = Uint32Array.from(faces).sort()
-    this.faceCache.set(key, result)
-    return result
-  }
-
-  centerOfFaces(faces) {
-    const position = this.mesh.geometry.attributes.position
-    const geometry = this.mesh.geometry
-    const step = Math.max(1, Math.floor(faces.length / 2000))
-    const sum = new THREE.Vector3()
-    let count = 0
-    for (let i = 0; i < faces.length; i += step) {
-      const vertex = triangleVertexIndex(geometry, faces[i], 0)
-      sum.x += position.getX(vertex)
-      sum.y += position.getY(vertex)
-      sum.z += position.getZ(vertex)
-      count++
-    }
-    if (count === 0) return null
-    sum.divideScalar(count)
-    this.mesh.updateWorldMatrix(true, false)
-    return sum.applyMatrix4(this.mesh.matrixWorld)
-  }
-
-  dispose() {
-    this.pickMesh.geometry.dispose()
-    this.pickMesh.material.dispose()
-    this.faceCache.clear()
-  }
 }
 
 // A translucent copy of the selected triangles, rendered as a child of the scan mesh so it
@@ -385,7 +148,10 @@ function createFaceHighlight(mesh, faces, color, opacity) {
 
 // Sparkles: the site's cursor-trail sparkle gifs, spawned over the hotspot's surface (hover hint).
 const SPARKLE_GIFS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map((k) => new URL(`../target/cursor/sparkle_${k}.gif`, import.meta.url).href)
-function createSparkles(engine, faces) {
+function createSparkles(engine, faces, options = {}) {
+  if (!faces?.length) return null
+  const sources = options.sources?.length ? options.sources : SPARKLE_GIFS
+  const large = Boolean(options.large)
   const mesh = engine.mesh
   const canvas = engine.canvas
   const geometry = mesh.geometry
@@ -416,16 +182,16 @@ function createSparkles(engine, faces) {
   const spawn = () => {
     const world = pickPoint()
     const img = document.createElement('img')
-    img.src = SPARKLE_GIFS[Math.floor(Math.random() * SPARKLE_GIFS.length)]
+    img.src = sources[Math.floor(Math.random() * sources.length)]
     img.alt = ''
-    const size = 18 + Math.random() * 18
+    const size = large ? 60 + Math.random() * 40 : 18 + Math.random() * 18
     img.style.cssText = `position:absolute;width:${size}px;height:${size}px;transform:translate(-50%,-50%);opacity:0;transition:opacity 160ms;will-change:transform`
     layer.appendChild(img)
-    live.push({ img, world, born: performance.now(), life: 700 + Math.random() * 500 })
+    live.push({ img, world, born: performance.now(), life: large ? 1600 : 700 + Math.random() * 500, dx: large ? (Math.random() - 0.5) * 120 : 0, dy: large ? (Math.random() - 0.5) * 120 : 0 })
   }
   const tick = (now) => {
     raf = requestAnimationFrame(tick)
-    if (now - last > 70 && live.length < 18) { last = now; spawn() }
+    if (now - last > (large ? 180 : 70) && live.length < (large ? 8 : 18)) { last = now; spawn() }
     const rect = canvas.getBoundingClientRect()
     const cam = engine.camera
     const v = new THREE.Vector3()
@@ -434,8 +200,8 @@ function createSparkles(engine, faces) {
       const age = now - sp.born
       if (age > sp.life) { sp.img.remove(); live.splice(i, 1); continue }
       v.copy(sp.world).project(cam)
-      const x = (v.x + 1) / 2 * rect.width
-      const y = (1 - v.y) / 2 * rect.height
+      const x = (v.x + 1) / 2 * rect.width + sp.dx
+      const y = (1 - v.y) / 2 * rect.height + sp.dy
       const behind = v.z > 1
       sp.img.style.left = `${x}px`
       sp.img.style.top = `${y}px`
@@ -458,24 +224,27 @@ function removeHighlight(highlight) {
 
 // Finds the scan mesh once it is loaded and hands renderer, camera and mesh to the game logic,
 // which does everything else imperatively (picking, highlights, pointer handling).
-export function HiddenObjectScene({ engineRef, onEngineReady }) {
+export function HiddenObjectScene({ engineRef, onEngineReady, roomNumber, activeRoomRef }) {
   const { gl, camera, scene } = useThree()
+  const ownedEngine = useRef(null)
 
   useFrame(() => {
+    if (activeRoomRef.current !== roomNumber) return
     const engine = engineRef.current
-    if (engine && engine.mesh && engine.mesh.parent) return
+    if (engine?.roomNumber === roomNumber && engine.mesh?.parent) return
     const mesh = findScanMesh(scene)
     if (!mesh) return
     engineRef.current?.picker?.dispose()
-    engineRef.current = { gl, camera, mesh, picker: null, canvas: gl.domElement }
+    ownedEngine.current = { gl, camera, mesh, picker: null, canvas: gl.domElement, roomNumber }
+    engineRef.current = ownedEngine.current
     onEngineReady?.()
   })
 
-  useEffect(() => () => {
-    const engine = engineRef.current
+  useLayoutEffect(() => () => {
+    const engine = ownedEngine.current
     if (engine) {
       engine.picker?.dispose()
-      engineRef.current = null
+      if (engineRef.current === engine) engineRef.current = null
     }
   }, [engineRef])
 
@@ -525,7 +294,9 @@ function ReactionPopup({ reaction, onClose, isMobileLayout }) {
       return <div style={{ whiteSpace: 'pre-wrap', fontSize: '14px', lineHeight: 1.5, padding: '18px 20px', fontWeight: 300 }}>{reaction.value}</div>
     }
     if (reaction.type === 'image') {
-      return <img src={reaction.value} alt={reaction.title || ''} style={{ display: 'block', maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', margin: '0 auto' }} />
+      return <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '12px', padding: '16px' }}>
+        {reactionImages(reaction).map((src, index) => <img key={src} src={src} alt={index === 0 ? reaction.title || '' : ''} style={{ display: 'block', maxWidth: '100%', maxHeight: index === 0 ? '55vh' : '120px', objectFit: 'contain' }} />)}
+      </div>
     }
     if (reaction.type === 'video') {
       const embed = toEmbedUrl(reaction.value)
@@ -538,11 +309,17 @@ function ReactionPopup({ reaction, onClose, isMobileLayout }) {
       }
       return <video src={reaction.value} controls autoPlay playsInline style={{ display: 'block', width: '100%', maxHeight: '70vh', background: '#000' }} />
     }
+    if (reaction.type === 'link') {
+      return <div style={{ padding: '20px', fontSize: '14px', lineHeight: 1.5, fontWeight: 300 }}>
+        <a href={reaction.value} target="_blank" rel="noopener noreferrer" style={{ color: '#111' }}>{reaction.label || reaction.title || 'open link'} ↗</a>
+        <div style={{ marginTop: '8px', color: '#666', fontSize: '12px', overflowWrap: 'anywhere' }}>{reaction.value}</div>
+      </div>
+    }
     return null
   })()
   if (!body) return null
 
-  const winW = isMobileLayout ? 'calc(100vw - 24px)' : 'min(720px, calc(100vw - 80px))'
+  const winW = isMobileLayout ? 'calc(100vw - 24px)' : reaction.type === 'link' ? 'min(420px, calc(100vw - 80px))' : 'min(720px, calc(100vw - 80px))'
   const startDrag = (e) => {
     if (e.button != null && e.button !== 0) return
     const el = e.currentTarget.parentElement
@@ -567,6 +344,9 @@ function ReactionPopup({ reaction, onClose, isMobileLayout }) {
       style={{ position: 'fixed', inset: 0, zIndex: 9500, background: 'rgba(0,0,0,0.35)' }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={reaction.title || 'Object reaction'}
         onPointerDown={(e) => e.stopPropagation()}
         style={{ ...winStyle, width: winW, background: '#fff', color: '#111', borderRadius: '10px', boxShadow: '0 24px 70px rgba(0,0,0,0.45)', overflow: 'hidden', fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}
       >
@@ -588,31 +368,15 @@ function ReactionPopup({ reaction, onClose, isMobileLayout }) {
           <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'block' }} />
           <span style={{ flex: 1, textAlign: 'center', opacity: 0.7, fontWeight: 300, paddingRight: '58px' }}>{reaction.title || ''}</span>
         </div>
-        {body}
+        <div style={{ maxHeight: 'calc(100dvh - 100px)', overflowY: 'auto' }}>{body}</div>
       </div>
     </div>
   )
 }
 
-function triggerReaction(reaction, setPopup) {
-  if (!reaction || !reaction.type || !reaction.value) return
-  if (reaction.type === 'link') {
-    window.open(reaction.value, '_blank', 'noopener')
-    return
-  }
-  if (reaction.type === 'audio') {
-    try {
-      const audio = new Audio(reaction.value)
-      audio.play().catch(() => {})
-    } catch { /* unsupported */ }
-    return
-  }
-  setPopup(reaction)
-}
-
 // ─── game panel (2000s hidden-object style) ──────────────────────────────────
 
-function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp, allFound, onRestart, isMobileLayout }) {
+function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp, allFound, isMobileLayout }) {
   const remaining = hotspots.filter((s) => !found.includes(s.id))
   const foundList = hotspots.filter((s) => found.includes(s.id))
   const FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif'
@@ -656,18 +420,7 @@ function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp
   })
   const timerLabel = timeLeft != null ? `${Math.floor(timeLeft / 60)}:${String(timeLeft % 60).padStart(2, '0')}` : null
 
-  if (allFound || timeUp) {
-    return (
-      <div style={{ ...panelStyle, alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center', display: 'flex', flexDirection: isMobileLayout ? 'row' : 'column', alignItems: 'center', gap: '8px' }}>
-          <div style={{ fontSize: isMobileLayout ? '18px' : '26px' }}>{allFound ? '✨' : '⏱'}</div>
-          <div style={{ fontSize: '13px', fontWeight: 400 }}>{allFound ? 'all found!' : "time's up"}</div>
-          <div style={{ fontSize: '11px', fontWeight: 300, color: '#666' }}>{found.length} / {hotspots.length}</div>
-          <button type="button" onClick={onRestart} style={{ ...buttonStyle(false), marginTop: 0 }}>play again</button>
-        </div>
-      </div>
-    )
-  }
+  if (allFound || timeUp) return null
 
   return (
     <div style={panelStyle}>
@@ -918,8 +671,9 @@ function newDraft() {
 
 export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
   const engineRef = useRef(null)
+  const activeRoomRef = useRef(roomNumber)
   const [engineVersion, setEngineVersion] = useState(0)
-  const [room, setRoom] = useState(emptyRoom)
+  const [room, setRoom] = useState(() => loadDraftRoom(roomNumber) ?? normalizeRoom(peekPublishedRoom(roomNumber)) ?? emptyRoom())
   const [hasDraftOverride, setHasDraftOverride] = useState(false)
   const [found, setFound] = useState(() => loadFound(roomNumber))
   const [hintId, setHintId] = useState(null)
@@ -927,6 +681,19 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
   const [timeLeft, setTimeLeft] = useState(null)
   const [timeUp, setTimeUp] = useState(false)
   const [popup, setPopup] = useState(null)
+  const reactionAudioRef = useRef(null)
+  const reactionEffectsRef = useRef(null)
+  const closeReaction = useCallback(() => {
+    reactionAudioRef.current?.pause()
+    reactionAudioRef.current = null
+    removeHighlight(reactionEffectsRef.current)
+    reactionEffectsRef.current = null
+    setPopup(null)
+  }, [])
+  useEffect(() => {
+    closeReaction()
+    return closeReaction
+  }, [roomNumber, closeReaction])
   const [editorEnabled] = useState(isEditorEnabled)
   useEffect(() => { try { localStorage.removeItem(EDITOR_FLAG_KEY) } catch { /* ignore */ } }, [])
   const [editMode, setEditMode] = useState(false)
@@ -940,9 +707,21 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
   const hotspotsSignature = JSON.stringify(room.hotspots)
 
   // Load hotspots: the published file is the default, a local draft (from editing) overrides it.
-  useEffect(() => {
+  useLayoutEffect(() => {
     let cancelled = false
+    // The renderer persists between rooms; reset only the game/editor state before paint.
+    activeRoomRef.current = roomNumber
+    if (engineRef.current?.roomNumber !== roomNumber) {
+      engineRef.current?.picker?.dispose()
+      engineRef.current = null
+    }
     setFound(loadFound(roomNumber))
+    setEditMode(false)
+    setTool('lasso')
+    setHoverId(null)
+    setHoverInfo(null)
+    setFaceCounts(new Map())
+    runtimeRef.current = { faceToHotspot: null, hotspotFaces: new Map(), hotspotIds: [] }
     setHintId(null)
     setHintUsed(false)
     setTimeUp(false)
@@ -953,11 +732,11 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
       setRoom(draftRoom)
       setHasDraftOverride(true)
     } else {
-      setRoom(emptyRoom())
+      setRoom(normalizeRoom(peekPublishedRoom(roomNumber)) ?? emptyRoom())
       setHasDraftOverride(false)
       loadPublishedRoom(roomNumber).then((published) => {
         if (cancelled || !published) return
-        setRoom((current) => (loadDraftRoom(roomNumber) ? current : published))
+        setRoom((current) => (loadDraftRoom(roomNumber) || JSON.stringify(current) === JSON.stringify(published) ? current : published))
       })
     }
     return () => { cancelled = true }
@@ -983,7 +762,7 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
   // Replay every hotspot's lassos against the loaded scan and build the triangle → hotspot map.
   useEffect(() => {
     const engine = engineRef.current
-    if (!engine?.mesh) return
+    if (!engine?.mesh || engine.roomNumber !== roomNumber) return
     const picker = ensurePicker(engine)
     const faceToHotspot = new Int32Array(picker.triangles).fill(-1)
     const hotspotFaces = new Map()
@@ -1065,19 +844,33 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
     })
     setHintId(null)
     flashFaces(runtimeRef.current.hotspotFaces.get(hotspot.id))
-    triggerReaction(hotspot.reaction, setPopup)
-  }, [roomNumber, flashFaces])
+    closeReaction()
+    const reaction = hotspot.reaction
+    // Numuki does not allow embedded pages. Launch during the click gesture so
+    // browsers permit the game tab, while shopping links stay in a room window.
+    if (reaction?.type === 'link' && reaction.openInNewTab && reaction.value) {
+      window.open(reaction.value, '_blank', 'noopener,noreferrer')
+    }
+    const audioSrc = reactionAudio(reaction)
+    if (audioSrc) {
+      try { const audio = new Audio(audioSrc); reactionAudioRef.current = audio; audio.play().catch(() => {}) } catch { /* unsupported */ }
+    }
+    if (reaction?.surfaceGifs?.length) {
+      const engine = engineRef.current
+      const faces = runtimeRef.current.hotspotFaces.get(hotspot.id)
+      if (engine && faces) reactionEffectsRef.current = createSparkles(engine, faces, { sources: reaction.surfaceGifs, large: true })
+    }
+    if (hasReactionWindow(reaction)) setPopup({ ...reaction })
+  }, [roomNumber, flashFaces, closeReaction])
 
   // Visitor hover: glow the hotspot under the pointer, show its name, run its hover reaction.
   const [hoverInfo, setHoverInfo] = useState(null)
   const hoverAudioRef = useRef(null)
   useEffect(() => {
     const engine = engineRef.current
-    if (!engine?.canvas || editMode) { setHoverInfo(null); return undefined }
+    if (!engine?.canvas || editMode || !room.hotspots.length) { setHoverInfo(null); return undefined }
     const canvas = engine.canvas
     let last = null
-    let frame = 0
-    let pending = null
     const apply = (hotspot, clientX, clientY) => {
       const id = hotspot?.id ?? null
       if (id !== last) {
@@ -1087,25 +880,23 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
         if (hoverAudioRef.current) { hoverAudioRef.current.pause(); hoverAudioRef.current = null }
         if (hotspot) {
           const faces = runtimeRef.current.hotspotFaces.get(hotspot.id)
-          if (faces) highlightsRef.current.visitorHover = createSparkles(engine, faces)
+          if (faces) highlightsRef.current.visitorHover = createSparkles(engine, faces, { sources: hotspot.hover?.sparkles })
           if (hotspot.hover?.type === 'audio' && hotspot.hover.value) {
             try { const a = new Audio(hotspot.hover.value); a.loop = true; a.volume = 0.7; a.play().catch(() => {}); hoverAudioRef.current = a } catch { /* ignore */ }
           }
         }
-        canvas.style.cursor = hotspot ? 'pointer' : ''
+        canvas.style.cursor = hotspot ? 'var(--app-hover-cursor, pointer)' : ''
       }
       setHoverInfo(hotspot ? { hotspot, x: clientX, y: clientY } : null)
     }
-    const onMove = (e) => {
-      pending = [e.clientX, e.clientY]
-      if (frame) return
-      frame = requestAnimationFrame(() => {
-        frame = 0
-        if (!pending) return
-        const [cx, cy] = pending
+    const hoverPicker = createHoverPicker({
+      pick: ([cx, cy]) => {
+        if (engineRef.current !== engine) return -1
         const rect = canvas.getBoundingClientRect()
         const picker = ensurePicker(engine)
-        const face = picker.pickPoint(engine.camera, (cx - rect.left) / rect.width, (cy - rect.top) / rect.height)
+        return picker.pickPointAsync(engine.camera, (cx - rect.left) / rect.width, (cy - rect.top) / rect.height)
+      },
+      apply: (face, [cx, cy]) => {
         const { faceToHotspot, hotspotIds } = runtimeRef.current
         let hotspot = null
         if (face >= 0 && faceToHotspot && face < faceToHotspot.length) {
@@ -1113,15 +904,16 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
           if (index >= 0) hotspot = room.hotspots.find((h) => h.id === hotspotIds[index]) ?? null
         }
         apply(hotspot, cx, cy)
-      })
-    }
-    const onLeave = () => apply(null, 0, 0)
+      },
+    })
+    const onMove = (e) => hoverPicker.move([e.clientX, e.clientY])
+    const onLeave = () => hoverPicker.leave()
     canvas.addEventListener('pointermove', onMove)
     canvas.addEventListener('pointerleave', onLeave)
     return () => {
       canvas.removeEventListener('pointermove', onMove)
       canvas.removeEventListener('pointerleave', onLeave)
-      if (frame) cancelAnimationFrame(frame)
+      hoverPicker.dispose()
       apply(null, 0, 0)
     }
   }, [editMode, room, hotspotsSignature, engineVersion])
@@ -1134,6 +926,7 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
     let pressed = null
     const onDown = (e) => { pressed = [e.clientX, e.clientY] }
     const onUp = (e) => {
+      if (engineRef.current !== engine) { pressed = null; return }
       if (!pressed) return
       const [x, y] = pressed
       pressed = null
@@ -1180,15 +973,6 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
     if (unfound.length === 0) return
     setHintId(unfound[Math.floor(Math.random() * unfound.length)].id)
     setHintUsed(true)
-  }
-
-  const handleRestart = () => {
-    setFound([])
-    saveFound(roomNumber, [])
-    setHintUsed(false)
-    setHintId(null)
-    setTimeUp(false)
-    setTimeLeft(room.timerSeconds)
   }
 
   // ── editor actions ──
@@ -1263,6 +1047,7 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
 
   const sceneProps = useMemo(() => ({
     engineRef,
+    activeRoomRef,
     onEngineReady: () => setEngineVersion((v) => v + 1),
   }), [])
 
@@ -1297,7 +1082,6 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
           timeLeft={timeLeft}
           timeUp={timeUp}
           allFound={allFound}
-          onRestart={handleRestart}
           isMobileLayout={isMobileLayout}
         />
       )}
@@ -1348,21 +1132,23 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
       {hoverInfo && !editMode && (() => {
         const { hotspot, x, y } = hoverInfo
         const hv = hotspot.hover
-        const media = hv?.type === 'image' || hv?.type === 'gif' ? hv.value : null
+        const media = hv?.type === 'image' || hv?.type === 'gif' || hv?.type === 'gallery' ? hv.value : null
         const text = hv?.type === 'text' ? hv.value : null
         const W = media ? 220 : 'auto'
         const left = Math.min(x + 16, (typeof window !== 'undefined' ? window.innerWidth : 9999) - (media ? 240 : 200))
         const top = Math.max(8, y - (media ? 190 : 40))
         return (
           <div style={{ position: 'fixed', left, top, width: W, zIndex: 9400, pointerEvents: 'none', background: '#fff', border: '1px solid #111', padding: media ? '6px' : '4px 9px', fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif', fontSize: '12px', fontWeight: 300, color: '#111', boxShadow: '0 6px 20px rgba(0,0,0,0.18)' }}>
-            {media && <img src={media} alt="" style={{ display: 'block', width: '100%', height: '150px', objectFit: 'cover', marginBottom: '5px' }} />}
+            {media && <div style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'center', marginBottom: '5px' }}>
+              {[media, ...(hv.images ?? [])].map((src) => <img key={src} src={src} alt="" style={{ display: 'block', maxWidth: hv.images?.length ? '48%' : '100%', maxHeight: '150px', objectFit: 'contain' }} />)}
+            </div>}
             <div>{hotspot.name}</div>
             {text && <div style={{ opacity: 0.7, marginTop: '2px' }}>{text}</div>}
           </div>
         )
       })()}
 
-      <ReactionPopup reaction={popup} onClose={() => setPopup(null)} isMobileLayout={isMobileLayout} />
+      <ReactionPopup reaction={popup} onClose={closeReaction} isMobileLayout={isMobileLayout} />
     </div>
   )
 }
