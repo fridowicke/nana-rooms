@@ -3177,13 +3177,18 @@ function AboutPage({
   const [browserAddress, setBrowserAddress] = useState(() => getAboutAddress(activeFolderId, getAboutTabId(activeFolderId), activeFolderDetailId, activeFolderImageIndex))
   const [isMobileAboutWindowOpen, setIsMobileAboutWindowOpen] = useState(true)
   const [layoutTuner] = useState(isLayoutTunerEnabled)
-  const [mobileLayout, setMobileLayout] = useState(loadMobileLayout)
+  const [mobileLayoutState, setMobileLayoutState] = useState(loadMobileLayout)
+  const [desktopLayoutState, setDesktopLayoutState] = useState(loadDesktopLayout)
+  const isMobileLayoutEarly = shouldUseMobileLayout({ viewportWidth: viewport.width, isTouch })
+  const mobileLayout = isMobileLayoutEarly ? mobileLayoutState : desktopLayoutState
+  const setMobileLayout = isMobileLayoutEarly ? setMobileLayoutState : setDesktopLayoutState
   useEffect(() => {
     if (!layoutTuner || !mobileLayout) return undefined
-    const t = setTimeout(() => { try { localStorage.setItem(MOBILE_LAYOUT_KEY, JSON.stringify(mobileLayout)) } catch { /* ignore */ } }, 300)
+    const key = isMobileLayoutEarly ? MOBILE_LAYOUT_KEY : DESKTOP_LAYOUT_KEY
+    const t = setTimeout(() => { try { localStorage.setItem(key, JSON.stringify(mobileLayout)) } catch { /* ignore */ } }, 300)
     return () => clearTimeout(t)
-  }, [layoutTuner, mobileLayout])
-  const tuneBlock = useCallback((id, v) => setMobileLayout((prev) => ({ ...(prev ?? {}), [id]: v })), [])
+  }, [layoutTuner, mobileLayout, isMobileLayoutEarly])
+  const tuneBlock = useCallback((id, v) => setMobileLayout((prev) => ({ ...(prev ?? {}), [id]: v })), [setMobileLayout])
   const [measuredHeights, setMeasuredHeights] = useState({ about: 0, player: 0, diary: 0 })
   const aboutMeasureRef = useRef(null)
   const playerMeasureRef = useRef(null)
@@ -3216,7 +3221,7 @@ function AboutPage({
   const [mobileAboutWindowPosition, setMobileAboutWindowPosition] = useState(null)
   const mobileAboutWindowPositionRef = useRef(null)
   const isMobileLayout = shouldUseMobileLayout({ viewportWidth: viewport.width, isTouch })
-  const tbProps = { layout: mobileLayout, tuner: layoutTuner, onChange: tuneBlock, mobile: isMobileLayout }
+  const tbProps = { layout: mobileLayout, tuner: layoutTuner, onChange: tuneBlock, mobile: true }
 
   const folderArcLayout = isMobileLayout
     ? [
@@ -3245,7 +3250,7 @@ function AboutPage({
   const rightStageWidth = `${viewport.width}px`
 
   useEffect(() => {
-    const saved = isMobileLayout ? mobileLayout?.folders : null
+    const saved = mobileLayout?.folders
     setFolderPositions(new Map(folderArcLayout.map((p) => [p.id, saved?.[p.id] ?? { left: p.left, top: p.top }])))
   }, [isMobileLayout]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -3327,7 +3332,7 @@ function AboutPage({
   }, [clampMobileAboutPosition, isMobileLayout])
 
   const startFolderDrag = useCallback((folderId, e) => {
-    const tunerDrag = layoutTuner && isMobileLayout
+    const tunerDrag = layoutTuner
     if (isTouch && !tunerDrag) return
     if (e.button !== undefined && e.button !== 0) return
     e.preventDefault()
@@ -3380,7 +3385,7 @@ function AboutPage({
 
   const folderGestureRef = useRef(null)
   const folderTouch = useCallback((folderId, e) => {
-    if (!(layoutTuner && isMobileLayout)) return
+    if (!layoutTuner) return
     const container = rightStageRef.current
     if (!container) return
     e.preventDefault(); e.stopPropagation()
@@ -3798,8 +3803,8 @@ function AboutPage({
         </TunableBlock>
       )}
 
-      {!isFolderView && (isMobileLayout ? (
-        <TunableBlock {...tbProps} id="diary" baseLeft={mobileDiaryLeft} baseTop={diaryTop} zIndex={21}>
+      {!isFolderView && (isMobileLayout || layoutTuner || mobileLayout?.diary ? (
+        <TunableBlock {...tbProps} id="diary" baseLeft={isMobileLayout ? mobileDiaryLeft : leftColumnX + (leftColumnWidth - diaryWidth) / 2} baseTop={diaryTop} zIndex={21}>
           <DiaryDeck compact={false} inline measureRef={diaryMeasureRef} left={0} top={0} width={diaryWidth} availableHeight={diaryHeight} onOpenDiary={handleDiaryOpen} />
         </TunableBlock>
       ) : (
@@ -3814,9 +3819,9 @@ function AboutPage({
       ))}
 
       {/* ── Safety pin (between left col and right stage) ── */}
-      {!isFolderView && (isMobileLayout ? (
-        <TunableBlock {...tbProps} id="pin" baseLeft={leftColumnX + aboutWindowWidth + 6} baseTop={aboutWindowTop + aboutWindowHeight + 40} zIndex={20} pointerEvents="none">
-          <img src="assets/safety-pin.gif" alt="" aria-hidden="true" style={{ width: '34px', height: 'auto', objectFit: 'contain', display: 'block' }} />
+      {!isFolderView && (isMobileLayout || layoutTuner || mobileLayout?.pin ? (
+        <TunableBlock {...tbProps} id="pin" baseLeft={leftColumnX + aboutWindowWidth + (isMobileLayout ? 6 : 24)} baseTop={isMobileLayout ? aboutWindowTop + aboutWindowHeight + 40 : Math.round(viewport.height * 0.48)} zIndex={20} pointerEvents="none">
+          <img src="assets/safety-pin.gif" alt="" aria-hidden="true" style={{ width: isMobileLayout ? '34px' : '50px', height: 'auto', objectFit: 'contain', display: 'block' }} />
         </TunableBlock>
       ) : (
         <div style={{ position: 'absolute', left: `${leftColumnX + aboutWindowWidth + 24}px`, top: '48%', zIndex: 20, pointerEvents: 'none' }}>
@@ -3847,7 +3852,7 @@ function AboutPage({
         </TunableBlock>
       )}
 
-      {isMobileLayout && layoutTuner && !isFolderView && (
+      {layoutTuner && !isFolderView && (
         <MobileLayoutTunerPanel layout={mobileLayout} setLayout={setMobileLayout} ids={['welcome', 'about', 'diary', 'pin', 'radio', 'player', 'title', 'house', 'knock']} folderIds={folderArcLayout.map((p) => p.id)} />
       )}
 
@@ -3888,14 +3893,14 @@ function AboutPage({
 
         {/* Title banner + subtitle */}
         {!isFolderView && (
-          <TunableBlock {...tbProps} id="title" baseLeft={isMobileLayout ? viewport.width - 10 - 150 : 0} baseTop={isMobileLayout ? 78 : 0} zIndex={12} pointerEvents="none" passthrough={!isMobileLayout}>
+          <TunableBlock {...tbProps} id="title" baseLeft={isMobileLayout ? viewport.width - 10 - 150 : viewport.width / 2 - 110} baseTop={isMobileLayout ? 78 : 112} zIndex={12} pointerEvents="none" passthrough={!isMobileLayout && !layoutTuner && !mobileLayout?.title}>
           <div
             style={{
-              position: isMobileLayout ? 'relative' : 'absolute',
-              top: isMobileLayout ? 0 : '112px',
-              left: isMobileLayout ? 0 : '50%',
+              position: isMobileLayout || layoutTuner || mobileLayout?.title ? 'relative' : 'absolute',
+              top: isMobileLayout || layoutTuner || mobileLayout?.title ? 0 : '112px',
+              left: isMobileLayout || layoutTuner || mobileLayout?.title ? 0 : '50%',
               right: 'auto',
-              transform: isMobileLayout ? 'none' : 'translateX(-50%)',
+              transform: isMobileLayout || layoutTuner || mobileLayout?.title ? 'none' : 'translateX(-50%)',
               zIndex: 12,
               display: 'flex',
               flexDirection: 'column',
@@ -3928,16 +3933,16 @@ function AboutPage({
         )}
 
         {(!isFolderView || activeFolderId === 'she-is-so-hot') && (
-          <TunableBlock {...tbProps} id="house" baseLeft={viewport.width - 18 - 51} baseTop={activeFolderId === 'she-is-so-hot' ? 104 : 92} zIndex={13} passthrough={!isMobileLayout || isFolderView}>
+          <TunableBlock {...tbProps} id="house" baseLeft={viewport.width - 18 - 51} baseTop={activeFolderId === 'she-is-so-hot' ? 104 : 92} zIndex={13} passthrough={isFolderView || (!isMobileLayout && !layoutTuner && !mobileLayout?.house)}>
           <button
             type="button"
             onClick={onBackHome}
             aria-label="Go back home"
             className="cursor-pointer"
             style={{
-              position: isMobileLayout && !isFolderView ? 'relative' : 'absolute',
-              top: isMobileLayout && !isFolderView ? 0 : (activeFolderId === 'she-is-so-hot' ? '104px' : '92px'),
-              right: isMobileLayout && !isFolderView ? 'auto' : '18px',
+              position: !isFolderView && (isMobileLayout || layoutTuner || mobileLayout?.house) ? 'relative' : 'absolute',
+              top: !isFolderView && (isMobileLayout || layoutTuner || mobileLayout?.house) ? 0 : (activeFolderId === 'she-is-so-hot' ? '104px' : '92px'),
+              right: !isFolderView && (isMobileLayout || layoutTuner || mobileLayout?.house) ? 'auto' : '18px',
               zIndex: 13,
               border: 'none',
               background: 'transparent',
@@ -3961,14 +3966,14 @@ function AboutPage({
 
         {/* Knock knock button */}
         {!isFolderView && (
-          <TunableBlock {...tbProps} id="knock" baseLeft={viewport.width - 16 - 72} baseTop={viewport.height - 16 - 90} zIndex={22} passthrough={!isMobileLayout}>
+          <TunableBlock {...tbProps} id="knock" baseLeft={viewport.width - 16 - (isMobileLayout ? 72 : 100)} baseTop={viewport.height - 16 - (isMobileLayout ? 90 : 120)} zIndex={22} passthrough={!isMobileLayout && !layoutTuner && !mobileLayout?.knock}>
           <a
             href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('knock knock')}`}
-            onClick={(e) => { if (layoutTuner && isMobileLayout) e.preventDefault() }}
+            onClick={(e) => { if (layoutTuner) e.preventDefault() }}
             style={{
-              position: isMobileLayout ? 'relative' : 'absolute',
-              right: isMobileLayout ? 'auto' : '16px',
-              bottom: isMobileLayout ? 'auto' : '16px',
+              position: isMobileLayout || layoutTuner || mobileLayout?.knock ? 'relative' : 'absolute',
+              right: isMobileLayout || layoutTuner || mobileLayout?.knock ? 'auto' : '16px',
+              bottom: isMobileLayout || layoutTuner || mobileLayout?.knock ? 'auto' : '16px',
               zIndex: 22,
               width: isMobileLayout ? '72px' : '100px',
               display: 'flex',
@@ -4036,16 +4041,25 @@ function AboutPage({
               onTouchMove={(e) => folderTouch(folder.id, e)}
               onTouchEnd={(e) => folderTouch(folder.id, e)}
               onTouchCancel={(e) => folderTouch(folder.id, e)}
-              onClick={(e) => { if (layoutTuner && isMobileLayout) { e.preventDefault(); return } handleFolderClick(folder.id, e) }}
+              onClick={(e) => { if (layoutTuner) { e.preventDefault(); return } handleFolderClick(folder.id, e) }}
+              onWheel={(e) => {
+                if (!layoutTuner) return
+                e.preventDefault(); e.stopPropagation()
+                const cur = mobileLayout?.folders?.[folder.id]
+                const s0 = cur?.s ?? 1
+                const s1 = Math.max(0.3, Math.min(3, s0 * Math.exp(-e.deltaY * 0.002)))
+                const posNow = folderPositions.get(folder.id) ?? placement
+                setMobileLayout((prev) => ({ ...(prev ?? {}), folders: { ...((prev ?? {}).folders ?? {}), [folder.id]: { left: typeof posNow.left === 'number' ? `${(posNow.left / (rightStageRef.current?.clientWidth || 1) * 100).toFixed(1)}%` : posNow.left, top: typeof posNow.top === 'number' ? `${(posNow.top / (rightStageRef.current?.clientHeight || 1) * 100).toFixed(1)}%` : posNow.top, s: s1 } } }))
+              }}
               className="cursor-grab"
               style={{
                 position: 'absolute',
                 left: posLeft,
                 top: posTop,
-                transform: `translate(-50%, -50%) scale(${isMobileLayout ? (mobileLayout?.folders?.[folder.id]?.s ?? 1) : 1})`,
+                transform: `translate(-50%, -50%) scale(${mobileLayout?.folders?.[folder.id]?.s ?? 1})`,
                 zIndex: 25,
-                outline: layoutTuner && isMobileLayout ? '1px dashed #ff2fd6' : 'none',
-                touchAction: layoutTuner && isMobileLayout ? 'none' : 'auto',
+                outline: layoutTuner ? '1px dashed #ff2fd6' : 'none',
+                touchAction: layoutTuner ? 'none' : 'auto',
                 border: '1px solid transparent',
                 background: 'transparent',
                 borderRadius: '3px',
@@ -4337,6 +4351,8 @@ function ArchiveMapFolder({ isMobileLayout }) {
 }
 
 const MOBILE_LAYOUT_KEY = 'shelest-mobile-layout-v1'
+const DESKTOP_LAYOUT_KEY = 'shelest-desktop-layout-v1'
+const DESKTOP_LAYOUT_DEFAULT = null
 // Nana's saved mobile layout (from ?layout=1 tuner). Values are relative to the viewport:
 // x,y in % of viewport width/height (top-left of the block), s = scale.
 const MOBILE_LAYOUT_DEFAULT = null
@@ -4349,11 +4365,27 @@ function loadMobileLayout() {
   try { const raw = localStorage.getItem(MOBILE_LAYOUT_KEY); if (raw) return JSON.parse(raw) } catch { /* ignore */ }
   return MOBILE_LAYOUT_DEFAULT
 }
+function loadDesktopLayout() {
+  try { const raw = localStorage.getItem(DESKTOP_LAYOUT_KEY); if (raw) return JSON.parse(raw) } catch { /* ignore */ }
+  return DESKTOP_LAYOUT_DEFAULT
+}
 
 // Wraps a positioned block on mobile so it can be dragged / scaled in tuner mode, and applies saved overrides.
 function TunableBlock({ id, layout, tuner, onChange, mobile = true, passthrough = false, baseLeft, baseTop, zIndex = 21, children, pointerEvents = 'auto' }) {
   const ov = mobile ? layout?.[id] : null
   const active = mobile && tuner && !passthrough
+  const onWheel = (e) => {
+    if (!active) return
+    e.preventDefault(); e.stopPropagation()
+    const cur = latestRef.current
+    const k = Math.exp(-e.deltaY * 0.002)
+    const sNext = Math.max(0.3, Math.min(3, cur.scale * k))
+    const kk = sNext / cur.scale
+    // scale around the cursor
+    const nx = e.clientX - (e.clientX - cur.left) * kk
+    const ny = e.clientY - (e.clientY - cur.top) * kk
+    onChange(id, { x: (nx / vw) * 100, y: (ny / vh) * 100, s: sNext })
+  }
   const vw = typeof window !== 'undefined' ? window.innerWidth : 390
   const vh = typeof window !== 'undefined' ? window.innerHeight : 800
   const left = ov ? (ov.x / 100) * vw : baseLeft
