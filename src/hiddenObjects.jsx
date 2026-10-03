@@ -885,7 +885,7 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
             try { const a = new Audio(hotspot.hover.value); a.loop = true; a.volume = 0.7; a.play().catch(() => {}); hoverAudioRef.current = a } catch { /* ignore */ }
           }
         }
-        canvas.style.cursor = hotspot ? 'pointer' : ''
+        canvas.style.cursor = hotspot ? 'var(--app-hover-cursor, pointer)' : ''
       }
       setHoverInfo(hotspot ? { hotspot, x: clientX, y: clientY } : null)
     }
