@@ -62,7 +62,7 @@
       "reaction": {
         "type": "image",
         "value": "reactions/august-2026/drawing.gif",
-        "audio": "reactions/august-2026/drawing-tech.mp3",
+        "audio": "reactions/august-2026/drawing-tech-immediate.mp3",
         "title": "drawing"
       }
     }

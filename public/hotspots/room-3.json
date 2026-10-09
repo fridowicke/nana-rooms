@@ -126,7 +126,7 @@
       "reaction": {
         "type": "image",
         "value": "reactions/august-2026/private-drawers.png",
-        "audio": "reactions/august-2026/private-drawers.mp3",
+        "audio": "reactions/august-2026/private-drawers-immediate.mp3",
         "gifs": [
           "reactions/august-2026/private-drawers.gif"
         ],

@@ -9,6 +9,7 @@ import * as THREE from 'three'
 import { ScanPicker, cameraStateFrom, triangleVertexIndex } from './scanPicker.js'
 import { createHoverPicker } from './hoverPicking.js'
 import { reactionImages, reactionAudio, hasReactionWindow } from './roomReactions.js'
+import { createRoomAudio } from './roomAudio.js'
 import { fetchPublishedRoom, peekPublishedRoom } from './publishedRooms.js'
 
 const ROOM_DATA_VERSION = 2
@@ -146,12 +147,13 @@ function createFaceHighlight(mesh, faces, color, opacity) {
   return highlight
 }
 
-// Sparkles: the site's cursor-trail sparkle gifs, spawned over the hotspot's surface (hover hint).
+// Sparkles mark room objects on hover and hints, and carry custom click stickers.
 const SPARKLE_GIFS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map((k) => new URL(`../target/cursor/sparkle_${k}.gif`, import.meta.url).href)
 function createSparkles(engine, faces, options = {}) {
   if (!faces?.length) return null
   const sources = options.sources?.length ? options.sources : SPARKLE_GIFS
   const large = Boolean(options.large)
+  const hint = Boolean(options.hint)
   const mesh = engine.mesh
   const canvas = engine.canvas
   const geometry = mesh.geometry
@@ -184,14 +186,14 @@ function createSparkles(engine, faces, options = {}) {
     const img = document.createElement('img')
     img.src = sources[Math.floor(Math.random() * sources.length)]
     img.alt = ''
-    const size = large ? 60 + Math.random() * 40 : 18 + Math.random() * 18
-    img.style.cssText = `position:absolute;width:${size}px;height:${size}px;transform:translate(-50%,-50%);opacity:0;transition:opacity 160ms;will-change:transform`
+    const size = large ? 96 + Math.random() * 48 : hint ? 72 + Math.random() * 32 : 44 + Math.random() * 28
+    img.style.cssText = `position:absolute;width:${size}px;height:${size}px;transform:translate(-50%,-50%);opacity:0;object-fit:contain;filter:drop-shadow(0 0 3px rgba(255,255,255,0.95)) drop-shadow(0 1px 2px rgba(0,0,0,0.6));will-change:transform`
     layer.appendChild(img)
-    live.push({ img, world, born: performance.now(), life: large ? 1600 : 700 + Math.random() * 500, dx: large ? (Math.random() - 0.5) * 120 : 0, dy: large ? (Math.random() - 0.5) * 120 : 0 })
+    live.push({ img, world, born: performance.now(), life: large ? 2000 : 1100 + Math.random() * 500, dx: large ? (Math.random() - 0.5) * 120 : 0, dy: large ? (Math.random() - 0.5) * 120 : 0 })
   }
   const tick = (now) => {
     raf = requestAnimationFrame(tick)
-    if (now - last > (large ? 180 : 70) && live.length < (large ? 8 : 18)) { last = now; spawn() }
+    if (now - last > (large ? 140 : 70) && live.length < (large ? 12 : 24)) { last = now; spawn() }
     const rect = canvas.getBoundingClientRect()
     const cam = engine.camera
     const v = new THREE.Vector3()
@@ -205,9 +207,10 @@ function createSparkles(engine, faces, options = {}) {
       const behind = v.z > 1
       sp.img.style.left = `${x}px`
       sp.img.style.top = `${y}px`
-      sp.img.style.opacity = behind ? '0' : String(age < 120 ? age / 120 : age > sp.life - 200 ? (sp.life - age) / 200 : 1)
+      sp.img.style.opacity = behind ? '0' : String(age < 60 ? age / 60 : age > sp.life - 200 ? (sp.life - age) / 200 : 1)
     }
   }
+  for (let i = 0; i < (hint ? 6 : 3); i++) spawn()
   raf = requestAnimationFrame(tick)
   return { object: layer, dispose: () => { cancelAnimationFrame(raf); layer.remove() } }
 }
@@ -681,6 +684,7 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
   const [timeLeft, setTimeLeft] = useState(null)
   const [timeUp, setTimeUp] = useState(false)
   const [popup, setPopup] = useState(null)
+  const roomAudio = useMemo(() => createRoomAudio(), [])
   const reactionAudioRef = useRef(null)
   const reactionEffectsRef = useRef(null)
   const closeReaction = useCallback(() => {
@@ -703,8 +707,12 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
   const [hoverId, setHoverId] = useState(null)
   const [faceCounts, setFaceCounts] = useState(() => new Map())
   const runtimeRef = useRef({ faceToHotspot: null, hotspotFaces: new Map(), hotspotIds: [] })
-  const highlightsRef = useRef({ draft: null, hover: null, visitorHover: null, hint: null, flashes: [] })
+  const highlightsRef = useRef({ draft: null, hover: null, visitorHover: null, hint: null })
   const hotspotsSignature = JSON.stringify(room.hotspots)
+  useEffect(() => {
+    roomAudio.preload(room.hotspots)
+    return () => roomAudio.dispose()
+  }, [roomAudio, roomNumber, hotspotsSignature]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load hotspots: the published file is the default, a local draft (from editing) overrides it.
   useLayoutEffect(() => {
@@ -799,7 +807,7 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
     return () => { removeHighlight(highlightsRef.current.hover); highlightsRef.current.hover = null }
   }, [hoverId, hotspotsSignature, engineVersion])
 
-  // Hint: pulse the object for a few seconds.
+  // Hint: a conspicuous burst of sparkles over the object for four seconds.
   useEffect(() => {
     const engine = engineRef.current
     removeHighlight(highlightsRef.current.hint)
@@ -807,35 +815,23 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
     if (!engine?.mesh || !hintId) return undefined
     const faces = runtimeRef.current.hotspotFaces.get(hintId)
     if (!faces || faces.length === 0) return undefined
-    const highlight = createFaceHighlight(engine.mesh, faces, 0xffdd00, 0.7)
-    highlightsRef.current.hint = highlight
-    const started = performance.now()
-    let frame = 0
-    const tick = () => {
-      const elapsed = performance.now() - started
-      highlight.material.opacity = 0.35 + 0.4 * Math.abs(Math.sin(elapsed / 220))
-      if (elapsed < 4000) frame = requestAnimationFrame(tick)
-      else { removeHighlight(highlight); highlightsRef.current.hint = null; setHintId(null) }
+    const sparkles = createSparkles(engine, faces, { hint: true })
+    highlightsRef.current.hint = sparkles
+    const timer = window.setTimeout(() => {
+      removeHighlight(sparkles)
+      highlightsRef.current.hint = null
+      setHintId(null)
+    }, 4000)
+    return () => {
+      window.clearTimeout(timer)
+      removeHighlight(sparkles)
+      highlightsRef.current.hint = null
     }
-    frame = requestAnimationFrame(tick)
-    return () => { cancelAnimationFrame(frame); removeHighlight(highlight); highlightsRef.current.hint = null }
-  }, [hintId, engineVersion])
-
-  const flashFaces = useCallback((faces, color = 0xffd700) => {
-    const engine = engineRef.current
-    if (!engine?.mesh || !faces || faces.length === 0) return
-    const highlight = createFaceHighlight(engine.mesh, faces, color, 0.8)
-    const started = performance.now()
-    const tick = () => {
-      const elapsed = performance.now() - started
-      highlight.material.opacity = Math.max(0, 0.8 * (1 - elapsed / 1500))
-      if (elapsed < 1500) requestAnimationFrame(tick)
-      else removeHighlight(highlight)
-    }
-    requestAnimationFrame(tick)
-  }, [])
+  }, [hintId, engineVersion, roomNumber, hotspotsSignature])
 
   const handleFound = useCallback((hotspot) => {
+    closeReaction()
+    reactionAudioRef.current = roomAudio.play(reactionAudio(hotspot.reaction))
     setFound((previous) => {
       if (previous.includes(hotspot.id)) return previous
       const next = [...previous, hotspot.id]
@@ -843,17 +839,11 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
       return next
     })
     setHintId(null)
-    flashFaces(runtimeRef.current.hotspotFaces.get(hotspot.id))
-    closeReaction()
     const reaction = hotspot.reaction
     // Numuki does not allow embedded pages. Launch during the click gesture so
     // browsers permit the game tab, while shopping links stay in a room window.
     if (reaction?.type === 'link' && reaction.openInNewTab && reaction.value) {
       window.open(reaction.value, '_blank', 'noopener,noreferrer')
-    }
-    const audioSrc = reactionAudio(reaction)
-    if (audioSrc) {
-      try { const audio = new Audio(audioSrc); reactionAudioRef.current = audio; audio.play().catch(() => {}) } catch { /* unsupported */ }
     }
     if (reaction?.surfaceGifs?.length) {
       const engine = engineRef.current
@@ -861,7 +851,7 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
       if (engine && faces) reactionEffectsRef.current = createSparkles(engine, faces, { sources: reaction.surfaceGifs, large: true })
     }
     if (hasReactionWindow(reaction)) setPopup({ ...reaction })
-  }, [roomNumber, flashFaces, closeReaction])
+  }, [roomNumber, roomAudio, closeReaction])
 
   // Visitor hover: glow the hotspot under the pointer, show its name, run its hover reaction.
   const [hoverInfo, setHoverInfo] = useState(null)
@@ -882,7 +872,7 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
           const faces = runtimeRef.current.hotspotFaces.get(hotspot.id)
           if (faces) highlightsRef.current.visitorHover = createSparkles(engine, faces, { sources: hotspot.hover?.sparkles })
           if (hotspot.hover?.type === 'audio' && hotspot.hover.value) {
-            try { const a = new Audio(hotspot.hover.value); a.loop = true; a.volume = 0.7; a.play().catch(() => {}); hoverAudioRef.current = a } catch { /* ignore */ }
+            hoverAudioRef.current = roomAudio.play(hotspot.hover.value, { loop: true, volume: 0.7 })
           }
         }
         canvas.style.cursor = hotspot ? 'var(--app-hover-cursor, pointer)' : ''
@@ -916,7 +906,7 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
       hoverPicker.dispose()
       apply(null, 0, 0)
     }
-  }, [editMode, room, hotspotsSignature, engineVersion])
+  }, [editMode, room, hotspotsSignature, engineVersion, roomAudio])
 
   // Game clicks: a press without drag picks the triangle under the pointer through the id buffer.
   useEffect(() => {
