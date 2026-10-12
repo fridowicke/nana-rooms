@@ -186,14 +186,14 @@ function createSparkles(engine, faces, options = {}) {
     const img = document.createElement('img')
     img.src = sources[Math.floor(Math.random() * sources.length)]
     img.alt = ''
-    const size = large ? 96 + Math.random() * 48 : hint ? 72 + Math.random() * 32 : 44 + Math.random() * 28
+    const size = large ? 96 + Math.random() * 48 : hint ? 56 + Math.random() * 28 : 40 + Math.random() * 36
     img.style.cssText = `position:absolute;width:${size}px;height:${size}px;transform:translate(-50%,-50%);opacity:0;object-fit:contain;filter:drop-shadow(0 0 3px rgba(255,255,255,0.95)) drop-shadow(0 1px 2px rgba(0,0,0,0.6));will-change:transform`
     layer.appendChild(img)
     live.push({ img, world, born: performance.now(), life: large ? 2000 : 1100 + Math.random() * 500, dx: large ? (Math.random() - 0.5) * 120 : 0, dy: large ? (Math.random() - 0.5) * 120 : 0 })
   }
   const tick = (now) => {
     raf = requestAnimationFrame(tick)
-    if (now - last > (large ? 140 : 70) && live.length < (large ? 12 : 24)) { last = now; spawn() }
+    if (now - last > (large ? 140 : 22) && live.length < (large ? 12 : 90)) { last = now; spawn() }
     const rect = canvas.getBoundingClientRect()
     const cam = engine.camera
     const v = new THREE.Vector3()
@@ -210,7 +210,7 @@ function createSparkles(engine, faces, options = {}) {
       sp.img.style.opacity = behind ? '0' : String(age < 60 ? age / 60 : age > sp.life - 200 ? (sp.life - age) / 200 : 1)
     }
   }
-  for (let i = 0; i < (hint ? 6 : 3); i++) spawn()
+  for (let i = 0; i < (hint ? 10 : 14); i++) spawn()
   raf = requestAnimationFrame(tick)
   return { object: layer, dispose: () => { cancelAnimationFrame(raf); layer.remove() } }
 }
@@ -322,7 +322,8 @@ function ReactionPopup({ reaction, onClose, isMobileLayout }) {
   })()
   if (!body) return null
 
-  const winW = isMobileLayout ? 'calc(100vw - 24px)' : reaction.type === 'link' ? 'min(420px, calc(100vw - 80px))' : 'min(720px, calc(100vw - 80px))'
+  const objW = a?.w ? Math.round(Math.max(220, Math.min(640, a.w * 1.15))) : null
+  const winW = isMobileLayout ? 'calc(100vw - 24px)' : reaction.type === 'link' ? 'min(420px, calc(100vw - 80px))' : (objW ? `min(${objW}px, calc(100vw - 40px))` : 'min(560px, calc(100vw - 80px))')
   const startDrag = (e) => {
     if (e.button != null && e.button !== 0) return
     const el = e.currentTarget.parentElement
@@ -337,41 +338,43 @@ function ReactionPopup({ reaction, onClose, isMobileLayout }) {
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
   }
+  const vwp = typeof window !== 'undefined' ? window.innerWidth : 1200
+  const vhp = typeof window !== 'undefined' ? window.innerHeight : 800
+  const a = reaction.anchor
   const winStyle = pos
     ? { position: 'fixed', left: pos.x, top: pos.y, transform: 'none' }
-    : { position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }
+    : a
+      ? { position: 'fixed', left: Math.max(30, Math.min(vwp - 30, a.x)), top: Math.max(40, Math.min(vhp - 40, a.y)), transform: 'translate(-50%, -50%)' }
+      : { position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }
 
   return (
     <div
       onPointerDown={(e) => { if (e.target === e.currentTarget) onClose() }}
-      style={{ position: 'fixed', inset: 0, zIndex: 9500, background: 'rgba(0,0,0,0.35)' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 9500, background: 'transparent' }}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label={reaction.title || 'Object reaction'}
         onPointerDown={(e) => e.stopPropagation()}
-        style={{ ...winStyle, width: winW, background: '#fff', color: '#111', borderRadius: '10px', boxShadow: '0 24px 70px rgba(0,0,0,0.45)', overflow: 'hidden', fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}
+        style={{ ...winStyle, width: winW, background: reaction.type === 'text' ? '#fff' : 'transparent', color: '#111', borderRadius: '6px', boxShadow: reaction.type === 'text' ? '0 24px 70px rgba(0,0,0,0.35)' : '0 30px 80px rgba(0,0,0,0.45)', overflow: 'visible', fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}
       >
+        <button
+          type="button"
+          onPointerDown={(e) => { e.stopPropagation(); e.preventDefault() }}
+          onClick={(e) => { e.stopPropagation(); onClose() }}
+          aria-label="close"
+          title="закрыть"
+          style={{ position: 'absolute', top: '-14px', right: '-14px', width: '30px', height: '30px', borderRadius: '50%', border: '1px solid rgba(0,0,0,0.25)', background: '#fff', cursor: 'pointer', padding: 0, fontSize: '18px', lineHeight: '28px', color: '#111', zIndex: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }}
+        >
+          ×
+        </button>
         <div
           onPointerDown={startDrag}
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)', borderBottom: '1px solid #b0b0b0', fontSize: '12px', cursor: 'grab', userSelect: 'none' }}
+          style={{ maxHeight: 'calc(100dvh - 60px)', overflowY: 'auto', borderRadius: '6px', overflow: 'hidden', cursor: 'grab' }}
         >
-          <button
-            type="button"
-            onPointerDown={(e) => { e.stopPropagation(); e.preventDefault() }}
-            onClick={(e) => { e.stopPropagation(); onClose() }}
-            aria-label="close"
-            title="закрыть"
-            style={{ width: '22px', height: '22px', borderRadius: '50%', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, display: 'grid', placeItems: 'center' }}
-          >
-            <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'block' }} />
-          </button>
-          <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d89e24', display: 'block' }} />
-          <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'block' }} />
-          <span style={{ flex: 1, textAlign: 'center', opacity: 0.7, fontWeight: 300, paddingRight: '58px' }}>{reaction.title || ''}</span>
+          {body}
         </div>
-        <div style={{ maxHeight: 'calc(100dvh - 100px)', overflowY: 'auto' }}>{body}</div>
       </div>
     </div>
   )
@@ -850,7 +853,32 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
       const faces = runtimeRef.current.hotspotFaces.get(hotspot.id)
       if (engine && faces) reactionEffectsRef.current = createSparkles(engine, faces, { sources: reaction.surfaceGifs, large: true })
     }
-    if (hasReactionWindow(reaction)) setPopup({ ...reaction })
+    if (hasReactionWindow(reaction)) {
+      // Anchor the window to the clicked object: screen-space bounding box of its selected triangles.
+      let anchor = null
+      try {
+        const engine = engineRef.current
+        const faces = runtimeRef.current.hotspotFaces.get(hotspot.id)
+        if (engine?.mesh && faces?.length) {
+          const g = engine.mesh.geometry, pos = g.attributes.position
+          const step = Math.max(1, Math.floor(faces.length / 600))
+          const rect = engine.canvas.getBoundingClientRect()
+          const v = new THREE.Vector3()
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+          for (let i = 0; i < faces.length; i += step) {
+            for (let c = 0; c < 3; c++) {
+              v.fromBufferAttribute(pos, triangleVertexIndex(g, faces[i], c))
+              engine.mesh.localToWorld(v).project(engine.camera)
+              if (v.z > 1) continue
+              const sx = rect.left + (v.x + 1) / 2 * rect.width, sy = rect.top + (1 - v.y) / 2 * rect.height
+              if (sx < minX) minX = sx; if (sx > maxX) maxX = sx; if (sy < minY) minY = sy; if (sy > maxY) maxY = sy
+            }
+          }
+          if (Number.isFinite(minX)) anchor = { x: (minX + maxX) / 2, y: (minY + maxY) / 2, w: maxX - minX, h: maxY - minY }
+        }
+      } catch { /* ignore */ }
+      setPopup({ ...reaction, anchor })
+    }
   }, [roomNumber, roomAudio, closeReaction])
 
   // Visitor hover: glow the hotspot under the pointer, show its name, run its hover reaction.
