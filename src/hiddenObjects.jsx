@@ -322,6 +322,7 @@ function ReactionPopup({ reaction, onClose, isMobileLayout }) {
   })()
   if (!body) return null
 
+  const a = reaction.anchor
   const objW = a?.w ? Math.round(Math.max(220, Math.min(640, a.w * 1.15))) : null
   const winW = isMobileLayout ? 'calc(100vw - 24px)' : reaction.type === 'link' ? 'min(420px, calc(100vw - 80px))' : (objW ? `min(${objW}px, calc(100vw - 40px))` : 'min(560px, calc(100vw - 80px))')
   const startDrag = (e) => {
@@ -340,7 +341,6 @@ function ReactionPopup({ reaction, onClose, isMobileLayout }) {
   }
   const vwp = typeof window !== 'undefined' ? window.innerWidth : 1200
   const vhp = typeof window !== 'undefined' ? window.innerHeight : 800
-  const a = reaction.anchor
   const winStyle = pos
     ? { position: 'fixed', left: pos.x, top: pos.y, transform: 'none' }
     : a
