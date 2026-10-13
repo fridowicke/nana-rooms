@@ -9,18 +9,23 @@ export const ROOM_FILES = [
   'KAORI WEB.glb', 'REI WEB.glb', 'YURIA WEB.glb', 'MOMOCO WEB.glb', 'KUMO&MUKI WEB.glb', 'MIMI WEB.glb',
 ]
 export const HOME_ASSET_URL = 'assets/home.glb'
-export function getRoomAssetUrl(index) {
+export function getHomeAssetUrl(isMobile = false) {
+  return isMobile ? 'assets/home-mobile.glb?v=2k-1' : HOME_ASSET_URL
+}
+export function getRoomAssetUrl(index, isMobile = false) {
   const file = ROOM_FILES[index]
   // The version avoids reusing an old 8K response from the browser's HTTP cache.
-  return file ? `rooms/${file}?v=4k-1` : null
+  return file ? (isMobile ? `rooms/mobile/${file}?v=2k-1` : `rooms/${file}?v=4k-1`) : null
 }
 function environment() {
-  return { connection: globalThis.navigator?.connection, deviceMemory: globalThis.navigator?.deviceMemory }
+  return { connection: globalThis.navigator?.connection, deviceMemory: globalThis.navigator?.deviceMemory,
+    isMobile: globalThis.matchMedia?.('(pointer: coarse)')?.matches ?? false }
 }
 export function roomPreloadPlan(roomIndex, isMobile) {
   const home = roomIndex == null
-  const count = preloadCount({ ...environment(), isMobile }, home)
-  return Array.from({ length: count }, (_, offset) => getRoomAssetUrl(home ? offset : (roomIndex + offset + 1) % ROOM_FILES.length))
+  const env = environment()
+  const count = preloadCount({ ...env, isMobile: isMobile || env.isMobile }, home)
+  return Array.from({ length: count }, (_, offset) => getRoomAssetUrl(home ? offset : (roomIndex + offset + 1) % ROOM_FILES.length, isMobile))
 }
 export function releaseModelGpu(model, closeImages = false) {
   const geometries = new Set(), materials = new Set(), textures = new Set()
@@ -43,8 +48,9 @@ export const modelPreloader = createModelPreloader({
   requestIdle: (fn) => hasIdleCallback ? globalThis.requestIdleCallback(fn, { timeout: 1500 }) : setTimeout(fn, 100),
   cancelIdle: (id) => hasIdleCallback ? globalThis.cancelIdleCallback(id) : clearTimeout(id),
   disposeAsset: (model) => releaseModelGpu(model, true),
+  onEvict: (url) => useLoader.clear(RoomAssetLoader, url),
   loadAsset: async (url, { signal, getPriority }) => {
-    const roomIndex = ROOM_FILES.findIndex((_, index) => getRoomAssetUrl(index) === url)
+    const roomIndex = ROOM_FILES.findIndex((_, index) => getRoomAssetUrl(index) === url || getRoomAssetUrl(index, true) === url)
     if (roomIndex >= 0) fetchPublishedRoom(roomIndex + 1)
     const absoluteUrl = new URL(url, document.baseURI)
     const response = await fetch(absoluteUrl, { signal, priority: getPriority(), credentials: 'same-origin' })

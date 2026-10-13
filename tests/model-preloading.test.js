@@ -1,21 +1,22 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createModelPreloader, preloadCount } from '../src/modelPreloading.js'
-import { getRoomAssetUrl, roomPreloadPlan, ROOM_FILES } from '../src/roomAssets.js'
+import { getHomeAssetUrl, getRoomAssetUrl, roomPreloadPlan, ROOM_FILES } from '../src/roomAssets.js'
 
 const flush = () => new Promise(resolve => setImmediate(resolve))
 function harness() {
-  const reads = [], tasks = new Map(), disposed = []
+  const reads = [], tasks = new Map(), disposed = [], evicted = []
   let next = 0, allowed = true
   const manager = createModelPreloader({
     loadAsset: (url, options) => new Promise((resolve, reject) => reads.push({ url, ...options, resolve, reject })),
     disposeAsset: asset => disposed.push(asset),
+    onEvict: url => evicted.push(url),
     canPrefetch: () => allowed,
     requestIdle: fn => { tasks.set(++next, fn); return next },
     cancelIdle: id => tasks.delete(id),
   })
   return {
-    manager, reads, tasks, disposed,
+    manager, reads, tasks, disposed, evicted,
     setAllowed(value) { allowed = value },
     async tick() { const [id, fn] = tasks.entries().next().value; tasks.delete(id); fn(); await flush() },
   }
@@ -109,10 +110,58 @@ test('connection/memory policy keeps foreground loading available and limits spe
   assert.equal(preloadCount({ connection: { effectiveType: '2g' } }), 0)
   assert.equal(preloadCount({ connection: { effectiveType: '3g' } }, true), 1)
   assert.equal(preloadCount({ deviceMemory: 2 }, true), 1)
-  assert.equal(preloadCount({ isMobile: true }, true), 2)
-  assert.equal(preloadCount({ isMobile: true }), 1)
+  assert.equal(preloadCount({ isMobile: true }, true), 0)
+  assert.equal(preloadCount({ isMobile: true }), 0)
+  assert.equal(preloadCount({ isMobile: true, connection: { effectiveType: '3g' } }, true), 0)
   assert.equal(preloadCount({}, true), 4)
   assert.equal(preloadCount({}), 2)
+})
+
+test('phone visits use smaller assets and do not schedule speculative room decoding', () => {
+  assert.equal(getHomeAssetUrl(true), 'assets/home-mobile.glb?v=2k-1')
+  assert.equal(getHomeAssetUrl(false), 'assets/home.glb')
+  assert.equal(getRoomAssetUrl(2, true), 'rooms/mobile/AIKO WEB.glb?v=2k-1')
+  assert.deepEqual(roomPreloadPlan(null, true), [])
+  assert.deepEqual(roomPreloadPlan(2, true), [])
+})
+
+test('a bounded decoded cache retains the current and previous scene and reloads evicted rooms', async () => {
+  const h = harness()
+  h.manager.setCacheLimit(2)
+  for (const url of ['one', 'two', 'three']) {
+    h.manager.enter(url)
+    const load = h.manager.load(url)
+    await flush()
+    h.reads.at(-1).resolve(url + ' model')
+    await load
+  }
+  assert.deepEqual(h.evicted, ['one'])
+  assert.deepEqual(h.disposed, ['one model'])
+  assert.equal(h.manager.getCached('two'), 'two model')
+  assert.equal(h.manager.getCached('three'), 'three model')
+  assert.equal(h.manager.getCached('one'), undefined)
+  h.manager.enter('one')
+  const revisit = h.manager.load('one')
+  await flush()
+  h.reads.at(-1).resolve('fresh one')
+  assert.equal(await revisit, 'fresh one')
+  assert.deepEqual(h.evicted, ['one', 'two'])
+})
+
+test('a late model cannot evict either side of an in-progress scene transition', async () => {
+  const h = harness()
+  h.manager.setCacheLimit(2)
+  h.manager.enter('current')
+  const current = h.manager.load('current'); await flush()
+  h.reads[0].resolve('current model'); await current
+  h.manager.enter('next')
+  const next = h.manager.load('next'); await flush()
+  h.reads[1].resolve('next model'); await next
+  const late = h.manager.load('old-request'); await flush()
+  h.reads[2].resolve('old model'); await late
+  assert.equal(h.manager.getCached('current'), 'current model')
+  assert.equal(h.manager.getCached('next'), 'next model')
+  assert.deepEqual(h.disposed, ['old model'])
 })
 
 test('all room paths use the optimized cache version and the last room wraps to the first', () => {

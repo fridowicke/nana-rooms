@@ -900,7 +900,7 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
   const hoverAudioRef = useRef(null)
   useEffect(() => {
     const engine = engineRef.current
-    if (!engine?.canvas || editMode || !room.hotspots.length) { setHoverInfo(null); return undefined }
+    if (!engine?.canvas || editMode || isMobileLayout || !room.hotspots.length) { setHoverInfo(null); return undefined }
     const canvas = engine.canvas
     let last = null
     const apply = (hotspot, clientX, clientY) => {
@@ -938,7 +938,7 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
         apply(hotspot, cx, cy)
       },
     })
-    const onMove = (e) => hoverPicker.move([e.clientX, e.clientY])
+    const onMove = (e) => { if (e.pointerType === 'touch' || e.buttons) { hoverPicker.leave(); return } hoverPicker.move([e.clientX, e.clientY]) }
     const onLeave = () => hoverPicker.leave()
     canvas.addEventListener('pointermove', onMove)
     canvas.addEventListener('pointerleave', onLeave)
@@ -948,7 +948,7 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
       hoverPicker.dispose()
       apply(null, 0, 0)
     }
-  }, [editMode, room, hotspotsSignature, engineVersion, roomAudio])
+  }, [editMode, room, hotspotsSignature, engineVersion, roomAudio, isMobileLayout])
 
   // Game clicks: a press without drag picks the triangle under the pointer through the id buffer.
   useEffect(() => {

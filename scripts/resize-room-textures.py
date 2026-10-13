@@ -23,7 +23,7 @@ def unpack_glb(data):
     return doc, data[28 + json_size:]
 
 
-def resize(data, size, quality):
+def resize(data, size, quality, source_size=8192):
     doc, old_binary = unpack_glb(data)
     assert len(doc['buffers']) == 1 and not doc.get('extensionsUsed'), 'Expected a self-contained, uncompressed scan'
     assert len(doc['images']) == 1 and doc['images'][0]['mimeType'] == 'image/jpeg', 'Expected one embedded JPEG'
@@ -35,7 +35,8 @@ def resize(data, size, quality):
         payload = old_binary[offset:offset + view['byteLength']]
         if index == image_view:
             image = Image.open(io.BytesIO(payload))
-            assert image.size == (8192, 8192), 'Use the original 8K scan; do not recompress an optimized file'
+            assert image.size == (source_size, source_size), 'Unexpected source texture resolution'
+            assert size < source_size, 'Do not recompress an already optimized texture'
             out = io.BytesIO()
             image.resize((size, size), Image.Resampling.LANCZOS).save(out, 'JPEG', quality=quality, optimize=True)
             payload = out.getvalue()

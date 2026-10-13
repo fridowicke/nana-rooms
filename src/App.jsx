@@ -5,7 +5,7 @@ import { OrbitControls, Stage, Html, KeyboardControls, useKeyboardControls } fro
 import * as THREE from 'three'
 import { HiddenObjectGame, HiddenObjectScene } from './hiddenObjects.jsx'
 import ArchiveMap from './ArchiveMap.jsx'
-import { ROOM_FILES, HOME_ASSET_URL, getRoomAssetUrl, roomPreloadPlan, modelPreloader, RoomAssetLoader, canPrepareRooms, releaseModelGpu } from './roomAssets.js'
+import { ROOM_FILES, getHomeAssetUrl, getRoomAssetUrl, roomPreloadPlan, modelPreloader, RoomAssetLoader, canPrepareRooms, releaseModelGpu } from './roomAssets.js'
 import { createGpuRoomCache } from './gpuRoomCache.js'
 import { perspectiveFitDistance } from './cameraFit.js'
 
@@ -698,6 +698,7 @@ const ROOM_RENDER_VARIANT_ALIASES = new Map([
   ['bright', 'slow'],
 ])
 const CANVAS_GL_OPTIONS = { preserveDrawingBuffer: true }
+const MOBILE_CANVAS_GL_OPTIONS = { preserveDrawingBuffer: true, antialias: false }
 
 function buildCursorValue(cursorUrl, fallback = 'auto', hotspot = MAIN_KEY_CURSOR_HOTSPOT) {
   const cursorStack = [`url("${cursorUrl}") ${hotspot}`]
@@ -938,8 +939,8 @@ function Model({ url, children, onLoaded, prepareScene }) {
   return <primitive object={scene}>{children}</primitive>
 }
 
-function prepareRoomNavigation(roomIndex) {
-  const url = getRoomAssetUrl(roomIndex)
+function prepareRoomNavigation(roomIndex, isMobileLayout = false) {
+  const url = getRoomAssetUrl(roomIndex, isMobileLayout)
   modelPreloader.enter(url)
   modelPreloader.load(url).catch(() => {})
 }
@@ -964,7 +965,7 @@ function GpuRoomPreparation({ roomIndex, prepareScene, cacheRef, isMobileLayout 
       gl.compile(asset.scene, camera, scene)
     },
     release: releaseModelGpu,
-    canPrepare: canPrepareRooms,
+    canPrepare: () => !isMobileLayout && canPrepareRooms(),
     // Give camera motion, dragging and hover interactions time to settle before GPU work.
     requestIdle: (callback) => {
       const task = { timer: null, idle: null }
@@ -978,13 +979,13 @@ function GpuRoomPreparation({ roomIndex, prepareScene, cacheRef, isMobileLayout 
       return task
     },
     cancelIdle: (task) => { window.clearTimeout(task.timer); if (task.idle != null) window.cancelIdleCallback(task.idle) },
-  }), [gl, camera, scene])
+  }), [gl, camera, scene, isMobileLayout])
   useLayoutEffect(() => {
     cacheRef.current = cache
-    const next = getRoomAssetUrl((roomIndex + 1) % ROOM_FILES.length)
-    cache.enter(getRoomAssetUrl(roomIndex), next)
+    const next = isMobileLayout ? null : getRoomAssetUrl((roomIndex + 1) % ROOM_FILES.length)
+    cache.enter(getRoomAssetUrl(roomIndex, isMobileLayout), next)
     cache.target(next, modelPreloader.getCached(next))
-  }, [cache, cacheRef, roomIndex])
+  }, [cache, cacheRef, roomIndex, isMobileLayout])
   useLayoutEffect(() => {
     cache.setLimit(isMobileLayout || navigator.deviceMemory <= 4 ? 2 : 3)
   }, [cache, isMobileLayout])
@@ -1029,7 +1030,7 @@ function GpuRoomPreparation({ roomIndex, prepareScene, cacheRef, isMobileLayout 
 }
 
 function RendererSettings({ toneMapping, exposure }) {
-  const { gl, scene } = useThree()
+  const { gl, scene, invalidate } = useThree()
 
   useEffect(() => {
     const toneMappingMode = TONE_MAPPING_OPTIONS.find((option) => option.value === toneMapping)?.threeValue ?? THREE.NoToneMapping
@@ -1037,7 +1038,8 @@ function RendererSettings({ toneMapping, exposure }) {
     gl.toneMappingExposure = exposure
     gl.outputColorSpace = THREE.SRGBColorSpace
     scene.environmentIntensity = 1
-  }, [exposure, gl, scene, toneMapping])
+    invalidate()
+  }, [exposure, gl, scene, toneMapping, invalidate])
 
   return null
 }
@@ -1936,8 +1938,9 @@ function Controls({
   maxDistance,
   positionControlsApiRef = null,
 }) {
-  const [, get] = useKeyboardControls()
-  const { camera } = useThree()
+  const [subscribeKeys, get] = useKeyboardControls()
+  const { camera, invalidate } = useThree()
+  useEffect(() => subscribeKeys(state => state.forward || state.backward || state.left || state.right, moving => { if (moving) invalidate() }), [subscribeKeys, invalidate])
   const controlsRef = useRef()
 
   useEffect(() => {
@@ -1991,6 +1994,7 @@ function Controls({
 
     if (moveDir.length() === 0) return
 
+    invalidate()
     moveDir.normalize().multiplyScalar(moveSpeed)
     camera.position.add(moveDir)
 
@@ -2049,7 +2053,9 @@ function HomeScene({ onModelLoaded, onOpenRoom, onReady, isMobileLayout = false 
   return (
     <KeyboardControls map={keyboardMap}>
       <Canvas
-        gl={CANVAS_GL_OPTIONS}
+        gl={isMobileLayout ? MOBILE_CANVAS_GL_OPTIONS : CANVAS_GL_OPTIONS}
+        dpr={isMobileLayout ? [1, 1.5] : [1, 2]}
+        frameloop={isMobileLayout ? 'demand' : 'always'}
         camera={{ position: LANDING_CAMERA_POSITION, fov: isMobileLayout ? 42 : 47.5 }}
         style={{ cursor: 'inherit', touchAction: isMobileLayout ? 'none' : 'auto' }}
       >
@@ -2057,7 +2063,7 @@ function HomeScene({ onModelLoaded, onOpenRoom, onReady, isMobileLayout = false 
         <Suspense fallback={<LoadingCanvasFallback />}>
           <RendererSettings toneMapping={DEFAULT_ROOM_RENDER_SETTINGS.toneMapping} exposure={DEFAULT_ROOM_RENDER_SETTINGS.exposure} />
           <Stage environment={null} intensity={DEFAULT_ROOM_RENDER_SETTINGS.environmentIntensity} shadows={false} adjustCamera={false}>
-            <Model url={HOME_ASSET_URL} onLoaded={handleHomeModelLoaded} prepareScene={prepareHomeScene}>
+            <Model url={getHomeAssetUrl(isMobileLayout)} onLoaded={handleHomeModelLoaded} prepareScene={prepareHomeScene}>
               <DoorLinks doors={DOOR_LINKS} onOpenRoom={onOpenRoom} occluderRoot={homeOccluderRoot} isMobileLayout={isMobileLayout} />
             </Model>
           </Stage>
@@ -2174,6 +2180,7 @@ function HomeEditorScene({ corners, activeCornerIndex, onPickPoint }) {
 function CameraReset({ position, target = DEFAULT_CAMERA_TARGET, fov }) {
   const camera = useThree((state) => state.camera)
   const controls = useThree((state) => state.controls)
+  const invalidate = useThree((state) => state.invalidate)
 
   useLayoutEffect(() => {
     camera.position.set(...position)
@@ -2184,7 +2191,8 @@ function CameraReset({ position, target = DEFAULT_CAMERA_TARGET, fov }) {
     } else {
       camera.lookAt(...target)
     }
-  }, [camera, controls, position, target, fov])
+    invalidate()
+  }, [camera, controls, position, target, fov, invalidate])
 
   return null
 }
@@ -2193,6 +2201,7 @@ function FitCameraToScene({ scene, enabled, basePosition = LANDING_CAMERA_POSITI
   const camera = useThree((state) => state.camera)
   const controls = useThree((state) => state.controls)
   const { width, height } = useThree((state) => state.size)
+  const invalidate = useThree((state) => state.invalidate)
 
   useLayoutEffect(() => {
     if (!enabled || !scene) return
@@ -2219,7 +2228,8 @@ function FitCameraToScene({ scene, enabled, basePosition = LANDING_CAMERA_POSITI
       controls.target.copy(target)
       controls.update()
     }
-  }, [basePosition, camera, controls, enabled, margin, scene, targetYOffset, width, height])
+    invalidate()
+  }, [basePosition, camera, controls, enabled, margin, scene, targetYOffset, width, height, invalidate])
 
   return null
 }
@@ -2306,18 +2316,18 @@ function DoorLinkArea({ door, onOpenRoom, occluderMeshes, isHovered = false, onH
       renderOrder={1000}
       raycast={raycast}
       userData={{ isDoorHitArea: true }}
-      onPointerOver={(event) => {
+      onPointerOver={isMobileLayout ? undefined : (event) => {
         event.stopPropagation()
         onHoverChange?.(door.roomIndex)
         applyDoorCursor(event, door.cursor || MAIN_KEY_CURSOR)
       }}
-      onPointerOut={(event) => {
+      onPointerOut={isMobileLayout ? undefined : (event) => {
         onHoverChange?.(null)
         applyDoorCursor(event, MAIN_KEY_CURSOR)
       }}
       onPointerDown={(event) => {
         event.stopPropagation()
-        modelPreloader.intent(getRoomAssetUrl(door.roomIndex))
+        if (!isMobileLayout) modelPreloader.intent(getRoomAssetUrl(door.roomIndex))
       }}
       onClick={(event) => {
         event.stopPropagation()
@@ -2436,11 +2446,11 @@ function DoorHoverSparkles({ corners, visible }) {
 function DoorLinks({ doors, onOpenRoom, occluderRoot, isMobileLayout = false }) {
   const [hoveredRoomIndex, setHoveredRoomIndex] = useState(null)
   useEffect(() => {
-    if (hoveredRoomIndex == null) return undefined
+    if (isMobileLayout || hoveredRoomIndex == null) return undefined
     // A brief dwell avoids restarting downloads when the cursor simply passes a door.
-    const timer = window.setTimeout(() => modelPreloader.intent(getRoomAssetUrl(hoveredRoomIndex)), 180)
+    const timer = window.setTimeout(() => modelPreloader.intent(getRoomAssetUrl(hoveredRoomIndex, isMobileLayout)), 180)
     return () => window.clearTimeout(timer)
-  }, [hoveredRoomIndex])
+  }, [hoveredRoomIndex, isMobileLayout])
   const occluderMeshes = useMemo(() => {
     if (!occluderRoot) return []
 
@@ -2637,10 +2647,10 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
   const positionControlsApiRef = useRef(null)
   const gpuCacheRef = useRef(null)
   const handleReady = useCallback(() => {
-    const url = getRoomAssetUrl(roomNumber - 1)
+    const url = getRoomAssetUrl(roomNumber - 1, isMobileLayout)
     gpuCacheRef.current?.ready(url, modelPreloader.getCached(url))
     onReady?.()
-  }, [roomNumber, onReady])
+  }, [roomNumber, onReady, isMobileLayout])
   const roomRenderVariantState = useMemo(readRoomRenderVariantFromUrl, [])
   const [roomRenderVariantId, setRoomRenderVariantId] = useState(roomRenderVariantState.variant.id)
   const roomRenderVariant = ROOM_RENDER_VARIANT_MAP.get(roomRenderVariantId) ?? DEFAULT_ROOM_RENDER_VARIANT
@@ -2686,17 +2696,19 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
         {({ sceneProps, cameraLocked }) => (
           <KeyboardControls map={keyboardMap}>
             <Canvas
-              gl={CANVAS_GL_OPTIONS}
+              gl={isMobileLayout ? MOBILE_CANVAS_GL_OPTIONS : CANVAS_GL_OPTIONS}
+              dpr={isMobileLayout ? [1, 1.5] : [1, 2]}
+              frameloop={isMobileLayout ? 'demand' : 'always'}
               camera={{ position: cameraDefault.position, fov: isMobileLayout ? 54 : 47.5 }}
               style={{ cursor: 'inherit', touchAction: isMobileLayout ? 'none' : 'auto', width: '100%', height: '100%' }}
             >
               <color attach="background" args={['#fff']} />
               <GpuRoomPreparation roomIndex={roomNumber - 1} prepareScene={prepareRoomScene} cacheRef={gpuCacheRef} isMobileLayout={isMobileLayout} />
-              <Suspense key={roomNumber} fallback={<LoadingCanvasFallback />}>
+              <Suspense key={`${roomNumber}-${isMobileLayout}`} fallback={<LoadingCanvasFallback />}>
                 <RendererSettings toneMapping={roomRenderSettings.toneMapping} exposure={roomRenderSettings.exposure} />
                 {roomRenderVariant.ambientLightIntensity > 0 && <ambientLight intensity={roomRenderVariant.ambientLightIntensity} />}
                 <Stage environment={roomRenderVariant.stageEnvironment} intensity={roomRenderSettings.environmentIntensity} shadows={false} adjustCamera={false}>
-                  <Model url={getRoomAssetUrl(roomNumber - 1)} prepareScene={prepareRoomScene} />
+                  <Model url={getRoomAssetUrl(roomNumber - 1, isMobileLayout)} prepareScene={prepareRoomScene} />
                 </Stage>
                 <Controls
                   moveSpeed={roomRenderVariant.controls.moveSpeed ?? ROOM_CAMERA_MOVE_SPEED}
@@ -2734,8 +2746,8 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
       <button
         type="button"
         onClick={onBack}
-        onPointerEnter={() => modelPreloader.intent(getRoomAssetUrl(previousRoomIndex))}
-        onFocus={() => modelPreloader.intent(getRoomAssetUrl(previousRoomIndex))}
+        onPointerEnter={() => modelPreloader.intent(isMobileLayout ? null : getRoomAssetUrl(previousRoomIndex))}
+        onFocus={() => modelPreloader.intent(isMobileLayout ? null : getRoomAssetUrl(previousRoomIndex))}
         disabled={!canGoBack}
         style={{
           position: 'absolute',
@@ -2759,8 +2771,8 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
       <button
         type="button"
         onClick={onHome}
-        onPointerEnter={() => modelPreloader.intent(HOME_ASSET_URL)}
-        onFocus={() => modelPreloader.intent(HOME_ASSET_URL)}
+        onPointerEnter={() => modelPreloader.intent(isMobileLayout ? null : getHomeAssetUrl())}
+        onFocus={() => modelPreloader.intent(isMobileLayout ? null : getHomeAssetUrl())}
         aria-label="Go home"
         style={{
           position: 'absolute',
@@ -2784,9 +2796,9 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
       <button
         type="button"
         onClick={onOpenNextRoom}
-        onPointerEnter={() => modelPreloader.intent(getRoomAssetUrl(roomNumber % ROOM_FILES.length))}
-        onFocus={() => modelPreloader.intent(getRoomAssetUrl(roomNumber % ROOM_FILES.length))}
-        onPointerDown={() => modelPreloader.intent(getRoomAssetUrl(roomNumber % ROOM_FILES.length))}
+        onPointerEnter={() => modelPreloader.intent(isMobileLayout ? null : getRoomAssetUrl(roomNumber % ROOM_FILES.length))}
+        onFocus={() => modelPreloader.intent(isMobileLayout ? null : getRoomAssetUrl(roomNumber % ROOM_FILES.length))}
+        onPointerDown={() => modelPreloader.intent(isMobileLayout ? null : getRoomAssetUrl(roomNumber % ROOM_FILES.length))}
         aria-label={`Go to room ${roomNumber === ROOM_FILES.length ? 1 : roomNumber + 1}`}
         style={{
           position: 'absolute',
@@ -6192,8 +6204,9 @@ export default function App() {
   }, [])
 
   useLayoutEffect(() => {
-    modelPreloader.enter(route.type === 'room' ? getRoomAssetUrl(route.roomIndex) : route.type === 'home' ? HOME_ASSET_URL : null)
-  }, [route.type, route.roomIndex])
+    modelPreloader.setCacheLimit(isMobileLayout ? 2 : Infinity)
+    modelPreloader.enter(route.type === 'room' ? getRoomAssetUrl(route.roomIndex, isMobileLayout) : route.type === 'home' ? getHomeAssetUrl(isMobileLayout) : null)
+  }, [route.type, route.roomIndex, isMobileLayout])
 
   useEffect(() => {
     const refresh = () => modelPreloader.refresh()
@@ -6230,12 +6243,12 @@ export default function App() {
 
   const handleHomeReady = useCallback(() => {
     clearTransitionCover()
-    modelPreloader.ready(HOME_ASSET_URL, roomPreloadPlan(null, isMobileLayout))
+    modelPreloader.ready(getHomeAssetUrl(isMobileLayout), roomPreloadPlan(null, isMobileLayout))
   }, [clearTransitionCover, isMobileLayout])
 
   const handleRoomReady = useCallback(() => {
     clearTransitionCover()
-    modelPreloader.ready(getRoomAssetUrl(route.roomIndex), roomPreloadPlan(route.roomIndex, isMobileLayout))
+    modelPreloader.ready(getRoomAssetUrl(route.roomIndex, isMobileLayout), roomPreloadPlan(route.roomIndex, isMobileLayout))
   }, [clearTransitionCover, route.roomIndex, isMobileLayout])
 
   const beginSceneTransition = useCallback(() => {
@@ -6248,10 +6261,10 @@ export default function App() {
     pendingRoomNavigationRef.current = navigationId
     beginSceneTransition()
     setVisitedRoomHistory(route.type === 'room' ? [route.roomIndex] : [])
-    prepareRoomNavigation(roomNumber - 1)
+    prepareRoomNavigation(roomNumber - 1, isMobileLayout)
     if (pendingRoomNavigationRef.current !== navigationId) return
     navigateWithHash(`#${ROOM_HASH_PREFIX}${roomNumber}`)
-  }, [beginSceneTransition, route])
+  }, [beginSceneTransition, route, isMobileLayout])
 
   const openNextRoom = useCallback((roomNumber) => {
     const nextRoomNumber = roomNumber >= ROOM_FILES.length ? 1 : roomNumber + 1
@@ -6261,10 +6274,10 @@ export default function App() {
     if (route.type === 'room') {
       setVisitedRoomHistory((current) => [...current, route.roomIndex])
     }
-    prepareRoomNavigation(nextRoomNumber - 1)
+    prepareRoomNavigation(nextRoomNumber - 1, isMobileLayout)
     if (pendingRoomNavigationRef.current !== navigationId) return
     navigateWithHash(`#${ROOM_HASH_PREFIX}${nextRoomNumber}`)
-  }, [beginSceneTransition, route])
+  }, [beginSceneTransition, route, isMobileLayout])
 
   const openPreviousRoom = useCallback(() => {
     const previousRoomIndex = visitedRoomHistory[visitedRoomHistory.length - 1]
@@ -6274,10 +6287,10 @@ export default function App() {
     pendingRoomNavigationRef.current = navigationId
     beginSceneTransition()
     setVisitedRoomHistory((current) => current.slice(0, -1))
-    prepareRoomNavigation(previousRoomIndex)
+    prepareRoomNavigation(previousRoomIndex, isMobileLayout)
     if (pendingRoomNavigationRef.current !== navigationId) return
     navigateWithHash(`#${ROOM_HASH_PREFIX}${previousRoomIndex + 1}`)
-  }, [beginSceneTransition, visitedRoomHistory])
+  }, [beginSceneTransition, visitedRoomHistory, isMobileLayout])
 
   const closeRoom = useCallback(() => {
     setIsPreviewOpen(false)

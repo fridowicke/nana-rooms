@@ -1,15 +1,29 @@
 // Share decoded models between speculative downloads and the viewer. Background work is
 // sequential, starts only after the current scene is visible, and can be cancelled safely.
 export function createModelPreloader({ loadAsset, disposeAsset = () => {}, canPrefetch = () => true,
-  requestIdle = (fn) => setTimeout(fn, 100), cancelIdle = clearTimeout }) {
+  requestIdle = (fn) => setTimeout(fn, 100), cancelIdle = clearTimeout, onEvict = () => {} }) {
   const entries = new Map()
   const cachedListeners = new Set()
   const intentListeners = new Set()
   let activeUrl = null
+  let previousUrl = null
   let sceneReady = false
   let queue = []
   let background = null
   let idle = null
+  let cacheLimit = Infinity
+
+  const trim = () => {
+    const ready = [...entries.values()].filter(entry => entry.ready)
+    while (ready.length > cacheLimit) {
+      const index = ready.findIndex(entry => entry.url !== activeUrl && entry.url !== previousUrl)
+      if (index < 0) break
+      const [entry] = ready.splice(index, 1)
+      entries.delete(entry.url)
+      onEvict(entry.url, entry.asset)
+      disposeAsset(entry.asset)
+    }
+  }
 
   const cancelScheduled = () => {
     if (idle !== null) cancelIdle(idle)
@@ -26,6 +40,8 @@ export function createModelPreloader({ loadAsset, disposeAsset = () => {}, canPr
     const cached = entries.get(url)
     if (cached) {
       if (priority === 'high') cached.priority = 'high'
+      entries.delete(url)
+      entries.set(url, cached)
       return cached
     }
     const entry = { url, priority, controller: new AbortController(), ready: false }
@@ -41,6 +57,7 @@ export function createModelPreloader({ loadAsset, disposeAsset = () => {}, canPr
       entry.ready = true
       entry.asset = asset
       for (const listener of cachedListeners) listener(url, asset)
+      trim()
       return asset
     }).catch((error) => {
       if (entries.get(url) === entry) entries.delete(url)
@@ -67,6 +84,7 @@ export function createModelPreloader({ loadAsset, disposeAsset = () => {}, canPr
     })
   }
   return {
+    setCacheLimit(limit) { cacheLimit = Math.max(2, limit); trim() },
     getCached(url) { return entries.get(url)?.asset },
     onCached(listener) {
       cachedListeners.add(listener)
@@ -79,6 +97,7 @@ export function createModelPreloader({ loadAsset, disposeAsset = () => {}, canPr
     },
     enter(url) {
       if (url === activeUrl) return
+      previousUrl = activeUrl
       activeUrl = url
       sceneReady = false
       queue = []
@@ -123,8 +142,10 @@ export function createModelPreloader({ loadAsset, disposeAsset = () => {}, canPr
 }
 
 export function preloadCount({ connection, deviceMemory, isMobile = false }, home = false) {
+  // Decoding another scan competes with gestures and can exceed iOS's process memory limit.
+  if (isMobile) return 0
   if (connection?.saveData || ['slow-2g', '2g'].includes(connection?.effectiveType)) return 0
   if (connection?.effectiveType === '3g' || deviceMemory <= 2) return 1
-  if (isMobile || deviceMemory <= 4) return home ? 2 : 1
+  if (deviceMemory <= 4) return home ? 2 : 1
   return home ? 4 : 2
 }
