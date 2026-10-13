@@ -7,6 +7,7 @@ import { HiddenObjectGame, HiddenObjectScene } from './hiddenObjects.jsx'
 import ArchiveMap from './ArchiveMap.jsx'
 import { ROOM_FILES, HOME_ASSET_URL, getRoomAssetUrl, roomPreloadPlan, modelPreloader, RoomAssetLoader, canPrepareRooms, releaseModelGpu } from './roomAssets.js'
 import { createGpuRoomCache } from './gpuRoomCache.js'
+import { perspectiveFitDistance } from './cameraFit.js'
 
 const keyboardMap = [
   { name: 'forward', keys: ['ArrowUp', 'w', 'W'] },
@@ -741,6 +742,8 @@ function readResponsiveState() {
 }
 
 function shouldUseMobileLayout({ viewportWidth, isTouch }) {
+  // Development preview uses the real mobile layout without changing desktop zoom behavior.
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('mobilePreview') === '1') return true
   // Browser zoom on a desktop shrinks the CSS viewport; judge by the physical screen instead so that
   // zooming in never flips a laptop into the phone layout.
   if (!isTouch && typeof window !== 'undefined' && window.screen && window.screen.width >= TOUCH_MOBILE_VIEWPORT_WIDTH) return false
@@ -1308,6 +1311,7 @@ function AboutBrowserChrome({
   onReload,
   canGoBack,
   canGoForward,
+  isMobileLayout = false,
 }) {
   const navButtons = [
     { id: 'back', label: '<', onClick: onBack, disabled: !canGoBack },
@@ -1331,7 +1335,7 @@ function AboutBrowserChrome({
           display: 'flex',
           alignItems: 'flex-end',
           gap: '4px',
-          overflowX: 'hidden',
+          overflowX: isMobileLayout ? 'auto' : 'hidden',
           overflowY: 'hidden',
           paddingBottom: 0,
           scrollbarWidth: 'none',
@@ -1357,7 +1361,7 @@ function AboutBrowserChrome({
                   ? 'inset 0 1px 0 rgba(255,255,255,0.95)'
                   : 'inset 0 1px 0 rgba(255,255,255,0.45)',
                 color: '#222',
-                padding: '4px 10px 5px',
+                padding: isMobileLayout ? '12px 10px' : '4px 10px 5px',
                 fontFamily: MAC_LIGHT_FONT_STACK,
                 fontSize: '11px',
                 fontWeight: 400,
@@ -1394,8 +1398,8 @@ function AboutBrowserChrome({
               disabled={button.disabled}
               aria-label={button.id}
               style={{
-                width: '18px',
-                height: '18px',
+                width: isMobileLayout ? '36px' : '18px',
+                height: isMobileLayout ? '36px' : '18px',
                 borderRadius: '50%',
                 border: '1px solid #8e8e8e',
                 background: 'linear-gradient(180deg, #fbfbfb 0%, #cfcfcf 100%)',
@@ -2054,7 +2058,7 @@ function HomeScene({ onModelLoaded, onOpenRoom, onReady, isMobileLayout = false 
           <RendererSettings toneMapping={DEFAULT_ROOM_RENDER_SETTINGS.toneMapping} exposure={DEFAULT_ROOM_RENDER_SETTINGS.exposure} />
           <Stage environment={null} intensity={DEFAULT_ROOM_RENDER_SETTINGS.environmentIntensity} shadows={false} adjustCamera={false}>
             <Model url={HOME_ASSET_URL} onLoaded={handleHomeModelLoaded} prepareScene={prepareHomeScene}>
-              <DoorLinks doors={DOOR_LINKS} onOpenRoom={onOpenRoom} occluderRoot={homeOccluderRoot} />
+              <DoorLinks doors={DOOR_LINKS} onOpenRoom={onOpenRoom} occluderRoot={homeOccluderRoot} isMobileLayout={isMobileLayout} />
             </Model>
           </Stage>
           <Controls
@@ -2064,7 +2068,7 @@ function HomeScene({ onModelLoaded, onOpenRoom, onReady, isMobileLayout = false 
             dampingFactor={isMobileLayout ? 0.08 : 0.05}
           />
           {isMobileLayout
-            ? <FitCameraToScene scene={homeOccluderRoot} enabled margin={1.06} targetYOffset={-0.08} />
+            ? <FitCameraToScene scene={homeOccluderRoot} enabled margin={1.1} targetYOffset={-0.04} />
             : <CameraReset position={LANDING_CAMERA_POSITION} />}
           <FirstFrameSignal onReady={handleHomeReady} />
         </Suspense>
@@ -2188,6 +2192,7 @@ function CameraReset({ position, target = DEFAULT_CAMERA_TARGET, fov }) {
 function FitCameraToScene({ scene, enabled, basePosition = LANDING_CAMERA_POSITION, margin = 1.16, targetYOffset = 0 }) {
   const camera = useThree((state) => state.camera)
   const controls = useThree((state) => state.controls)
+  const { width, height } = useThree((state) => state.size)
 
   useLayoutEffect(() => {
     if (!enabled || !scene) return
@@ -2199,14 +2204,10 @@ function FitCameraToScene({ scene, enabled, basePosition = LANDING_CAMERA_POSITI
     const center = box.getCenter(new THREE.Vector3())
     const size = box.getSize(new THREE.Vector3())
     const target = center.clone().add(new THREE.Vector3(0, size.y * targetYOffset, 0))
-    const fov = THREE.MathUtils.degToRad(camera.fov)
-    const aspect = Math.max(camera.aspect || 1, 0.01)
-    const fitHeightDistance = size.y / (2 * Math.tan(fov / 2))
-    const fitWidthDistance = size.x / (2 * Math.tan(fov / 2) * aspect)
-    const distance = Math.max(fitHeightDistance, fitWidthDistance, size.z) * margin
     const direction = new THREE.Vector3(...basePosition)
       .sub(new THREE.Vector3(...DEFAULT_CAMERA_TARGET))
       .normalize()
+    const distance = perspectiveFitDistance(box, target, direction, camera.fov, camera.aspect, margin, scene)
 
     camera.position.copy(target).add(direction.multiplyScalar(distance))
     camera.near = Math.max(distance / 100, 0.001)
@@ -2218,7 +2219,7 @@ function FitCameraToScene({ scene, enabled, basePosition = LANDING_CAMERA_POSITI
       controls.target.copy(target)
       controls.update()
     }
-  }, [basePosition, camera, controls, enabled, margin, scene, targetYOffset])
+  }, [basePosition, camera, controls, enabled, margin, scene, targetYOffset, width, height])
 
   return null
 }
@@ -2235,7 +2236,7 @@ function FirstFrameSignal({ onReady }) {
   return null
 }
 
-function DoorLinkArea({ door, onOpenRoom, occluderMeshes, isHovered = false, onHoverChange }) {
+function DoorLinkArea({ door, onOpenRoom, occluderMeshes, isHovered = false, onHoverChange, isMobileLayout = false }) {
   const corners = Array.isArray(door.corners) ? door.corners : []
   const meshRef = useRef(null)
   const occlusionRaycaster = useMemo(() => new THREE.Raycaster(), [])
@@ -2243,20 +2244,24 @@ function DoorLinkArea({ door, onOpenRoom, occluderMeshes, isHovered = false, onH
   const geometry = useMemo(() => {
     if (corners.length !== 4) return null
 
+    const center = corners.reduce((sum, corner) => sum.add(new THREE.Vector3(...corner)), new THREE.Vector3()).multiplyScalar(0.25)
+    const hitCorners = isMobileLayout
+      ? corners.map(corner => new THREE.Vector3(...corner).sub(center).multiplyScalar(1.2).add(center).toArray())
+      : corners
     const vertices = new Float32Array([
-      ...corners[0],
-      ...corners[1],
-      ...corners[2],
-      ...corners[0],
-      ...corners[2],
-      ...corners[3],
+      ...hitCorners[0],
+      ...hitCorners[1],
+      ...hitCorners[2],
+      ...hitCorners[0],
+      ...hitCorners[2],
+      ...hitCorners[3],
     ])
 
     const next = new THREE.BufferGeometry()
     next.setAttribute('position', new THREE.BufferAttribute(vertices, 3))
     next.computeVertexNormals()
     return next
-  }, [corners])
+  }, [corners, isMobileLayout])
 
   useEffect(() => () => geometry?.dispose(), [geometry])
 
@@ -2316,6 +2321,7 @@ function DoorLinkArea({ door, onOpenRoom, occluderMeshes, isHovered = false, onH
       }}
       onClick={(event) => {
         event.stopPropagation()
+        if (isMobileLayout && event.delta > 8) return
         onOpenRoom(door.roomIndex + 1)
       }}
     >
@@ -2427,7 +2433,7 @@ function DoorHoverSparkles({ corners, visible }) {
   ))
 }
 
-function DoorLinks({ doors, onOpenRoom, occluderRoot }) {
+function DoorLinks({ doors, onOpenRoom, occluderRoot, isMobileLayout = false }) {
   const [hoveredRoomIndex, setHoveredRoomIndex] = useState(null)
   useEffect(() => {
     if (hoveredRoomIndex == null) return undefined
@@ -2453,6 +2459,7 @@ function DoorLinks({ doors, onOpenRoom, occluderRoot }) {
         <DoorLinkArea
           key={door.id}
           door={door}
+          isMobileLayout={isMobileLayout}
           onOpenRoom={onOpenRoom}
           occluderMeshes={occluderMeshes}
           isHovered={hoveredRoomIndex === door.roomIndex}
@@ -2757,7 +2764,7 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
         aria-label="Go home"
         style={{
           position: 'absolute',
-          top: isMobileLayout ? 'max(16px, env(safe-area-inset-top))' : '24px',
+          top: isMobileLayout ? 'calc(44px + env(safe-area-inset-top))' : '24px',
           right: isMobileLayout ? '16px' : '24px',
           zIndex: 60,
           border: 'none',
@@ -2830,7 +2837,7 @@ function SceneTransitionCover({ snapshot }) {
   )
 }
 
-function TinyPlayer({ onTitleBarMouseDown, width = 290 }) {
+function TinyPlayer({ onTitleBarMouseDown, width = 290, isMobileLayout = false }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -2935,23 +2942,27 @@ function TinyPlayer({ onTitleBarMouseDown, width = 290 }) {
         <span style={{ width: `${10 * scale}px`, height: `${10 * scale}px`, borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-block' }} />
         <span style={{ width: `${10 * scale}px`, height: `${10 * scale}px`, borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d4a017', display: 'inline-block' }} />
         <span style={{ width: `${10 * scale}px`, height: `${10 * scale}px`, borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'inline-block' }} />
-        <span style={{ flex: 1, textAlign: 'center', fontSize: `${11 * scale}px`, fontWeight: 500, color: '#333', marginRight: `${30 * scale}px` }}>Tiny Player</span>
+        <span style={{ flex: 1, textAlign: 'center', fontSize: isMobileLayout ? '11px' : `${11 * scale}px`, fontWeight: 500, color: '#333', marginRight: `${30 * scale}px` }}>Tiny Player</span>
       </div>
 
       {/* Body */}
-      <div style={{ background: '#f5f5f5', padding: `${8 * scale}px ${10 * scale}px ${6 * scale}px` }}>
-        <div style={{ fontWeight: 700, fontSize: `${12 * scale}px`, color: '#1a1a1a', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', textAlign: 'center' }}>{song.title}</div>
-        <div style={{ fontWeight: 300, fontSize: `${11 * scale}px`, color: '#666', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', textAlign: 'center', marginTop: `${1 * scale}px` }}>{song.artist}</div>
+      <div style={{ background: '#f5f5f5', padding: isMobileLayout ? '8px 4px 6px' : `${8 * scale}px ${10 * scale}px ${6 * scale}px` }}>
+        <div style={{ fontWeight: 700, fontSize: isMobileLayout ? '12px' : `${12 * scale}px`, color: '#1a1a1a', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', textAlign: 'center' }}>{song.title}</div>
+        <div style={{ fontWeight: 300, fontSize: isMobileLayout ? '11px' : `${11 * scale}px`, color: '#666', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', textAlign: 'center', marginTop: `${1 * scale}px` }}>{song.artist}</div>
 
         {/* Transport buttons */}
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: `${18 * scale}px`, margin: `${9 * scale}px 0 ${8 * scale}px` }}>
-          <button type="button" aria-label="Previous" onClick={prevSong} style={{ width: `${32 * scale}px`, height: `${32 * scale}px`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, fontSize: `${16 * scale}px`, color: '#333', lineHeight: 1, cursor: 'inherit' }}>⏮</button>
-          <button type="button" aria-label={isPlaying ? 'Pause' : 'Play'} onClick={togglePlay} style={{ width: `${36 * scale}px`, height: `${36 * scale}px`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, fontSize: `${18 * scale}px`, color: '#333', lineHeight: 1, cursor: 'inherit' }}>{isPlaying ? '⏸' : '▶'}</button>
-          <button type="button" aria-label="Next" onClick={nextSong} style={{ width: `${32 * scale}px`, height: `${32 * scale}px`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, fontSize: `${16 * scale}px`, color: '#333', lineHeight: 1, cursor: 'inherit' }}>⏭</button>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: isMobileLayout ? 0 : `${18 * scale}px`, margin: `${9 * scale}px 0 ${8 * scale}px` }}>
+          <button type="button" aria-label="Previous" onClick={prevSong} style={{ width: isMobileLayout ? '44px' : `${32 * scale}px`, height: isMobileLayout ? '44px' : `${32 * scale}px`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, fontSize: isMobileLayout ? '18px' : `${16 * scale}px`, color: '#333', lineHeight: 1, cursor: 'inherit' }}>⏮</button>
+          <button type="button" aria-label={isPlaying ? 'Pause' : 'Play'} onClick={togglePlay} style={{ width: isMobileLayout ? '44px' : `${36 * scale}px`, height: isMobileLayout ? '44px' : `${36 * scale}px`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, fontSize: isMobileLayout ? '18px' : `${18 * scale}px`, color: '#333', lineHeight: 1, cursor: 'inherit' }}>{isPlaying ? '⏸' : '▶'}</button>
+          <button type="button" aria-label="Next" onClick={nextSong} style={{ width: isMobileLayout ? '44px' : `${32 * scale}px`, height: isMobileLayout ? '44px' : `${32 * scale}px`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 0, fontSize: isMobileLayout ? '18px' : `${16 * scale}px`, color: '#333', lineHeight: 1, cursor: 'inherit' }}>⏭</button>
         </div>
 
         {/* Seek bar */}
-        <div
+        {isMobileLayout ? (
+          <input type="range" aria-label="Seek in song" min="0" max="100" step="0.1" value={pct} disabled={!Number.isFinite(duration) || duration <= 0}
+            onChange={event => { const next = Number(event.target.value) / 100 * duration; if (audioRef.current && Number.isFinite(next)) { audioRef.current.currentTime = next; setCurrentTime(next) } }}
+            style={{ width: '100%', margin: 0, height: 32, accentColor: '#4a90d9' }} />
+        ) : <div
           onClick={handleSeek}
           style={{ position: 'relative', height: `${6 * scale}px`, background: '#ccc', borderRadius: `${3 * scale}px`, margin: `0 ${2 * scale}px ${4 * scale}px`, cursor: 'inherit' }}
         >
@@ -2959,15 +2970,16 @@ function TinyPlayer({ onTitleBarMouseDown, width = 290 }) {
           <div style={{ position: 'absolute', top: '50%', left: `${pct}%`, transform: 'translate(-50%,-50%)', width: `${10 * scale}px`, height: `${10 * scale}px`, borderRadius: '50%', background: '#fff', border: `${1.5 * scale}px solid #4a90d9`, pointerEvents: 'none' }} />
         </div>
 
+        }
         {/* Time display */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: `${10 * scale}px`, color: '#888', padding: `0 ${2 * scale}px` }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: isMobileLayout ? '11px' : `${10 * scale}px`, color: '#888', padding: `0 ${2 * scale}px` }}>
           <span>{fmt(currentTime)}</span>
           <span>{fmtNeg(currentTime, duration)}</span>
         </div>
       </div>
 
       {/* Footer */}
-      <div style={{ background: '#e0e0e0', borderTop: '1px solid #c0c0c0', padding: `${3 * scale}px ${10 * scale}px`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: `${10 * scale}px`, color: '#888' }}>
+      <div style={{ background: '#e0e0e0', borderTop: '1px solid #c0c0c0', padding: `${3 * scale}px ${10 * scale}px`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: isMobileLayout ? '11px' : `${10 * scale}px`, color: '#888' }}>
         <span>320kbps</span>
         <span>{currentIndex + 1} / {SONGS.length}</span>
       </div>
@@ -2977,12 +2989,12 @@ function TinyPlayer({ onTitleBarMouseDown, width = 290 }) {
   )
 }
 
-function DiaryDeck({ left, top, width, availableHeight, inline = false, compact = false, onOpenDiary, measureRef }) {
+function DiaryDeck({ left, top, width, availableHeight, inline = false, compact = false, onOpenDiary, measureRef, isMobileLayout = false }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const photoCount = DIARY_PHOTOS.length
   const autoplayTimerRef = useRef(null)
-  const deckHeight = compact ? availableHeight : inline ? Math.max(280, Math.min(availableHeight ?? 360, 360)) : Math.max(90, Math.min(availableHeight, 220))
-  const cardWidth = compact ? Math.max(48, width - 12) : inline ? Math.max(164, Math.min(width - 36, 240)) : Math.max(64, Math.min(width - 24, 142))
+  const deckHeight = isMobileLayout ? availableHeight : compact ? availableHeight : inline ? Math.max(280, Math.min(availableHeight ?? 360, 360)) : Math.max(90, Math.min(availableHeight, 220))
+  const cardWidth = isMobileLayout ? Math.max(88, Math.min(width - 46, 126)) : compact ? Math.max(48, width - 12) : inline ? Math.max(164, Math.min(width - 36, 240)) : Math.max(64, Math.min(width - 24, 142))
   const cardHeight = Math.min(deckHeight - 30, cardWidth * 1.52)
   const scale = inline ? cardWidth / 198 : cardWidth / 142
   const titleSize = Math.max(11, 14 * scale)
@@ -3133,6 +3145,7 @@ function DiaryDeck({ left, top, width, availableHeight, inline = false, compact 
             display: 'flex',
             alignItems: 'center',
             gap: `${5 * scale}px`,
+            zIndex: isMobileLayout ? 20 : undefined,
           }}
         >
           <button
@@ -3140,13 +3153,13 @@ function DiaryDeck({ left, top, width, availableHeight, inline = false, compact 
             onClick={showPrev}
             aria-label="Show previous diary photo"
             style={{
-              width: `${18 * scale}px`,
-              height: `${18 * scale}px`,
+              width: isMobileLayout ? '32px' : `${18 * scale}px`,
+              height: isMobileLayout ? '32px' : `${18 * scale}px`,
               borderRadius: '999px',
               border: '1px solid rgba(129,129,129,0.24)',
               background: 'rgba(255,255,255,0.82)',
               color: '#7a7a7a',
-              fontSize: `${9 * scale}px`,
+              fontSize: isMobileLayout ? '13px' : `${9 * scale}px`,
               lineHeight: 1,
               display: 'flex',
               alignItems: 'center',
@@ -3181,13 +3194,13 @@ function DiaryDeck({ left, top, width, availableHeight, inline = false, compact 
             onClick={showNext}
             aria-label="Show next diary photo"
             style={{
-              width: `${18 * scale}px`,
-              height: `${18 * scale}px`,
+              width: isMobileLayout ? '32px' : `${18 * scale}px`,
+              height: isMobileLayout ? '32px' : `${18 * scale}px`,
               borderRadius: '999px',
               border: '1px solid rgba(129,129,129,0.24)',
               background: 'rgba(255,255,255,0.82)',
               color: '#7a7a7a',
-              fontSize: `${9 * scale}px`,
+              fontSize: isMobileLayout ? '13px' : `${9 * scale}px`,
               lineHeight: 1,
               display: 'flex',
               alignItems: 'center',
@@ -3237,7 +3250,7 @@ function AboutPage({
   const [mobileLayoutState, setMobileLayoutState] = useState(loadMobileLayout)
   const [desktopLayoutState, setDesktopLayoutState] = useState(loadDesktopLayout)
   const isMobileLayoutEarly = shouldUseMobileLayout({ viewportWidth: viewport.width, isTouch })
-  const mobileLayout = isMobileLayoutEarly ? mobileLayoutState : desktopLayoutState
+  const mobileLayout = isMobileLayoutEarly ? (layoutTuner ? mobileLayoutState : null) : desktopLayoutState
   const setMobileLayout = isMobileLayoutEarly ? setMobileLayoutState : setDesktopLayoutState
   useEffect(() => {
     if (!layoutTuner || !mobileLayout) return undefined
@@ -3275,22 +3288,47 @@ function AboutPage({
     return () => { cancelAnimationFrame(frame); ro?.disconnect() }
   }, [measureFrozen, activeFolderId, viewport.width, viewport.height])
   const [isAboutExpanded, setIsAboutExpanded] = useState(false)
-  const [mobileAboutWindowPosition, setMobileAboutWindowPosition] = useState(null)
-  const mobileAboutWindowPositionRef = useRef(null)
   const isMobileLayout = shouldUseMobileLayout({ viewportWidth: viewport.width, isTouch })
-  const tbProps = { layout: mobileLayout, tuner: layoutTuner, onChange: tuneBlock, mobile: true }
+  const tbProps = { layout: mobileLayout, tuner: layoutTuner, onChange: tuneBlock, mobile: true, position: isMobileLayout ? 'absolute' : 'fixed' }
+
+  // Keep the collage, with a wider reading column and a narrow lane of actual folders.
+  const leftColumnX = isMobileLayout ? 12 : 24
+  const mobileFolderWidth = Math.min(88, Math.max(76, Math.round(viewport.width * 0.22)))
+  const leftColumnWidth = isMobileLayout
+    ? Math.min(340, Math.round(viewport.width * 0.64), viewport.width - mobileFolderWidth - 40)
+    : Math.max(188, Math.min(viewport.width * 0.15, 218))
+  const aboutWindowWidth = isMobileLayout ? leftColumnWidth : leftColumnWidth + 34
+  const welcomeWidth = isMobileLayout ? Math.min(110, leftColumnWidth - 8) : 126
+  const welcomeHeight = Math.round(welcomeWidth * (55 / 135))
+  const BROWSER_CHROME_HEIGHT = isMobileLayout ? 98 : 62
+  const aboutWindowHeight = isMobileLayout ? 296 : 181
+  const playerWidth = isMobileLayout ? Math.min(210, leftColumnWidth) : leftColumnWidth
+  const playerWindowHeight = Math.round(132 * (playerWidth / 290))
+  const welcomeTop = isMobileLayout ? BROWSER_CHROME_HEIGHT + 14 : Math.round(BROWSER_CHROME_HEIGHT + ((148 - BROWSER_CHROME_HEIGHT - welcomeHeight) / 2))
+  const aboutWindowTop = isMobileLayout ? welcomeTop + welcomeHeight + 16 : 148
+  const desktopPlayerTop = Math.max(aboutWindowTop + aboutWindowHeight + 430, viewport.height - playerWindowHeight - 28)
+  const diaryHeight = isMobileLayout ? 210 : Math.max(154, Math.min(desktopPlayerTop - aboutWindowTop - aboutWindowHeight - 96, 220))
+  const diaryTop = isMobileLayout
+    ? aboutWindowTop + (measuredHeights.about || aboutWindowHeight) + 28
+    : Math.max(aboutWindowTop + aboutWindowHeight + 96, desktopPlayerTop - diaryHeight - 260)
+  const playerWindowTop = isMobileLayout
+    ? diaryTop + (measuredHeights.diary || diaryHeight) + 52
+    : desktopPlayerTop
+  const diaryWidth = isMobileLayout ? Math.min(176, leftColumnWidth - 20) : Math.max(Math.min(leftColumnWidth - 34, 132), 106)
+  const mobileDiaryLeft = leftColumnX + (playerWidth - diaryWidth) / 2
+  const mobileTitleWidth = Math.min(112, Math.round(viewport.width * 0.29))
+  const mobileFolderTop = aboutWindowTop + 74
+  const mobileFolderGap = 86
+  const mobileContentHeight = Math.max(viewport.height,
+    playerWindowTop + (measuredHeights.player || 190) + 32,
+    mobileFolderTop + 7 * mobileFolderGap + 200)
 
   const folderArcLayout = isMobileLayout
-    ? [
-        { id: 'press', left: '62%', top: '24%' },
-        { id: 'writing', left: '86%', top: '30%' },
-        { id: 'exhibitions', left: '66%', top: '40%' },
-        { id: 'filmmaking', left: '88%', top: '47%' },
-        { id: 'research', left: '58%', top: '55%' },
-        { id: 'local-group', left: '84%', top: '62%' },
-        { id: 'cv', left: '62%', top: '69%' },
-        { id: 'she-is-so-hot', left: '84%', top: '78%' },
-      ]
+    ? ['press', 'writing', 'exhibitions', 'filmmaking', 'research', 'local-group', 'cv', 'she-is-so-hot'].map((id, index) => ({
+        id,
+        left: `${viewport.width - 12 - mobileFolderWidth / 2 - (index % 2 === 0 ? 5 : 0)}px`,
+        top: `${mobileFolderTop + index * mobileFolderGap + (id === 'she-is-so-hot' ? 20 : 0)}px`,
+      }))
     : [
         { id: 'press', left: '25%', top: '36%' },
         { id: 'writing', left: '37%', top: '34%' },
@@ -3311,86 +3349,9 @@ function AboutPage({
     setFolderPositions(new Map(folderArcLayout.map((p) => [p.id, saved?.[p.id] ?? { left: p.left, top: p.top }])))
   }, [isMobileLayout]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // mobile = desktop layout scaled to the phone: left column ≈ 44% of the width
-  const leftColumnWidth = isMobileLayout
-    ? Math.max(128, Math.min(Math.round(viewport.width * 0.44), 176))
-    : Math.max(188, Math.min(viewport.width * 0.15, 218))
-  const aboutWindowWidth = leftColumnWidth + 34
-  const welcomeWidth = isMobileLayout ? Math.min(100, leftColumnWidth - 8) : 126
-  const welcomeHeight = Math.round(welcomeWidth * (55 / 135))
-  const leftColumnX = isMobileLayout ? 14 : 24
-  const BROWSER_CHROME_HEIGHT = 62
-  const aboutWindowHeight = isMobileLayout ? 150 : 181
-  const playerWidth = leftColumnWidth
-  const playerWindowHeight = Math.round(132 * (playerWidth / 290))
-  // Mobile: distribute the left column evenly — welcome, about, diary, radio+player — with equal gaps,
-  // so there is no dead air between blocks regardless of screen height.
-  const mobileColumn = (() => {
-    if (!isMobileLayout) return null
-    const top = BROWSER_CHROME_HEIGHT
-    const bottom = viewport.height - 8
-    const radioHeight = 40
-    const diaryH = 118
-    const diaryVisualH = measuredHeights.diary || diaryH
-    const aboutH = measuredHeights.about || aboutWindowHeight + 24
-    const playerH = measuredHeights.player || Math.round(playerWidth * 0.58)
-    const fixed = welcomeHeight + aboutH + diaryVisualH + radioHeight + playerH
-    // 5 equal gaps: above welcome, between each block, below the player
-    const gap = Math.max(14, Math.floor((bottom - top - fixed) / 5))
-    const welcomeY = top + gap
-    const aboutY = welcomeY + welcomeHeight + gap
-    const diaryY = aboutY + aboutH + gap
-    const playerY = diaryY + diaryVisualH + gap + radioHeight
-    return { welcomeY, aboutY, diaryY, diaryH, playerY }
-  })()
-  const aboutWindowTop = isMobileLayout ? mobileColumn.aboutY : 148
-  const aboutWindowLeft = isMobileLayout && mobileAboutWindowPosition ? mobileAboutWindowPosition.x : leftColumnX
-  const aboutWindowTopPosition = isMobileLayout && mobileAboutWindowPosition ? mobileAboutWindowPosition.y : aboutWindowTop
-  const welcomeTop = isMobileLayout ? mobileColumn.welcomeY : Math.round(BROWSER_CHROME_HEIGHT + ((aboutWindowTop - BROWSER_CHROME_HEIGHT - welcomeHeight) / 2))
-  const playerWindowTop = isMobileLayout
-    ? mobileColumn.playerY
-    : Math.max(aboutWindowTop + aboutWindowHeight + 430, viewport.height - playerWindowHeight - 28)
-  const diaryHeight = isMobileLayout
-    ? mobileColumn.diaryH
-    : Math.max(154, Math.min(playerWindowTop - aboutWindowTop - aboutWindowHeight - 96, 220))
-  const diaryTop = isMobileLayout
-    ? mobileColumn.diaryY
-    : Math.max(aboutWindowTop + aboutWindowHeight + 96, playerWindowTop - diaryHeight - 260)
-  const diaryWidth = isMobileLayout ? Math.max(84, Math.min(leftColumnWidth - 24, 110)) : Math.max(Math.min(leftColumnWidth - 34, 132), 106)
-  const mobileDiaryLeft = leftColumnX + (leftColumnWidth - diaryWidth) / 2
-  const mobileAboutMinY = BROWSER_CHROME_HEIGHT + 8
-
-  const clampMobileAboutPosition = useCallback((position) => {
-    const minX = 8
-    const maxX = Math.max(minX, viewport.width - aboutWindowWidth - 8)
-    const maxY = Math.max(mobileAboutMinY, viewport.height - aboutWindowHeight - 8)
-
-    return {
-      x: clampValue(position.x, minX, maxX),
-      y: clampValue(position.y, mobileAboutMinY, maxY),
-    }
-  }, [aboutWindowHeight, aboutWindowWidth, mobileAboutMinY, viewport.height, viewport.width])
-
-  useEffect(() => {
-    mobileAboutWindowPositionRef.current = mobileAboutWindowPosition
-  }, [mobileAboutWindowPosition])
-
-  useEffect(() => {
-    if (!isMobileLayout || !mobileAboutWindowPositionRef.current) return
-
-    setMobileAboutWindowPosition((position) => {
-      if (!position) return position
-      const next = clampMobileAboutPosition(position)
-      mobileAboutWindowPositionRef.current = next
-
-      if (next.x === position.x && next.y === position.y) return position
-      return next
-    })
-  }, [clampMobileAboutPosition, isMobileLayout])
-
   const startFolderDrag = useCallback((folderId, e) => {
     const tunerDrag = layoutTuner
-    if (isTouch && !tunerDrag) return
+    if ((isTouch || isMobileLayout) && !tunerDrag) return
     if (e.button !== undefined && e.button !== 0) return
     e.preventDefault()
     e.stopPropagation()
@@ -3478,42 +3439,6 @@ function AboutPage({
       if (t.length === 0) { const g2 = folderGestureRef.current; folderGestureRef.current = null; if (g2 && g2.mode === 'drag' && !g2.moved) draggedFolderRef.current = null }
     }
   }, [layoutTuner, isMobileLayout, folderPositions, mobileLayout])
-
-  const startMobileAboutWindowDrag = useCallback((event) => {
-    if (!isMobileLayout) return
-    if (event.button !== undefined && event.button !== 0) return
-
-    event.preventDefault()
-    event.stopPropagation()
-
-    const startX = event.clientX
-    const startY = event.clientY
-    const startPosition = mobileAboutWindowPositionRef.current ?? {
-      x: leftColumnX,
-      y: aboutWindowTop,
-    }
-
-    const onMove = (moveEvent) => {
-      moveEvent.preventDefault()
-      const next = clampMobileAboutPosition({
-        x: startPosition.x + moveEvent.clientX - startX,
-        y: startPosition.y + moveEvent.clientY - startY,
-      })
-
-      mobileAboutWindowPositionRef.current = next
-      setMobileAboutWindowPosition(next)
-    }
-
-    const onUp = () => {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-      window.removeEventListener('pointercancel', onUp)
-    }
-
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-    window.addEventListener('pointercancel', onUp)
-  }, [aboutWindowTop, clampMobileAboutPosition, isMobileLayout, leftColumnX])
 
   const updateEditorScrollbar = useCallback(() => {
     const editorContent = editorContentRef.current
@@ -3653,10 +3578,12 @@ function AboutPage({
   const shouldShowAboutWindow = !isFolderView && (!isMobileLayout || isMobileAboutWindowOpen)
 
   return (
+    <div style={{ width: '100%', height: '100%', overflowY: isMobileLayout && !isFolderView ? 'auto' : 'hidden', overflowX: 'hidden' }}>
     <div
+      data-mobile-about={isMobileLayout || undefined}
       style={{
         width: '100%',
-        height: '100%',
+        height: isMobileLayout && !isFolderView ? `${mobileContentHeight}px` : '100%',
         backgroundColor: '#fff',
         color: '#000',
         position: 'relative',
@@ -3708,7 +3635,7 @@ function AboutPage({
                 type="button"
                 aria-label="Close expanded about"
                 onClick={() => setIsAboutExpanded(false)}
-                style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', padding: 0, appearance: 'none', WebkitAppearance: 'none', cursor: HOVER_KEY_CURSOR, flexShrink: 0 }}
+                style={{ width: isMobileLayout ? '44px' : '12px', height: isMobileLayout ? '44px' : '12px', borderRadius: '50%', background: isMobileLayout ? 'radial-gradient(circle, #ff5f57 0 6px, transparent 7px)' : '#ff5f57', border: isMobileLayout ? 'none' : '0.5px solid #e0443e', padding: 0, appearance: 'none', WebkitAppearance: 'none', cursor: HOVER_KEY_CURSOR, flexShrink: 0 }}
               />
               <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d4a017', display: 'inline-block' }} />
               <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'inline-block' }} />
@@ -3741,7 +3668,7 @@ function AboutPage({
 
       {/* ── About window (draggable) ── */}
       {shouldShowAboutWindow && (
-        <TunableBlock {...tbProps} id="about" baseLeft={aboutWindowLeft} baseTop={aboutWindowTopPosition} zIndex={21}>
+        <TunableBlock {...tbProps} id="about" baseLeft={leftColumnX} baseTop={aboutWindowTop} zIndex={21}>
         <div
           ref={aboutMeasureRef}
           style={{
@@ -3761,8 +3688,7 @@ function AboutPage({
           >
             {/* Title bar */}
             <div
-              onPointerDown={startMobileAboutWindowDrag}
-              style={{ background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid #b0b0b0', userSelect: 'none', cursor: isMobileLayout ? 'grab' : 'default', touchAction: isMobileLayout ? 'none' : 'auto' }}
+              style={{ background: 'linear-gradient(180deg,#e8e8e8 0%,#d0d0d0 100%)', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid #b0b0b0', userSelect: 'none', cursor: 'default', touchAction: 'auto' }}
             >
               {isMobileLayout ? (
                 <button
@@ -3774,7 +3700,7 @@ function AboutPage({
                     event.stopPropagation()
                     setIsMobileAboutWindowOpen(false)
                   }}
-                  style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-block', flexShrink: 0, padding: 0, appearance: 'none', WebkitAppearance: 'none', cursor: HOVER_KEY_CURSOR }}
+                  style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'radial-gradient(circle, #ff5f57 0 5px, transparent 6px)', border: 'none', display: 'inline-block', flexShrink: 0, padding: 0, appearance: 'none', WebkitAppearance: 'none', cursor: HOVER_KEY_CURSOR }}
                 />
               ) : (
                 <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-block' }} />
@@ -3789,13 +3715,13 @@ function AboutPage({
                   event.stopPropagation()
                   setIsAboutExpanded(true)
                 }}
-                style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'inline-block', flexShrink: 0, padding: 0, appearance: 'none', WebkitAppearance: 'none', cursor: HOVER_KEY_CURSOR }}
+                style={{ width: isMobileLayout ? '32px' : '10px', height: isMobileLayout ? '32px' : '10px', borderRadius: '50%', background: isMobileLayout ? 'radial-gradient(circle, #28c840 0 5px, transparent 6px)' : '#28c840', border: isMobileLayout ? 'none' : '0.5px solid #1aab29', display: 'inline-block', flexShrink: 0, padding: 0, appearance: 'none', WebkitAppearance: 'none', cursor: HOVER_KEY_CURSOR }}
               />
               <span style={{ flex: 1, textAlign: 'center', fontSize: '11px', fontWeight: 500, color: '#333', marginRight: '30px' }}>About</span>
             </div>
 
             {/* Body */}
-            <div style={{ background: '#f5f5f5', position: 'relative', height: isMobileLayout ? `${aboutWindowHeight - 24}px` : '148px' }}>
+            <div style={{ background: '#f5f5f5', position: 'relative', height: isMobileLayout ? `${aboutWindowHeight - 44}px` : '148px' }}>
               <div
                 ref={editorContentRef}
                 className="classic-textedit-scroll"
@@ -3815,13 +3741,13 @@ function AboutPage({
                   background: 'transparent',
                   color: '#1a1a1a',
                   fontFamily: MAC_LIGHT_FONT_STACK,
-                  fontSize: isMobileLayout ? '10px' : '9.25px',
+                  fontSize: isMobileLayout ? '13.5px' : '9.25px',
                   fontWeight: 300,
-                  lineHeight: 1.38,
+                  lineHeight: isMobileLayout ? 1.45 : 1.38,
                   whiteSpace: 'pre-wrap',
                   overflowX: 'hidden',
                   overflowY: 'auto',
-                  padding: '8px 32px 8px 9px',
+                  padding: isMobileLayout ? '10px 12px 12px' : '8px 32px 8px 9px',
                   boxSizing: 'border-box',
                 }}
                 dangerouslySetInnerHTML={{ __html: DEFAULT_ABOUT_HTML }}
@@ -3862,7 +3788,7 @@ function AboutPage({
 
       {!isFolderView && (isMobileLayout || layoutTuner || mobileLayout?.diary ? (
         <TunableBlock {...tbProps} id="diary" baseLeft={isMobileLayout ? mobileDiaryLeft : leftColumnX + (leftColumnWidth - diaryWidth) / 2} baseTop={diaryTop} zIndex={21}>
-          <DiaryDeck compact={false} inline measureRef={diaryMeasureRef} left={0} top={0} width={diaryWidth} availableHeight={diaryHeight} onOpenDiary={handleDiaryOpen} />
+          <DiaryDeck compact={false} inline measureRef={diaryMeasureRef} left={0} top={0} width={diaryWidth} availableHeight={diaryHeight} isMobileLayout={isMobileLayout} onOpenDiary={handleDiaryOpen} />
         </TunableBlock>
       ) : (
         <DiaryDeck
@@ -3877,8 +3803,8 @@ function AboutPage({
 
       {/* ── Safety pin (between left col and right stage) ── */}
       {!isFolderView && (isMobileLayout || layoutTuner || mobileLayout?.pin ? (
-        <TunableBlock {...tbProps} id="pin" baseLeft={leftColumnX + aboutWindowWidth + (isMobileLayout ? 6 : 24)} baseTop={isMobileLayout ? aboutWindowTop + aboutWindowHeight + 40 : Math.round(viewport.height * 0.48)} zIndex={20} pointerEvents="none">
-          <img src="assets/safety-pin.gif" alt="" aria-hidden="true" style={{ width: isMobileLayout ? '34px' : '50px', height: 'auto', objectFit: 'contain', display: 'block' }} />
+        <TunableBlock {...tbProps} id="pin" baseLeft={isMobileLayout ? leftColumnX + playerWidth + 8 : leftColumnX + aboutWindowWidth + 24} baseTop={isMobileLayout ? diaryTop + 32 : Math.round(viewport.height * 0.48)} zIndex={20} pointerEvents="none">
+          <img src="assets/safety-pin.gif" alt="" aria-hidden="true" style={{ width: isMobileLayout ? '28px' : '50px', height: 'auto', objectFit: 'contain', display: 'block' }} />
         </TunableBlock>
       ) : (
         <div style={{ position: 'absolute', left: `${leftColumnX + aboutWindowWidth + 24}px`, top: '48%', zIndex: 20, pointerEvents: 'none' }}>
@@ -3904,7 +3830,7 @@ function AboutPage({
       {!isFolderView && (
         <TunableBlock {...tbProps} id="player" baseLeft={leftColumnX} baseTop={playerWindowTop} zIndex={35}>
           <div ref={playerMeasureRef} style={{ width: `${playerWidth}px` }} onClick={(event) => event.stopPropagation()}>
-            <TinyPlayer width={playerWidth} />
+            <TinyPlayer width={playerWidth} isMobileLayout={isMobileLayout} />
           </div>
         </TunableBlock>
       )}
@@ -3945,12 +3871,13 @@ function AboutPage({
             onReload={onBrowserReload}
             canGoBack={canBrowserGoBack}
             canGoForward={canBrowserGoForward}
+            isMobileLayout={isMobileLayout}
           />
         </div>
 
         {/* Title banner + subtitle */}
         {!isFolderView && (
-          <TunableBlock {...tbProps} id="title" baseLeft={isMobileLayout ? viewport.width - 10 - 150 : viewport.width / 2 - 110} baseTop={isMobileLayout ? 78 : 112} zIndex={12} pointerEvents="none" passthrough={!isMobileLayout && !layoutTuner && !mobileLayout?.title}>
+          <TunableBlock {...tbProps} id="title" baseLeft={isMobileLayout ? viewport.width - 12 - mobileTitleWidth - 40 : viewport.width / 2 - 110} baseTop={isMobileLayout ? 108 : 112} zIndex={12} pointerEvents="none" passthrough={!isMobileLayout && !layoutTuner && !mobileLayout?.title}>
           <div
             style={{
               position: isMobileLayout || layoutTuner || mobileLayout?.title ? 'relative' : 'absolute',
@@ -3971,18 +3898,18 @@ function AboutPage({
                 src="assets/zodiac.gif"
                 alt=""
                 aria-hidden="true"
-                style={{ width: isMobileLayout ? '18px' : '23px', height: 'auto', objectFit: 'contain' }}
+                style={{ width: isMobileLayout ? '16px' : '23px', height: 'auto', objectFit: 'contain' }}
               />
               <img
                 src="assets/shelestvetrovki-glitter.gif"
                 alt="shelestvetrovki"
-                style={{ width: isMobileLayout ? '112px' : 'min(172px, 14.4vw)', height: 'auto', objectFit: 'contain' }}
+                style={{ width: isMobileLayout ? `${mobileTitleWidth}px` : 'min(172px, 14.4vw)', height: 'auto', objectFit: 'contain' }}
               />
               <img
                 src="assets/7ADo.gif"
                 alt=""
                 aria-hidden="true"
-                style={{ width: '23px', height: 'auto', objectFit: 'contain' }}
+                style={{ width: isMobileLayout ? '20px' : '23px', height: 'auto', objectFit: 'contain' }}
               />
             </div>
           </div>
@@ -3990,7 +3917,7 @@ function AboutPage({
         )}
 
         {(!isFolderView || activeFolderId === 'she-is-so-hot') && (
-          <TunableBlock {...tbProps} id="house" baseLeft={viewport.width - 18 - 51} baseTop={activeFolderId === 'she-is-so-hot' ? 104 : 92} zIndex={13} passthrough={isFolderView || (!isMobileLayout && !layoutTuner && !mobileLayout?.house)}>
+          <TunableBlock {...tbProps} id="house" baseLeft={isMobileLayout ? viewport.width - 12 - 44 : viewport.width - 18 - 51} baseTop={isMobileLayout ? 152 : (activeFolderId === 'she-is-so-hot' ? 104 : 92)} zIndex={13} passthrough={isFolderView || (!isMobileLayout && !layoutTuner && !mobileLayout?.house)}>
           <button
             type="button"
             onClick={onBackHome}
@@ -4015,7 +3942,7 @@ function AboutPage({
               alt="home"
               draggable={false}
               className="cursor-pointer"
-              style={{ width: '51px', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
+              style={{ width: isMobileLayout ? '44px' : '51px', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
             />
           </button>
           </TunableBlock>
@@ -4023,7 +3950,7 @@ function AboutPage({
 
         {/* Knock knock button */}
         {!isFolderView && (
-          <TunableBlock {...tbProps} id="knock" baseLeft={viewport.width - 16 - (isMobileLayout ? 72 : 100)} baseTop={viewport.height - 16 - (isMobileLayout ? 90 : 120)} zIndex={22} passthrough={!isMobileLayout && !layoutTuner && !mobileLayout?.knock}>
+          <TunableBlock {...tbProps} id="knock" baseLeft={viewport.width - 16 - (isMobileLayout ? 72 : 100)} baseTop={(isMobileLayout ? mobileContentHeight : viewport.height) - 16 - (isMobileLayout ? 90 : 120)} zIndex={22} passthrough={!isMobileLayout && !layoutTuner && !mobileLayout?.knock}>
           <a
             href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('knock knock')}`}
             onClick={(e) => { if (layoutTuner) e.preventDefault() }}
@@ -4054,7 +3981,7 @@ function AboutPage({
         )}
 
         {isFolderView && activeFolderId === 'she-is-so-hot' && (
-          <div style={{ position: 'absolute', top: '62px', left: 0, right: 0, height: '30px', zIndex: 10 }}>
+          <div style={{ position: 'absolute', top: isMobileLayout ? '98px' : '62px', left: 0, right: 0, height: '30px', zIndex: 10 }}>
             <RoomTickerBar onOpenSubmit={() => handleFolderRouteOpen('submit-room')} embedded />
           </div>
         )}
@@ -4063,7 +3990,7 @@ function AboutPage({
           <div
             style={{
               position: 'absolute',
-              top: activeFolderId === 'she-is-so-hot' ? '92px' : '86px',
+              top: isMobileLayout ? (activeFolderId === 'she-is-so-hot' ? '128px' : '104px') : (activeFolderId === 'she-is-so-hot' ? '92px' : '86px'),
               left: 0,
               right: 0,
               bottom: 0,
@@ -4085,7 +4012,7 @@ function AboutPage({
         {!isFolderView && folderArcLayout.map((placement) => {
           const folder = FOLDER_MAP.get(placement.id)
           if (!folder) return null
-          const pos = folderPositions.get(folder.id) ?? placement
+          const pos = isMobileLayout && !layoutTuner ? placement : folderPositions.get(folder.id) ?? placement
           const posLeft = pos.isPx ? `${pos.left}px` : pos.left
           const posTop = pos.isPx ? `${pos.top}px` : pos.top
 
@@ -4093,11 +4020,11 @@ function AboutPage({
             <button
               key={folder.id}
               type="button"
-              onMouseDown={(e) => startFolderDrag(folder.id, e)}
-              onTouchStart={(e) => folderTouch(folder.id, e)}
-              onTouchMove={(e) => folderTouch(folder.id, e)}
-              onTouchEnd={(e) => folderTouch(folder.id, e)}
-              onTouchCancel={(e) => folderTouch(folder.id, e)}
+              onMouseDown={isMobileLayout && !layoutTuner ? undefined : (e) => startFolderDrag(folder.id, e)}
+              onTouchStart={isMobileLayout && !layoutTuner ? undefined : (e) => folderTouch(folder.id, e)}
+              onTouchMove={isMobileLayout && !layoutTuner ? undefined : (e) => folderTouch(folder.id, e)}
+              onTouchEnd={isMobileLayout && !layoutTuner ? undefined : (e) => folderTouch(folder.id, e)}
+              onTouchCancel={isMobileLayout && !layoutTuner ? undefined : (e) => folderTouch(folder.id, e)}
               onClick={(e) => { if (layoutTuner) { e.preventDefault(); return } handleFolderClick(folder.id, e) }}
               onWheel={(e) => {
                 if (!layoutTuner) return
@@ -4108,7 +4035,7 @@ function AboutPage({
                 const posNow = folderPositions.get(folder.id) ?? placement
                 setMobileLayout((prev) => ({ ...(prev ?? {}), folders: { ...((prev ?? {}).folders ?? {}), [folder.id]: { left: typeof posNow.left === 'number' ? `${(posNow.left / (rightStageRef.current?.clientWidth || 1) * 100).toFixed(1)}%` : posNow.left, top: typeof posNow.top === 'number' ? `${(posNow.top / (rightStageRef.current?.clientHeight || 1) * 100).toFixed(1)}%` : posNow.top, s: s1 } } }))
               }}
-              className="cursor-grab"
+              className={isMobileLayout ? "cursor-pointer" : "cursor-grab"}
               style={{
                 position: 'absolute',
                 left: posLeft,
@@ -4124,8 +4051,8 @@ function AboutPage({
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                gap: isMobileLayout ? '5px' : '6px',
-                width: isMobileLayout ? '72px' : '92px',
+                gap: isMobileLayout ? '4px' : '6px',
+                width: isMobileLayout ? `${mobileFolderWidth}px` : '92px',
                 cursor: 'inherit',
                 userSelect: 'none',
               }}
@@ -4134,16 +4061,17 @@ function AboutPage({
                 src={folder.icon ?? DEFAULT_FOLDER_ICON}
                 onError={(e) => { if (e.currentTarget.src !== DEFAULT_FOLDER_ICON) e.currentTarget.src = DEFAULT_FOLDER_ICON }}
                 alt={`${folder.label} folder`}
-                style={{ width: isMobileLayout ? '48px' : '68px', height: isMobileLayout ? '40px' : '56px', objectFit: 'contain' }}
+                draggable={false}
+                style={{ width: isMobileLayout ? '44px' : '68px', height: isMobileLayout ? '36px' : '56px', objectFit: 'contain' }}
               />
               <span
                 style={{
                   fontFamily: MAC_LIGHT_FONT_STACK,
-                  fontSize: isMobileLayout ? '10.5px' : '13px',
+                  fontSize: isMobileLayout ? '12px' : '13px',
                   fontWeight: 300,
                   color: '#111',
                   textAlign: 'center',
-                  lineHeight: 1.1,
+                  lineHeight: isMobileLayout ? 1.25 : 1.1,
                 }}
               >
                 {folder.label}
@@ -4152,6 +4080,7 @@ function AboutPage({
           )
         })}
       </div>
+    </div>
     </div>
   )
 }
@@ -4437,7 +4366,7 @@ function loadDesktopLayout() {
 }
 
 // Wraps a positioned block on mobile so it can be dragged / scaled in tuner mode, and applies saved overrides.
-function TunableBlock({ id, layout, tuner, onChange, mobile = true, passthrough = false, baseLeft, baseTop, zIndex = 21, children, pointerEvents = 'auto' }) {
+function TunableBlock({ id, layout, tuner, onChange, mobile = true, passthrough = false, baseLeft, baseTop, zIndex = 21, children, pointerEvents = 'auto', position = 'fixed' }) {
   const ov = mobile ? layout?.[id] : null
   const active = mobile && tuner && !passthrough
   const onWheel = (e) => {
@@ -4476,7 +4405,7 @@ function TunableBlock({ id, layout, tuner, onChange, mobile = true, passthrough 
   return (
     <div
       onPointerDown={active ? startDrag : undefined}
-      style={{ position: 'fixed', left, top, zIndex: active ? 500 : zIndex, transform: scale !== 1 ? `scale(${scale})` : undefined, transformOrigin: 'top left', pointerEvents: active ? 'auto' : pointerEvents, outline: active ? '1px dashed #ff2fd6' : 'none', touchAction: active ? 'none' : 'auto' }}
+      style={{ position, left, top, zIndex: active ? 500 : zIndex, transform: scale !== 1 ? `scale(${scale})` : undefined, transformOrigin: 'top left', pointerEvents: active ? 'auto' : pointerEvents, outline: active ? '1px dashed #ff2fd6' : 'none', touchAction: active ? 'none' : 'auto' }}
     >
       {children}
       {active && (
@@ -4563,6 +4492,7 @@ function DraggableFolderIcon({ label, onOpen, initial = { x: 24, y: 24 }, inline
   }
 
   useEffect(() => {
+    if (inline) return undefined
     const mm = (e) => onMove(e.clientX, e.clientY)
     const mu = () => endDrag()
     const tm = (e) => { if (e.touches[0]) onMove(e.touches[0].clientX, e.touches[0].clientY) }
@@ -4582,8 +4512,9 @@ function DraggableFolderIcon({ label, onOpen, initial = { x: 24, y: 24 }, inline
     <div
       role="button"
       tabIndex={0}
-      onMouseDown={(e) => { e.preventDefault(); startDrag(e.clientX, e.clientY) }}
-      onTouchStart={(e) => { if (e.touches[0]) startDrag(e.touches[0].clientX, e.touches[0].clientY) }}
+      onClick={inline ? onOpen : undefined}
+      onMouseDown={inline ? undefined : (e) => { e.preventDefault(); startDrag(e.clientX, e.clientY) }}
+      onTouchStart={inline ? undefined : (e) => { if (e.touches[0]) startDrag(e.touches[0].clientX, e.touches[0].clientY) }}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onOpen?.() }}
       style={{
         ...(inline ? { position: 'relative', margin: '28px 0 0' } : { position: 'absolute', left: pos.x, top: pos.y }),
@@ -6130,6 +6061,7 @@ export default function App() {
   const {
     isTouch,
     viewportWidth,
+    viewportHeight,
     prefersReducedMotion,
   } = responsive
   const isMobileLayout = shouldUseMobileLayout({ viewportWidth, isTouch })
@@ -6800,7 +6732,7 @@ export default function App() {
   }
 
   const shouldShowHouse = true
-  const shouldShowHomeHeader = !isMobileLayout || !shouldShowHouse
+  const shouldShowHomeHeader = true
 
   return (
     <div
@@ -6816,7 +6748,7 @@ export default function App() {
       <div
         style={{
           position: 'absolute',
-          inset: 0,
+          inset: isMobileLayout ? `${viewportHeight < 500 ? 'calc(76px + env(safe-area-inset-top))' : 'calc(126px + env(safe-area-inset-top))'} 0 calc(56px + env(safe-area-inset-bottom))` : 0,
           opacity: shouldShowHouse ? 1 : 0,
           pointerEvents: shouldShowHouse ? 'auto' : 'none',
           transition: 'opacity 180ms ease',
@@ -6842,7 +6774,7 @@ export default function App() {
             transform: 'translateX(-50%)',
             zIndex: 40,
             display: 'flex',
-            flexDirection: 'column',
+            flexDirection: isMobileLayout && viewportHeight < 500 ? 'row' : 'column',
             alignItems: 'center',
             gap: '6px',
           }}
@@ -6852,7 +6784,7 @@ export default function App() {
               src={HOME_WELCOME_GIF}
               alt=""
               aria-hidden="true"
-              style={{ width: isMobileLayout ? '104px' : '124px', height: 'auto', display: 'block' }}
+              style={{ width: isMobileLayout ? (viewportHeight < 500 ? '72px' : '104px') : '124px', height: 'auto', display: 'block' }}
             />
           )}
           {(!shouldShowHouse || isPreviewOpen) && (
@@ -6860,7 +6792,7 @@ export default function App() {
               src={HOME_WELCOME_GIF}
               alt=""
               aria-hidden="true"
-              style={{ width: isMobileLayout ? '104px' : '124px', height: 'auto', display: 'block', visibility: 'hidden' }}
+              style={{ width: isMobileLayout ? (viewportHeight < 500 ? '72px' : '104px') : '124px', height: 'auto', display: 'block', visibility: 'hidden' }}
             />
           )}
 
@@ -6871,7 +6803,8 @@ export default function App() {
               border: 'none',
               background: 'transparent',
               color: '#000',
-              padding: 0,
+              padding: isMobileLayout ? '10px 0' : 0,
+              minHeight: isMobileLayout ? '44px' : undefined,
               width: isMobileLayout ? '190px' : '220px',
               fontFamily: ARIAL_FONT_STACK,
               fontSize: isMobileLayout ? '22px' : '25px',
@@ -6888,6 +6821,11 @@ export default function App() {
         </div>
       )}
 
+      {isMobileLayout && (
+        <p style={{ position: 'absolute', bottom: 'max(16px, env(safe-area-inset-bottom))', left: 12, right: 12, margin: 0, textAlign: 'center', font: '13px Arial, sans-serif', color: '#555', pointerEvents: 'none' }}>
+          drag to turn the house · tap a door to enter
+        </p>
+      )}
       {/* Video preview launcher removed */}
       {sceneTransitionLayer}
     </div>

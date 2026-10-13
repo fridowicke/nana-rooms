@@ -324,8 +324,9 @@ function ReactionPopup({ reaction, onClose, isMobileLayout }) {
 
   const a = reaction.anchor
   const objW = a?.w ? Math.round(Math.max(220, Math.min(640, a.w * 1.15))) : null
-  const winW = isMobileLayout ? 'calc(100vw - 24px)' : reaction.type === 'link' ? 'min(420px, calc(100vw - 80px))' : (objW ? `min(${objW}px, calc(100vw - 40px))` : 'min(560px, calc(100vw - 80px))')
+  const winW = isMobileLayout ? 'calc(100vw - 48px)' : reaction.type === 'link' ? 'min(420px, calc(100vw - 80px))' : (objW ? `min(${objW}px, calc(100vw - 40px))` : 'min(560px, calc(100vw - 80px))')
   const startDrag = (e) => {
+    if (isMobileLayout) return
     if (e.button != null && e.button !== 0) return
     const el = e.currentTarget.parentElement
     const rect = el.getBoundingClientRect()
@@ -343,7 +344,7 @@ function ReactionPopup({ reaction, onClose, isMobileLayout }) {
   const vhp = typeof window !== 'undefined' ? window.innerHeight : 800
   const winStyle = pos
     ? { position: 'fixed', left: pos.x, top: pos.y, transform: 'none' }
-    : a
+    : a && !isMobileLayout
       ? { position: 'fixed', left: Math.max(30, Math.min(vwp - 30, a.x)), top: Math.max(40, Math.min(vhp - 40, a.y)), transform: 'translate(-50%, -50%)' }
       : { position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }
 
@@ -365,16 +366,17 @@ function ReactionPopup({ reaction, onClose, isMobileLayout }) {
           onClick={(e) => { e.stopPropagation(); onClose() }}
           aria-label="close"
           title="закрыть"
-          style={{ position: 'absolute', top: '-14px', right: '-14px', width: '30px', height: '30px', borderRadius: '50%', border: '1px solid rgba(0,0,0,0.25)', background: '#fff', cursor: 'pointer', padding: 0, fontSize: '18px', lineHeight: '28px', color: '#111', zIndex: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }}
+          style={{ position: 'absolute', top: '-14px', right: '-14px', width: isMobileLayout ? '44px' : '30px', height: isMobileLayout ? '44px' : '30px', borderRadius: '50%', border: '1px solid rgba(0,0,0,0.25)', background: '#fff', cursor: 'pointer', padding: 0, fontSize: '18px', lineHeight: isMobileLayout ? '42px' : '28px', color: '#111', zIndex: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }}
         >
           ×
         </button>
         <div
-          onPointerDown={startDrag}
-          style={{ maxHeight: 'calc(100dvh - 60px)', overflowY: 'auto', borderRadius: '6px', overflow: 'hidden', cursor: 'grab' }}
+          onPointerDown={isMobileLayout ? undefined : startDrag}
+          style={{ maxHeight: isMobileLayout ? 'calc(100dvh - 96px - env(safe-area-inset-top) - env(safe-area-inset-bottom))' : 'calc(100dvh - 60px)', overflowY: isMobileLayout ? 'auto' : 'hidden', overflowX: 'hidden', borderRadius: '6px', cursor: isMobileLayout ? 'default' : 'grab' }}
         >
           {body}
         </div>
+
       </div>
     </div>
   )
@@ -383,6 +385,7 @@ function ReactionPopup({ reaction, onClose, isMobileLayout }) {
 // ─── game panel (2000s hidden-object style) ──────────────────────────────────
 
 function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp, allFound, isMobileLayout }) {
+  const [expanded, setExpanded] = useState(false)
   const remaining = hotspots.filter((s) => !found.includes(s.id))
   const foundList = hotspots.filter((s) => found.includes(s.id))
   const FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif'
@@ -390,11 +393,11 @@ function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp
   const panelStyle = {
     position: 'absolute',
     top: isMobileLayout ? 'auto' : '96px',
-    bottom: isMobileLayout ? '0' : 'auto',
+    bottom: isMobileLayout ? 'calc(78px + env(safe-area-inset-bottom))' : 'auto',
     right: isMobileLayout ? 0 : '12px',
     width: isMobileLayout ? '100%' : '160px',
-    maxHeight: isMobileLayout ? 'none' : 'calc(100% - 220px)',
-    borderRadius: isMobileLayout ? 0 : '10px',
+    maxHeight: isMobileLayout ? '45dvh' : 'calc(100% - 220px)',
+    borderRadius: '10px',
     border: isMobileLayout ? 'none' : '1px solid rgba(0,0,0,0.12)',
     background: 'rgba(255,255,255,0.72)',
     backdropFilter: 'blur(10px)',
@@ -402,12 +405,12 @@ function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp
     borderTop: isMobileLayout ? '1px solid rgba(0,0,0,0.12)' : undefined,
     zIndex: 50,
     display: 'flex',
-    flexDirection: isMobileLayout ? 'row' : 'column',
-    alignItems: isMobileLayout ? 'center' : 'stretch',
+    flexDirection: 'column',
+    alignItems: 'stretch',
     padding: isMobileLayout ? '8px 12px' : '12px 12px',
     gap: isMobileLayout ? '10px' : '6px',
-    overflowY: isMobileLayout ? 'hidden' : 'auto',
-    overflowX: isMobileLayout ? 'auto' : 'hidden',
+    overflowY: 'auto',
+    overflowX: 'hidden',
     boxSizing: 'border-box',
     fontFamily: FONT,
     color: '#111',
@@ -421,7 +424,7 @@ function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp
   })
   const buttonStyle = (disabled) => ({
     background: 'transparent', border: '1px solid ' + (disabled ? '#ccc' : '#111'), color: disabled ? '#aaa' : '#111',
-    padding: '3px 10px', borderRadius: '999px', cursor: disabled ? 'default' : 'pointer',
+    minHeight: isMobileLayout ? '44px' : undefined, padding: '3px 10px', borderRadius: '999px', cursor: disabled ? 'default' : 'pointer',
     fontFamily: FONT, fontSize: '11px', fontWeight: 300, textAlign: 'center', whiteSpace: 'nowrap', flexShrink: 0, marginTop: isMobileLayout ? 0 : '8px', alignSelf: isMobileLayout ? 'center' : 'flex-start',
   })
   const timerLabel = timeLeft != null ? `${Math.floor(timeLeft / 60)}:${String(timeLeft % 60).padStart(2, '0')}` : null
@@ -430,6 +433,16 @@ function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp
 
   return (
     <div style={panelStyle}>
+      {isMobileLayout && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <button type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)} style={{ background: 'transparent', border: 0, font: '13px Helvetica, Arial, sans-serif', color: '#111', minHeight: 44, padding: '0 6px' }}>
+            objects · {found.length} / {hotspots.length} {expanded ? '▾' : '▴'}
+          </button>
+          {timerLabel && <span style={counterStyle}>{timerLabel}</span>}
+          <button type="button" onClick={onHint} disabled={hintUsed} style={buttonStyle(hintUsed)}>{hintUsed ? 'hint used' : 'hint'}</button>
+        </div>
+      )}
+      {(!isMobileLayout || expanded) && <>
       {!isMobileLayout && <div style={titleStyle}>find these objects:</div>}
       <div style={counterStyle}>
         {found.length} / {hotspots.length}
@@ -441,9 +454,10 @@ function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp
           {foundList.map((s) => <div key={s.id} style={itemStyle(true)}>{s.name}</div>)}
         </div>
       )}
-      <button type="button" onClick={onHint} disabled={hintUsed} style={buttonStyle(hintUsed)}>
+      {!isMobileLayout && <button type="button" onClick={onHint} disabled={hintUsed} style={buttonStyle(hintUsed)}>
         {hintUsed ? 'hint used' : 'hint'}
-      </button>
+      </button>}
+      </>}
     </div>
   )
 }
