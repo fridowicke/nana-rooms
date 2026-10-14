@@ -3357,14 +3357,14 @@ function AboutPage({
         top: `${mobileFolderTop + index * mobileFolderGap + (id === 'she-is-so-hot' ? 20 : 0)}px`,
       }))
     : [
-        { id: 'press', left: '30%', top: '40%' },
-        { id: 'writing', left: '39%', top: '40%' },
-        { id: 'exhibitions', left: '48%', top: '40%' },
-        { id: 'filmmaking', left: '57%', top: '40%' },
-        { id: 'research', left: '66%', top: '40%' },
-        { id: 'local-group', left: '75%', top: '40%' },
-        { id: 'cv', left: '84%', top: '40%' },
-        { id: 'she-is-so-hot', left: '93%', top: '40%' },
+        { id: 'press', left: '25%', top: '36%' },
+        { id: 'writing', left: '37%', top: '34%' },
+        { id: 'exhibitions', left: '50%', top: '38%' },
+        { id: 'filmmaking', left: '63%', top: '42%' },
+        { id: 'research', left: '73%', top: '34%' },
+        { id: 'local-group', left: '84%', top: '48%' },
+        { id: 'cv', left: '84%', top: '65%' },
+        { id: 'she-is-so-hot', left: '25%', top: '60%' },
       ]
   const [folderPositions, setFolderPositions] = useState(
     () => new Map(folderArcLayout.map((p) => [p.id, { left: p.left, top: p.top }]))
@@ -4372,18 +4372,15 @@ function ArchiveMapFolder({ isMobileLayout }) {
 const MOBILE_LAYOUT_KEY = 'shelest-mobile-layout-v1'
 const DESKTOP_LAYOUT_KEY = 'shelest-desktop-layout-v1'
 // Nana's desktop layout (from the ?layout=1 tuner). x,y = % of viewport, s = scale.
-// Left column is centred on one vertical axis (about window ≈ 290px wide at s=1.15).
 const DESKTOP_LAYOUT_DEFAULT = {
-  welcome: { x: 1.6, y: 10.2, s: 1.15, cx: true },
-  about: { x: 1.6, y: 17.5, s: 1.15 },
-  diary: { x: 1.6, y: 46.0, s: 1, cx: true },
-  radio: { x: 1.6, y: 78.2, s: 1, cx: true },
-  player: { x: 1.6, y: 83.2, s: 1.05, cx: true },
-  knock: { x: 91.2, y: 88.8, s: 1.3 },
-  house: { x: 94.2, y: 10.6, s: 1.4 },
+  welcome: { x: 5.62, y: 9.88, s: 1.2 },
+  about: { x: 1.01, y: 18.02, s: 1.3 },
+  diary: { x: 4.68, y: 46.01, s: 1 },
+  radio: { x: 1.88, y: 78.4, s: 1 },
+  player: { x: 1.59, y: 83.88, s: 1.1 },
+  knock: { x: 90.39, y: 89.21, s: 1.5 },
+  house: { x: 94.52, y: 7.65, s: 1.4 },
 }
-// width (px) of the reference block the `cx` items centre on (about window at its scale)
-const DESKTOP_LEFT_AXIS_WIDTH = 290
 // Nana's saved mobile layout (from ?layout=1 tuner). Values are relative to the viewport:
 // x,y in % of viewport width/height (top-left of the block), s = scale.
 const MOBILE_LAYOUT_DEFAULT = {
@@ -4441,12 +4438,9 @@ function TunableBlock({ id, layout, tuner, onChange, mobile = true, passthrough 
   }
   const vw = typeof window !== 'undefined' ? window.innerWidth : 390
   const vh = typeof window !== 'undefined' ? window.innerHeight : 800
-  const scale = ov?.s ?? 1
-  const selfRef = useRef(null)
-  const [selfW, setSelfW] = useState(0)
-  useLayoutEffect(() => { if (ov?.cx && selfRef.current) { const w = selfRef.current.offsetWidth; if (w !== selfW) setSelfW(w) } })
-  const left = ov ? (ov.x / 100) * vw + (ov.cx ? Math.max(0, (DESKTOP_LEFT_AXIS_WIDTH - selfW * scale) / 2) : 0) : baseLeft
+  const left = ov ? (ov.x / 100) * vw : baseLeft
   const top = ov ? (ov.y / 100) * vh : baseTop
+  const scale = ov?.s ?? 1
   const dragRef = useRef(null)
   const startDrag = (e) => {
     if (!active) return
@@ -4465,7 +4459,6 @@ function TunableBlock({ id, layout, tuner, onChange, mobile = true, passthrough 
   if (passthrough) return children
   return (
     <div
-      ref={selfRef}
       onPointerDown={active ? startDrag : undefined}
       style={{ position, left, top, zIndex: active ? 500 : zIndex, transform: scale !== 1 ? `scale(${scale})` : undefined, transformOrigin: 'top left', pointerEvents: active ? 'auto' : pointerEvents, outline: active ? '1px dashed #ff2fd6' : 'none', touchAction: active ? 'none' : 'auto' }}
     >
