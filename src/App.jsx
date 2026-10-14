@@ -4503,6 +4503,92 @@ function MobileLayoutTunerPanel({ layout, setLayout, ids, folderIds = [] }) {
   const [active, setActive] = useState(ids[0])
   const [copied, setCopied] = useState(false)
   const [open, setOpen] = useState(true)
+  const [collapsed, setCollapsed] = useState(false)
+  const [pos, setPos] = useState(() => ({ left: 8, top: Math.round((typeof window !== 'undefined' ? window.innerHeight : 669) / 2 + 40) }))
+  const panelRef = useRef(null)
+  const handleRef = useRef(null)
+  const dragRef = useRef(null)
+  const clampPos = useCallback((left, top) => {
+    const el = panelRef.current
+    const w = el?.offsetWidth ?? 44
+    const h = el?.offsetHeight ?? 44
+    return {
+      left: Math.round(Math.max(0, Math.min(window.innerWidth - w, left))),
+      top: Math.round(Math.max(0, Math.min(window.innerHeight - h, top))),
+    }
+  }, [])
+  // keep the panel / round button inside the viewport after collapsing, expanding or resizing
+  useLayoutEffect(() => {
+    const fit = () => setPos((p) => {
+      const n = clampPos(p.left, p.top)
+      return n.left === p.left && n.top === p.top ? p : n
+    })
+    fit()
+    window.addEventListener('resize', fit)
+    return () => window.removeEventListener('resize', fit)
+  }, [collapsed, open, clampPos])
+  // grab bar / round button drag: native listeners so touchmove can be non-passive and preventDefault works
+  useEffect(() => {
+    const el = handleRef.current
+    if (!el) return undefined
+    const start = (x, y) => { dragRef.current = { x, y, left: pos.left, top: pos.top, moved: false } }
+    const move = (x, y) => {
+      const d = dragRef.current
+      if (!d) return
+      const dx = x - d.x
+      const dy = y - d.y
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) d.moved = true
+      if (d.moved) setPos(clampPos(d.left + dx, d.top + dy))
+    }
+    const end = () => {
+      const d = dragRef.current
+      dragRef.current = null
+      if (d && !d.moved && collapsed) setCollapsed(false)
+    }
+    const onTouchStart = (e) => {
+      if (e.target.closest?.('button') && !collapsed) return
+      e.stopPropagation()
+      const t = e.touches[0]
+      if (t) start(t.clientX, t.clientY)
+    }
+    const onTouchMove = (e) => {
+      if (!dragRef.current) return
+      e.stopPropagation()
+      e.preventDefault()
+      const t = e.touches[0]
+      if (t) move(t.clientX, t.clientY)
+    }
+    const onTouchEnd = (e) => {
+      if (!dragRef.current) return
+      e.stopPropagation()
+      e.preventDefault()
+      end()
+    }
+    const onMouseDown = (e) => {
+      if (e.button !== 0 || (e.target.closest?.('button') && !collapsed)) return
+      e.stopPropagation()
+      e.preventDefault()
+      start(e.clientX, e.clientY)
+    }
+    const onMouseMove = (e) => { if (dragRef.current) { e.preventDefault(); move(e.clientX, e.clientY) } }
+    const onMouseUp = () => { if (dragRef.current) end() }
+    el.addEventListener('touchstart', onTouchStart, { passive: false })
+    el.addEventListener('touchmove', onTouchMove, { passive: false })
+    el.addEventListener('touchend', onTouchEnd, { passive: false })
+    el.addEventListener('touchcancel', onTouchEnd, { passive: false })
+    el.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart)
+      el.removeEventListener('touchmove', onTouchMove)
+      el.removeEventListener('touchend', onTouchEnd)
+      el.removeEventListener('touchcancel', onTouchEnd)
+      el.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [collapsed, pos.left, pos.top, clampPos])
   const isFolder = folderIds.includes(active)
   const cur = isFolder ? layout?.folders?.[active] : layout?.[active]
   const bump = (ds) => setLayout((prev) => {
@@ -4521,14 +4607,40 @@ function MobileLayoutTunerPanel({ layout, setLayout, ids, folderIds = [] }) {
     return () => { if (meta && prev) meta.setAttribute('content', prev) }
   }, [])
   const btn = { border: '1px solid #fff', background: 'transparent', color: '#fff', borderRadius: '6px', padding: '4px 8px', fontFamily: 'monospace', fontSize: '11px', touchAction: 'manipulation' }
+  const stopEvents = {
+    onPointerDown: (e) => e.stopPropagation(),
+    onTouchStart: (e) => e.stopPropagation(),
+    onTouchMove: (e) => { e.stopPropagation(); e.preventDefault() },
+    onClick: (e) => e.stopPropagation(),
+  }
+  if (collapsed) {
+    return (
+      <div
+        ref={(el) => { panelRef.current = el; handleRef.current = el }}
+        {...stopEvents}
+        role="button"
+        aria-label="expand layout panel"
+        style={{ position: 'fixed', left: pos.left, top: pos.top, zIndex: 600, width: 44, height: 44, borderRadius: '50%', background: 'rgba(15,8,30,0.95)', border: '2px solid #ff2fd6', boxSizing: 'border-box', color: '#ff2fd6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'monospace', fontSize: '11px', cursor: 'grab', userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none' }}
+      >
+        ⠿
+      </div>
+    )
+  }
   return (
     <div
-      onPointerDown={(e) => e.stopPropagation()}
-      onTouchStart={(e) => e.stopPropagation()}
-      onTouchMove={(e) => { e.stopPropagation(); e.preventDefault() }}
-      onClick={(e) => e.stopPropagation()}
-      style={{ position: 'fixed', left: 8, right: 8, top: 'calc(50% + 40px)', zIndex: 600, background: 'rgba(15,8,30,0.95)', color: '#fff', borderRadius: '10px', padding: '8px', fontFamily: 'monospace', fontSize: '11px', touchAction: 'none', overscrollBehavior: 'contain' }}
+      ref={panelRef}
+      {...stopEvents}
+      style={{ position: 'fixed', left: pos.left, top: pos.top, width: 'calc(100vw - 16px)', boxSizing: 'border-box', zIndex: 600, background: 'rgba(15,8,30,0.95)', color: '#fff', borderRadius: '10px', padding: '8px', fontFamily: 'monospace', fontSize: '11px', touchAction: 'none', overscrollBehavior: 'contain' }}
     >
+      <div
+        ref={handleRef}
+        style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '-8px -8px 6px', padding: '4px 4px 4px 8px', cursor: 'grab', userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none' }}
+      >
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+          <div style={{ width: 44, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.5)' }} />
+        </div>
+        <button type="button" aria-label="collapse layout panel" onClick={(e) => { e.stopPropagation(); setCollapsed(true) }} style={{ ...btn, padding: '2px 8px' }}>●</button>
+      </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
         <span style={{ color: '#ff2fd6' }}>layout · {active}</span>
         <button type="button" onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((o) => !o) }} style={btn}>{open ? 'свернуть' : 'развернуть'}</button>
