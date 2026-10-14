@@ -4940,17 +4940,18 @@ function AboutFolderContent({
     return (
       <main style={{ minWidth: 0, padding: '0 0 80px' }}>
         {/* Title block */}
-        <div style={{ margin: isMobileLayout ? '0 0 28px' : '0 0 48px' }}>
-          <h1 style={{ margin: '0 0 6px', fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 400, lineHeight: 1.3, fontStyle: 'normal' }}>
+        {/* One vertical rhythm: every block is separated by the same 18px step; title+venue form a tight pair. */}
+        <div style={{ margin: '18px 0 18px' }}>
+          <h1 style={{ margin: '0 0 4px', fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 400, lineHeight: 1.3, fontStyle: 'italic' }}>
             {project.title}{dateStr ? `, ${dateStr}` : ''}
           </h1>
           {venueLocation && (
-            <p style={{ margin: '0 0 4px', fontSize: isMobileLayout ? '14px' : '15px', fontWeight: 300, fontStyle: 'normal' }}>
+            <p style={{ margin: 0, fontSize: isMobileLayout ? '15px' : '16px', fontWeight: 300, lineHeight: 1.5, fontStyle: 'normal' }}>
               {venueLocation}
             </p>
           )}
           {project.curatedBy && (
-            <p style={{ margin: '0', fontSize: isMobileLayout ? '13px' : '14px', fontWeight: 300, fontStyle: 'normal' }}>
+            <p style={{ margin: 0, fontSize: isMobileLayout ? '15px' : '16px', fontWeight: 300, lineHeight: 1.5, fontStyle: 'normal' }}>
               Curated by {project.curatedBy}
             </p>
           )}
@@ -4958,9 +4959,9 @@ function AboutFolderContent({
 
         {/* Description */}
         {project.description?.length > 0 && (
-          <div style={{ marginBottom: '36px' }}>
+          <div style={{ margin: '0 0 18px' }}>
             {project.description.map((paragraph, pi) => (
-              <p key={pi} style={{ margin: '0 0 18px', fontSize: isMobileLayout ? '16px' : '18px', lineHeight: 1.5, fontStyle: 'normal' }}>
+              <p key={pi} style={{ margin: pi === 0 ? 0 : '18px 0 0', fontSize: isMobileLayout ? '16px' : '18px', lineHeight: 1.5, fontStyle: 'normal' }}>
                 {paragraph}
               </p>
             ))}
@@ -4969,7 +4970,7 @@ function AboutFolderContent({
 
         {/* Images */}
         {images.length > 0 && (
-          <div style={{ marginBottom: '28px' }}>
+          <div style={{ margin: '18px 0' }}>
             <button type="button" onClick={() => openLightbox(0)}
               style={{ border: 'none', background: 'transparent', padding: '0 0 10px', cursor: 'pointer', fontSize: isMobileLayout ? '16px' : '18px', textDecoration: 'underline', color: 'inherit', fontFamily: 'inherit', fontStyle: 'normal', display: 'block' }}>
               {`Installation Images (${images.length}) →`}
