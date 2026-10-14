@@ -4384,12 +4384,14 @@ function isLayoutTunerEnabled() {
   if (typeof window === 'undefined') return false
   try { return new URLSearchParams(window.location.search).get('layout') === '1' } catch { return false }
 }
+// A browser-saved layout only applies while the tuner (?layout=1) is open; everyone else — including
+// Nana after she sends the JSON — sees the shipped defaults.
 function loadMobileLayout() {
-  try { const raw = localStorage.getItem(MOBILE_LAYOUT_KEY); if (raw) return JSON.parse(raw) } catch { /* ignore */ }
+  if (isLayoutTunerEnabled()) { try { const raw = localStorage.getItem(MOBILE_LAYOUT_KEY); if (raw) return JSON.parse(raw) } catch { /* ignore */ } }
   return MOBILE_LAYOUT_DEFAULT
 }
 function loadDesktopLayout() {
-  try { const raw = localStorage.getItem(DESKTOP_LAYOUT_KEY); if (raw) return JSON.parse(raw) } catch { /* ignore */ }
+  if (isLayoutTunerEnabled()) { try { const raw = localStorage.getItem(DESKTOP_LAYOUT_KEY); if (raw) return JSON.parse(raw) } catch { /* ignore */ } }
   return DESKTOP_LAYOUT_DEFAULT
 }
 
