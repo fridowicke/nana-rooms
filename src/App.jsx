@@ -5081,14 +5081,14 @@ function AboutFolderContent({
             const venueLocation = [project.venue, project.location].filter(Boolean).join(', ')
             const previewImage = images[0] ?? null
             return (
-              <section key={project.id} style={{ margin: '0 0 56px' }}>
-                <p style={{ margin: '0 0 2px', fontSize: '15px', fontStyle: 'normal', fontWeight: 400 }}>{venueLocation}</p>
-                <h2 style={{ margin: '0 0 18px', fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 300, fontStyle: 'normal', lineHeight: 1.3 }}>
+              <section key={project.id} style={{ margin: '18px 0 36px' }}>
+                <h2 style={{ margin: '0 0 4px', fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 400, fontStyle: 'italic', lineHeight: 1.3 }}>
                   {project.title}
                 </h2>
+                <p style={{ margin: '0 0 18px', fontSize: isMobileLayout ? '15px' : '16px', fontStyle: 'normal', fontWeight: 300, lineHeight: 1.5 }}>{venueLocation}</p>
                 {previewImage && (
                   <button type="button" onClick={() => onOpenFolderRoute?.(folder.id, project.id)}
-                    style={{ border: 'none', background: 'transparent', padding: 0, display: 'block', margin: '0 0 14px', cursor: 'pointer' }}>
+                    style={{ border: 'none', background: 'transparent', padding: 0, display: 'block', margin: '0 0 18px', cursor: 'pointer' }}>
                     <img src={previewImage.src} alt="" loading="lazy" decoding="async"
                       style={{ display: 'block', width: 'min(100%, 800px)', height: 'auto', objectFit: 'contain' }} />
                   </button>
@@ -5284,22 +5284,22 @@ function AboutFolderContent({
             const previewImage = images[0] ?? null
 
             return (
-              <section key={exhibition.id} style={{ margin: '0 0 56px' }}>
+              <section key={exhibition.id} style={{ margin: exhibitionIndex === 0 ? '18px 0 0' : '36px 0 0' }}>
                 {exhibitionIndex > 0 && (
-                  <div aria-hidden="true" style={{ margin: '0 0 30px' }}>
+                  <div aria-hidden="true" style={{ margin: '0 0 36px', lineHeight: 1 }}>
                     ⋆ ˚｡⋆୨୧˚ ✿ ˚୨୧⋆｡˚ ⋆
                   </div>
                 )}
-                <p style={{ margin: '0 0 2px', fontSize: '15px', fontStyle: 'normal', fontWeight: 400 }}>
+                <h2 style={{ margin: '0 0 4px', fontSize: isMobileLayout ? '20px' : '22px', fontStyle: 'italic', fontWeight: 400, lineHeight: 1.3 }}>
+                  {exhibition.title}{(exhibition.dates ?? exhibition.year) ? `, ${exhibition.dates ?? exhibition.year}` : ''}
+                </h2>
+                <p style={{ margin: '0 0 18px', fontSize: isMobileLayout ? '15px' : '16px', fontStyle: 'normal', fontWeight: 300, lineHeight: 1.5 }}>
                   {[exhibition.venue, exhibition.location].filter(Boolean).join(', ')}
                 </p>
-                <h2 style={{ margin: '0 0 18px', fontSize: '22px', fontStyle: 'normal', fontWeight: 300, lineHeight: 1.3 }}>
-                  {exhibition.title}
-                </h2>
 
                 {previewImage && (
                   <button type="button" onClick={() => onOpenFolderRoute?.(folder.id, exhibition.id)}
-                    style={{ border: 'none', background: 'transparent', padding: 0, display: 'block', margin: '0 auto 14px', textAlign: 'center' }}>
+                    style={{ border: 'none', background: 'transparent', padding: 0, display: 'block', margin: '0 auto 18px', textAlign: 'center' }}>
                     <figure style={{ margin: 0 }}>
                       <img src={previewImage.src} alt={previewImage.alt} loading="lazy" decoding="async"
                         style={{ display: 'block', width: 'min(100%, 800px)', height: 'auto', margin: '0 auto', objectFit: 'contain' }} />
@@ -5308,7 +5308,7 @@ function AboutFolderContent({
                 )}
                 {!previewImage && videos.length > 0 && (
                   <button type="button" onClick={() => onOpenFolderRoute?.(folder.id, exhibition.id)}
-                    style={{ border: '1px solid #111', background: '#fff', padding: '12px 18px', margin: '0 auto 14px', display: 'inline-block', font: 'inherit', fontSize: '13px', color: '#000' }}>
+                    style={{ border: '1px solid #111', background: '#fff', padding: '12px 18px', margin: '0 auto 18px', display: 'inline-block', font: 'inherit', fontSize: '13px', color: '#000' }}>
                     video documentation
                   </button>
                 )}
