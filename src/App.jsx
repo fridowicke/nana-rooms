@@ -3331,9 +3331,24 @@ function AboutPage({
   const mobileTitleWidth = Math.min(112, Math.round(viewport.width * 0.29))
   const mobileFolderTop = aboutWindowTop + 74
   const mobileFolderGap = 86
+  const mobileLayoutBottom = (() => {
+    if (!isMobileLayout || !mobileLayout) return 0
+    let b = 0
+    const est = { welcome: 60, about: aboutWindowHeight, title: 40, house: 60, diary: 320, pin: 40, radio: 60, player: 200, knock: 70 }
+    for (const [k, v] of Object.entries(mobileLayout)) {
+      if (k === 'folders' || !v || typeof v.y !== 'number') continue
+      b = Math.max(b, (v.y / 100) * viewport.height + (est[k] || 80) * (v.s || 1))
+    }
+    for (const f of Object.values(mobileLayout.folders || {})) {
+      const t = typeof f?.top === 'string' && f.top.endsWith('%') ? parseFloat(f.top) : null
+      if (t != null) b = Math.max(b, (t / 100) * viewport.height + 100 * (f.s || 1))
+    }
+    return b
+  })()
   const mobileContentHeight = Math.max(viewport.height,
     playerWindowTop + (measuredHeights.player || 190) + 32,
-    mobileFolderTop + 7 * mobileFolderGap + 200)
+    mobileFolderTop + 7 * mobileFolderGap + 200,
+    mobileLayoutBottom + 40)
 
   const folderArcLayout = isMobileLayout
     ? ['press', 'writing', 'exhibitions', 'filmmaking', 'research', 'local-group', 'cv', 'she-is-so-hot'].map((id, index) => ({
@@ -4024,9 +4039,15 @@ function AboutPage({
         {!isFolderView && folderArcLayout.map((placement) => {
           const folder = FOLDER_MAP.get(placement.id)
           if (!folder) return null
-          const pos = isMobileLayout && !layoutTuner ? placement : folderPositions.get(folder.id) ?? placement
-          const posLeft = pos.isPx ? `${pos.left}px` : pos.left
-          const posTop = pos.isPx ? `${pos.top}px` : pos.top
+          const saved = isMobileLayout ? mobileLayout?.folders?.[folder.id] : null
+          const pos = isMobileLayout && !layoutTuner
+            ? (saved ? { left: saved.left, top: saved.top } : placement)
+            : folderPositions.get(folder.id) ?? placement
+          // On mobile the layout's % values are relative to the viewport (what Nana saw while placing), not the tall page.
+          const pct = (v) => (typeof v === 'string' && v.endsWith('%') ? parseFloat(v) : null)
+          const posLeft = pos.isPx ? `${pos.left}px` : (isMobileLayout && pct(pos.left) != null ? `${(pct(pos.left) / 100) * viewport.width}px` : pos.left)
+          const posTop = pos.isPx ? `${pos.top}px` : (isMobileLayout && pct(pos.top) != null ? `${(pct(pos.top) / 100) * viewport.height}px` : pos.top)
+          const folderScale = isMobileLayout && saved?.s ? saved.s : 1
 
           return (
             <button
@@ -4372,11 +4393,16 @@ const MOBILE_LAYOUT_DEFAULT = {
   house: { x: 84.36, y: 15.54, s: 1.2 },
   diary: { x: 2.69, y: 69.02, s: 0.9 },
   pin: { x: 89.23, y: 69.23, s: 1 },
+  // one straight column, equal 8% step
   folders: {
-    writing: { left: '84.9%', top: '31.1%', s: 1 },
-    filmmaking: { left: '84.9%', top: '38.9%', s: 1 },
-    research: { left: '85.9%', top: '46.9%', s: 1 },
-    'local-group': { left: '85.9%', top: '55%', s: 1 },
+    press: { left: '85.4%', top: '31.1%', s: 1 },
+    writing: { left: '85.4%', top: '39.1%', s: 1 },
+    exhibitions: { left: '85.4%', top: '47.1%', s: 1 },
+    filmmaking: { left: '85.4%', top: '55.1%', s: 1 },
+    research: { left: '85.4%', top: '63.1%', s: 1 },
+    'local-group': { left: '85.4%', top: '71.1%', s: 1 },
+    cv: { left: '85.4%', top: '79.1%', s: 1 },
+    'she-is-so-hot': { left: '85.4%', top: '87.1%', s: 1 },
   },
 }
 
