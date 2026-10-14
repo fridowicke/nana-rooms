@@ -4411,14 +4411,14 @@ const MOBILE_BROWSER_CHROME_HEIGHT = 98
 // width) and one straight folder column with folders 20% bigger at an equal step, knock knock at its foot.
 const MOBILE_LAYOUT_DEFAULT = {
   knock: { x: 72.31, y: 157.25, s: 1.4 },
-  player: { x: 1.54, y: 136.17, s: 1 },
-  radio: { x: 1.28, y: 129.6, s: 1 },
-  diary: { x: 5.64, y: 88.64, s: 1 },
+  player: { x: 2.31, y: 136.32, s: 1 },
+  radio: { x: 2.31, y: 129.75, s: 1 },
+  diary: { x: 5.13, y: 84.75, s: 1.2 },
   about: { x: 1.79, y: 37.37, s: 0.9 },
-  welcome: { x: 2.05, y: 16.44, s: 1 },
+  welcome: { x: 1.28, y: 15.99, s: 1 },
   title: { x: 20.77, y: 33.78, s: 1 },
-  pin: { x: 48.97, y: 88.64, s: 1 },
-  house: { x: 84.1, y: 14.95, s: 1.3 },
+  pin: { x: 55.9, y: 88.49, s: 1 },
+  house: { x: 85.64, y: 14.2, s: 1.3 },
   folders: {
     press: { left: '88.2%', top: '108.52%', s: 1 },
     filmmaking: { left: '88.2%', top: '86.1%', s: 1 },
