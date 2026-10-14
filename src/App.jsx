@@ -4365,7 +4365,20 @@ const DESKTOP_LAYOUT_DEFAULT = {
 const DESKTOP_LEFT_AXIS_WIDTH = 290
 // Nana's saved mobile layout (from ?layout=1 tuner). Values are relative to the viewport:
 // x,y in % of viewport width/height (top-left of the block), s = scale.
-const MOBILE_LAYOUT_DEFAULT = null
+const MOBILE_LAYOUT_DEFAULT = {
+  welcome: { x: 2.44, y: 17.44, s: 0.9 },
+  about: { x: 2.95, y: 25.88, s: 0.7 },
+  title: { x: 31.54, y: 19.0, s: 1 },
+  house: { x: 84.36, y: 15.54, s: 1.2 },
+  diary: { x: 2.69, y: 69.02, s: 0.9 },
+  pin: { x: 89.23, y: 69.23, s: 1 },
+  folders: {
+    writing: { left: '84.9%', top: '31.1%', s: 1 },
+    filmmaking: { left: '84.9%', top: '38.9%', s: 1 },
+    research: { left: '85.9%', top: '46.9%', s: 1 },
+    'local-group': { left: '85.9%', top: '55%', s: 1 },
+  },
+}
 
 function isLayoutTunerEnabled() {
   if (typeof window === 'undefined') return false
