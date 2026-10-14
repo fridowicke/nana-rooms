@@ -43,6 +43,9 @@ Requests come from Nana through a Telegram bot; Claude Code is invoked by that b
 - The exhibitions overview layout has been broken once by a "global fix"; screenshots before/after are expected
   from the bot, so keep such changes minimal and reversible.
 - Two cursor images request `assets/assets/cursors/...` (double prefix) and 404; fix only if asked.
+- Phone home layout = `MOBILE_LAYOUT_DEFAULT`: every block and folder in % of Nana's 390×669 iPhone frame, not of the
+  live viewport (Safari's toolbar changes that height while scrolling). Folders are anchored at their top edge.
+  Change positions there and check the page at 390 px wide; `?layout=1` lets Nana drag things and copy the JSON.
 
 ## Hidden-object game (src/hiddenObjects.jsx)
 

@@ -3301,18 +3301,25 @@ function AboutPage({
   }, [measureFrozen, activeFolderId, viewport.width, viewport.height])
   const [isAboutExpanded, setIsAboutExpanded] = useState(false)
   const isMobileLayout = shouldUseMobileLayout({ viewportWidth: viewport.width, isTouch })
-  const tbProps = { layout: mobileLayout, tuner: layoutTuner, onChange: tuneBlock, mobile: true, position: isMobileLayout ? 'absolute' : 'fixed' }
+  // Phone: the layout lives in Nana's 390×669 iPhone frame (see MOBILE_DESIGN_WIDTH), scaled by the phone's width
+  // below the fixed browser bar, so it never follows Safari's toolbar and keeps its proportions on every phone.
+  const mobileK = isMobileLayout ? viewport.width / MOBILE_DESIGN_WIDTH : 1
+  const mobileRefH = MOBILE_DESIGN_HEIGHT * mobileK
+  const mobileRefTop = MOBILE_BROWSER_CHROME_HEIGHT * (1 - mobileK)
+  const tbProps = { layout: mobileLayout, tuner: layoutTuner, onChange: tuneBlock, mobile: true, position: isMobileLayout ? 'absolute' : 'fixed', ...(isMobileLayout ? { refW: viewport.width, refH: mobileRefH, refTop: mobileRefTop, frameScale: mobileK } : {}) }
 
   // Keep the collage, with a wider reading column and a narrow lane of actual folders.
+  // On phones blocks are sized for the design frame and scaled by mobileK.
+  const sizeWidth = isMobileLayout ? MOBILE_DESIGN_WIDTH : viewport.width
   const leftColumnX = isMobileLayout ? 12 : 24
-  const mobileFolderWidth = Math.min(88, Math.max(76, Math.round(viewport.width * 0.22)))
+  const mobileFolderWidth = Math.min(88, Math.max(76, Math.round(sizeWidth * 0.22)))
   const leftColumnWidth = isMobileLayout
-    ? Math.min(340, Math.round(viewport.width * 0.64), viewport.width - mobileFolderWidth - 40)
+    ? Math.min(340, Math.round(sizeWidth * 0.64), sizeWidth - mobileFolderWidth - 40)
     : Math.max(188, Math.min(viewport.width * 0.15, 218))
   const aboutWindowWidth = isMobileLayout ? leftColumnWidth : leftColumnWidth + 34
   const welcomeWidth = isMobileLayout ? Math.min(110, leftColumnWidth - 8) : 126
   const welcomeHeight = Math.round(welcomeWidth * (55 / 135))
-  const BROWSER_CHROME_HEIGHT = isMobileLayout ? 98 : 62
+  const BROWSER_CHROME_HEIGHT = isMobileLayout ? MOBILE_BROWSER_CHROME_HEIGHT : 62
   const aboutWindowHeight = isMobileLayout ? 296 : 181
   const playerWidth = isMobileLayout ? Math.min(210, leftColumnWidth) : leftColumnWidth
   const playerWindowHeight = Math.round(132 * (playerWidth / 290))
@@ -3328,27 +3335,31 @@ function AboutPage({
     : desktopPlayerTop
   const diaryWidth = isMobileLayout ? Math.min(176, leftColumnWidth - 20) : Math.max(Math.min(leftColumnWidth - 34, 132), 106)
   const mobileDiaryLeft = leftColumnX + (playerWidth - diaryWidth) / 2
-  const mobileTitleWidth = Math.min(112, Math.round(viewport.width * 0.29))
+  const mobileTitleWidth = Math.min(112, Math.round(sizeWidth * 0.29))
   const mobileFolderTop = aboutWindowTop + 74
   const mobileFolderGap = 86
+  // Bottom of the placed phone layout, so the page ends right after its last block.
   const mobileLayoutBottom = (() => {
     if (!isMobileLayout || !mobileLayout) return 0
     let b = 0
-    const est = { welcome: 60, about: aboutWindowHeight, title: 40, house: 60, diary: 320, pin: 40, radio: 60, player: 200, knock: 70 }
-    for (const [k, v] of Object.entries(mobileLayout)) {
-      if (k === 'folders' || !v || typeof v.y !== 'number') continue
-      b = Math.max(b, (v.y / 100) * viewport.height + (est[k] || 80) * (v.s || 1))
+    // block heights at scale 1 in frame px
+    const est = { welcome: 45, about: aboutWindowHeight, title: 30, house: 50, diary: diaryHeight, pin: 30, radio: 34, player: 200, knock: 50 }
+    for (const [id, v] of Object.entries(mobileLayout)) {
+      if (id === 'folders' || !v || typeof v.y !== 'number') continue
+      b = Math.max(b, mobileRefTop + (v.y / 100) * mobileRefH + (est[id] || 80) * (v.s || 1) * mobileK)
     }
-    for (const f of Object.values(mobileLayout.folders || {})) {
+    for (const [id, f] of Object.entries(mobileLayout.folders || {})) {
       const t = typeof f?.top === 'string' && f.top.endsWith('%') ? parseFloat(f.top) : null
-      if (t != null) b = Math.max(b, (t / 100) * viewport.height + 100 * (f.s || 1))
+      // folders are placed by their top edge; the "she is so hot…" label wraps to three lines
+      if (t != null) b = Math.max(b, mobileRefTop + (t / 100) * mobileRefH + (id === 'she-is-so-hot' ? 102 : 72) * (f.s || 1) * mobileK)
     }
     return b
   })()
-  const mobileContentHeight = Math.max(viewport.height,
-    playerWindowTop + (measuredHeights.player || 190) + 32,
-    mobileFolderTop + 7 * mobileFolderGap + 200,
-    mobileLayoutBottom + 40)
+  const mobileContentHeight = isMobileLayout && mobileLayout
+    ? Math.max(viewport.height, Math.round(mobileLayoutBottom + 24 * mobileK))
+    : Math.max(viewport.height,
+      playerWindowTop + (measuredHeights.player || 190) + 32,
+      mobileFolderTop + 7 * mobileFolderGap + 200)
 
   const folderArcLayout = isMobileLayout
     ? ['press', 'writing', 'exhibitions', 'filmmaking', 'research', 'local-group', 'cv', 'she-is-so-hot'].map((id, index) => ({
@@ -3389,7 +3400,8 @@ function AboutPage({
     const el = e.currentTarget
     const elRect = el.getBoundingClientRect()
     const startPx = elRect.left + elRect.width / 2 - containerRect.left
-    const startPy = elRect.top + elRect.height / 2 - containerRect.top
+    // phone folders are anchored at their top edge, desktop folders at their centre
+    const startPy = (isMobileLayout ? elRect.top : elRect.top + elRect.height / 2) - containerRect.top
     const startMx = e.clientX
     const startMy = e.clientY
     let moved = false
@@ -3407,7 +3419,8 @@ function AboutPage({
         return next
       })
       if (tunerDrag) {
-        const lp = +((px / containerRect.width) * 100).toFixed(1), tp = +((py / containerRect.height) * 100).toFixed(1)
+        const lp = +((px / containerRect.width) * 100).toFixed(1)
+        const tp = +(isMobileLayout ? ((py - mobileRefTop) / mobileRefH) * 100 : (py / containerRect.height) * 100).toFixed(2)
         setMobileLayout((prev) => ({ ...(prev ?? {}), folders: { ...((prev ?? {}).folders ?? {}), [folderId]: { left: `${lp}%`, top: `${tp}%`, s: (prev?.folders?.[folderId]?.s ?? 1) } } }))
       }
     }
@@ -3426,7 +3439,7 @@ function AboutPage({
       window.addEventListener('mousemove', onMove)
       window.addEventListener('mouseup', onUp)
     }
-  }, [isTouch, layoutTuner, isMobileLayout])
+  }, [isTouch, layoutTuner, isMobileLayout, mobileRefH, mobileRefTop])
 
   const folderGestureRef = useRef(null)
   const folderTouch = useCallback((folderId, e) => {
@@ -3439,7 +3452,7 @@ function AboutPage({
     const cur = folderPositions.get(folderId)
     const el = e.currentTarget
     const er = el.getBoundingClientRect()
-    const cx0 = er.left + er.width / 2 - rect.left, cy0 = er.top + er.height / 2 - rect.top
+    const cx0 = er.left + er.width / 2 - rect.left, cy0 = (isMobileLayout ? er.top : er.top + er.height / 2) - rect.top
     const s0 = mobileLayout?.folders?.[folderId]?.s ?? 1
     if (e.type === 'touchstart' || (folderGestureRef.current && folderGestureRef.current.id !== folderId)) {
       if (t.length >= 2) folderGestureRef.current = { id: folderId, mode: 'pinch', d0: Math.hypot(t[1].clientX - t[0].clientX, t[1].clientY - t[0].clientY), s0, cx0, cy0 }
@@ -3458,14 +3471,15 @@ function AboutPage({
       } else return
       draggedFolderRef.current = folderId
       setFolderPositions((prev) => { const next = new Map(prev); next.set(folderId, { left: px, top: py, isPx: true }); return next })
-      const lp = +((px / rect.width) * 100).toFixed(1), tp = +((py / rect.height) * 100).toFixed(1)
+      const lp = +((px / rect.width) * 100).toFixed(1)
+      const tp = +(isMobileLayout ? ((py - mobileRefTop) / mobileRefH) * 100 : (py / rect.height) * 100).toFixed(2)
       setMobileLayout((prev) => ({ ...(prev ?? {}), folders: { ...((prev ?? {}).folders ?? {}), [folderId]: { left: `${lp}%`, top: `${tp}%`, s } } }))
       return
     }
     if (e.type === 'touchend' || e.type === 'touchcancel') {
       if (t.length === 0) { const g2 = folderGestureRef.current; folderGestureRef.current = null; if (g2 && g2.mode === 'drag' && !g2.moved) draggedFolderRef.current = null }
     }
-  }, [layoutTuner, isMobileLayout, folderPositions, mobileLayout])
+  }, [layoutTuner, isMobileLayout, folderPositions, mobileLayout, mobileRefH, mobileRefTop])
 
   const updateEditorScrollbar = useCallback(() => {
     const editorContent = editorContentRef.current
@@ -3830,7 +3844,7 @@ function AboutPage({
 
       {/* ── Safety pin (between left col and right stage) ── */}
       {!isFolderView && (isMobileLayout || layoutTuner || mobileLayout?.pin ? (
-        <TunableBlock {...tbProps} id="pin" baseLeft={isMobileLayout ? leftColumnX + playerWidth + 8 : leftColumnX + aboutWindowWidth + 24} baseTop={isMobileLayout ? diaryTop + 32 : Math.round(viewport.height * 0.48)} zIndex={20} pointerEvents="none">
+        <TunableBlock {...tbProps} id="pin" baseLeft={isMobileLayout ? leftColumnX + playerWidth + 8 : leftColumnX + aboutWindowWidth + 24} baseTop={isMobileLayout ? diaryTop + 32 : Math.round(viewport.height * 0.48)} zIndex={isMobileLayout ? 23 : 20} pointerEvents="none">
           <img src="assets/safety-pin.gif" alt="" aria-hidden="true" style={{ width: isMobileLayout ? '28px' : '50px', height: 'auto', objectFit: 'contain', display: 'block' }} />
         </TunableBlock>
       ) : (
@@ -4043,10 +4057,10 @@ function AboutPage({
           const pos = isMobileLayout && !layoutTuner
             ? (saved ? { left: saved.left, top: saved.top } : placement)
             : folderPositions.get(folder.id) ?? placement
-          // On mobile the layout's % values are relative to the viewport (what Nana saw while placing), not the tall page.
+          // On mobile the layout's % values are relative to the phone frame (what Nana saw while placing), not the tall page.
           const pct = (v) => (typeof v === 'string' && v.endsWith('%') ? parseFloat(v) : null)
           const posLeft = pos.isPx ? `${pos.left}px` : (isMobileLayout && pct(pos.left) != null ? `${(pct(pos.left) / 100) * viewport.width}px` : pos.left)
-          const posTop = pos.isPx ? `${pos.top}px` : (isMobileLayout && pct(pos.top) != null ? `${(pct(pos.top) / 100) * viewport.height}px` : pos.top)
+          const posTop = pos.isPx ? `${pos.top}px` : (isMobileLayout && pct(pos.top) != null ? `${mobileRefTop + (pct(pos.top) / 100) * mobileRefH}px` : pos.top)
           const folderScale = isMobileLayout && saved?.s ? saved.s : 1
 
           return (
@@ -4073,7 +4087,11 @@ function AboutPage({
                 position: 'absolute',
                 left: posLeft,
                 top: posTop,
-                transform: `translate(-50%, -50%) scale(${mobileLayout?.folders?.[folder.id]?.s ?? 1})`,
+                // phone: anchored at the top edge, so a long label grows downwards instead of into the folder above
+                transform: isMobileLayout
+                  ? `translate(-50%, 0) scale(${(mobileLayout?.folders?.[folder.id]?.s ?? 1) * mobileK})`
+                  : `translate(-50%, -50%) scale(${mobileLayout?.folders?.[folder.id]?.s ?? 1})`,
+                transformOrigin: isMobileLayout ? 'top center' : undefined,
                 zIndex: 25,
                 outline: layoutTuner ? '1px dashed #ff2fd6' : 'none',
                 touchAction: layoutTuner ? 'none' : 'auto',
@@ -4369,7 +4387,8 @@ function ArchiveMapFolder({ isMobileLayout }) {
   return <ArchiveMap images={OPEN_ARCHIVE_IMAGES} tags={tags} isMobileLayout={isMobileLayout} />
 }
 
-const MOBILE_LAYOUT_KEY = 'shelest-mobile-layout-v1'
+// v2: phone positions are relative to the fixed design frame and folders to their top edge; v1 copies are ignored
+const MOBILE_LAYOUT_KEY = 'shelest-mobile-layout-v2'
 const DESKTOP_LAYOUT_KEY = 'shelest-desktop-layout-v1'
 // Nana's desktop layout (from the ?layout=1 tuner). x,y = % of viewport, s = scale.
 const DESKTOP_LAYOUT_DEFAULT = {
@@ -4381,27 +4400,34 @@ const DESKTOP_LAYOUT_DEFAULT = {
   knock: { x: 90.39, y: 89.21, s: 1.5 },
   house: { x: 94.52, y: 7.65, s: 1.4 },
 }
-// Nana's saved mobile layout (from ?layout=1 tuner). Values are relative to the viewport:
-// x,y in % of viewport width/height (top-left of the block), s = scale.
+// Phone layouts are placed in the frame of Nana's iPhone: 390 px wide, 669 px of visible page with Safari's bars
+// shown. On other phones the frame scales with the screen width below the fixed browser bar.
+const MOBILE_DESIGN_WIDTH = 390
+const MOBILE_DESIGN_HEIGHT = 669
+const MOBILE_BROWSER_CHROME_HEIGHT = 98
+// Nana's mobile layout, in % of that frame: x / left of its width, y / top of its height (top-left of a block,
+// top-centre of a folder), s = scale. welcome, title, house and about are where she put them in the ?layout=1
+// tuner on Oct 14. Below them: one left column centred under the about window (diary, radio, player at about's
+// width) and one straight folder column with folders 20% bigger at an equal step, knock knock at its foot.
 const MOBILE_LAYOUT_DEFAULT = {
   welcome: { x: 2.44, y: 17.44, s: 0.9 },
   about: { x: 2.95, y: 25.88, s: 0.7 },
   title: { x: 31.54, y: 19.0, s: 1 },
   house: { x: 84.36, y: 15.54, s: 1.2 },
-  diary: { x: 2.69, y: 69.02, s: 0.9 },
-  pin: { x: 62, y: 70, s: 1 },
-  radio: { x: 4, y: 93, s: 1 },
-  player: { x: 2.95, y: 100, s: 1 },
-  // one straight column, equal 9% step
+  diary: { x: 5.05, y: 59.49, s: 0.9 },
+  pin: { x: 36.31, y: 59.49, s: 1 },
+  radio: { x: -1.56, y: 87.0, s: 1 },
+  player: { x: 2.95, y: 92.68, s: 0.832 },
+  knock: { x: 76.17, y: 122.4, s: 1 },
   folders: {
-    press: { left: '85.4%', top: '28%', s: 1 },
-    writing: { left: '85.4%', top: '37%', s: 1 },
-    exhibitions: { left: '85.4%', top: '46%', s: 1 },
-    filmmaking: { left: '85.4%', top: '55%', s: 1 },
-    research: { left: '85.4%', top: '64%', s: 1 },
-    'local-group': { left: '85.4%', top: '73%', s: 1 },
-    cv: { left: '85.4%', top: '82%', s: 1 },
-    'she-is-so-hot': { left: '85.4%', top: '91%', s: 1 },
+    press: { left: '85.4%', top: '24.44%', s: 1.2 },
+    writing: { left: '85.4%', top: '35.95%', s: 1.2 },
+    exhibitions: { left: '85.4%', top: '47.46%', s: 1.2 },
+    filmmaking: { left: '85.4%', top: '58.97%', s: 1.2 },
+    research: { left: '85.4%', top: '70.48%', s: 1.2 },
+    'local-group': { left: '85.4%', top: '81.99%', s: 1.2 },
+    cv: { left: '85.4%', top: '93.5%', s: 1.2 },
+    'she-is-so-hot': { left: '85.4%', top: '105.01%', s: 1.2 },
   },
 }
 
@@ -4421,7 +4447,9 @@ function loadDesktopLayout() {
 }
 
 // Wraps a positioned block on mobile so it can be dragged / scaled in tuner mode, and applies saved overrides.
-function TunableBlock({ id, layout, tuner, onChange, mobile = true, passthrough = false, baseLeft, baseTop, zIndex = 21, children, pointerEvents = 'auto', position = 'fixed' }) {
+// refW/refH/refTop/frameScale map the phone frame onto the page (see MOBILE_DESIGN_WIDTH); without them the
+// layout is relative to the window, as on desktop.
+function TunableBlock({ id, layout, tuner, onChange, mobile = true, passthrough = false, baseLeft, baseTop, zIndex = 21, children, pointerEvents = 'auto', position = 'fixed', refW, refH, refTop = 0, frameScale = 1 }) {
   const ov = mobile ? layout?.[id] : null
   const active = mobile && tuner && !passthrough
   const onWheel = (e) => {
@@ -4436,11 +4464,12 @@ function TunableBlock({ id, layout, tuner, onChange, mobile = true, passthrough 
     const ny = e.clientY - (e.clientY - cur.top) * kk
     onChange(id, { x: (nx / vw) * 100, y: (ny / vh) * 100, s: sNext })
   }
-  const vw = typeof window !== 'undefined' ? window.innerWidth : 390
-  const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+  const vw = refW ?? (typeof window !== 'undefined' ? window.innerWidth : 390)
+  const vh = refH ?? (typeof window !== 'undefined' ? window.innerHeight : 800)
   const left = ov ? (ov.x / 100) * vw : baseLeft
-  const top = ov ? (ov.y / 100) * vh : baseTop
-  const scale = ov?.s ?? 1
+  const top = ov ? refTop + (ov.y / 100) * vh : baseTop
+  const layoutScale = ov?.s ?? 1
+  const scale = layoutScale * frameScale
   const dragRef = useRef(null)
   const startDrag = (e) => {
     if (!active) return
@@ -4450,7 +4479,7 @@ function TunableBlock({ id, layout, tuner, onChange, mobile = true, passthrough 
     const move = (ev) => {
       const p = ev.touches ? ev.touches[0] : ev
       const d = dragRef.current; if (!d) return
-      onChange(id, { x: ((d.ox + p.clientX - d.sx) / vw) * 100, y: ((d.oy + p.clientY - d.sy) / vh) * 100, s: scale })
+      onChange(id, { x: ((d.ox + p.clientX - d.sx) / vw) * 100, y: ((d.oy + p.clientY - d.sy - refTop) / vh) * 100, s: layoutScale })
     }
     const up = () => { dragRef.current = null; window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('touchmove', move); window.removeEventListener('touchend', up) }
     window.addEventListener('pointermove', move); window.addEventListener('pointerup', up)
