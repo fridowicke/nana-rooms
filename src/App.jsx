@@ -3262,7 +3262,7 @@ function AboutPage({
   const [mobileLayoutState, setMobileLayoutState] = useState(loadMobileLayout)
   const [desktopLayoutState, setDesktopLayoutState] = useState(loadDesktopLayout)
   const isMobileLayoutEarly = shouldUseMobileLayout({ viewportWidth: viewport.width, isTouch })
-  const mobileLayout = isMobileLayoutEarly ? (layoutTuner ? mobileLayoutState : null) : desktopLayoutState
+  const mobileLayout = isMobileLayoutEarly ? mobileLayoutState : desktopLayoutState
   const setMobileLayout = isMobileLayoutEarly ? setMobileLayoutState : setDesktopLayoutState
   useEffect(() => {
     if (!layoutTuner || !mobileLayout) return undefined
@@ -4392,17 +4392,19 @@ const MOBILE_LAYOUT_DEFAULT = {
   title: { x: 31.54, y: 19.0, s: 1 },
   house: { x: 84.36, y: 15.54, s: 1.2 },
   diary: { x: 2.69, y: 69.02, s: 0.9 },
-  pin: { x: 89.23, y: 69.23, s: 1 },
-  // one straight column, equal 8% step
+  pin: { x: 62, y: 70, s: 1 },
+  radio: { x: 4, y: 93, s: 1 },
+  player: { x: 2.95, y: 100, s: 1 },
+  // one straight column, equal 9% step
   folders: {
-    press: { left: '85.4%', top: '31.1%', s: 1 },
-    writing: { left: '85.4%', top: '39.1%', s: 1 },
-    exhibitions: { left: '85.4%', top: '47.1%', s: 1 },
-    filmmaking: { left: '85.4%', top: '55.1%', s: 1 },
-    research: { left: '85.4%', top: '63.1%', s: 1 },
-    'local-group': { left: '85.4%', top: '71.1%', s: 1 },
-    cv: { left: '85.4%', top: '79.1%', s: 1 },
-    'she-is-so-hot': { left: '85.4%', top: '87.1%', s: 1 },
+    press: { left: '85.4%', top: '28%', s: 1 },
+    writing: { left: '85.4%', top: '37%', s: 1 },
+    exhibitions: { left: '85.4%', top: '46%', s: 1 },
+    filmmaking: { left: '85.4%', top: '55%', s: 1 },
+    research: { left: '85.4%', top: '64%', s: 1 },
+    'local-group': { left: '85.4%', top: '73%', s: 1 },
+    cv: { left: '85.4%', top: '82%', s: 1 },
+    'she-is-so-hot': { left: '85.4%', top: '91%', s: 1 },
   },
 }
 
