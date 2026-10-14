@@ -4900,10 +4900,11 @@ function AboutFolderContent({
     padding: isMobileLayout ? '0 14px 0 0' : '0 0 8px',
     font: 'inherit',
     fontSize: '13px',
-    lineHeight: 1.4,
+    lineHeight: isMobileLayout ? '20px' : 1.4,
+    height: isMobileLayout ? '20px' : undefined,
     color: '#000',
     textAlign: 'left',
-    whiteSpace: 'normal',
+    whiteSpace: isMobileLayout ? 'nowrap' : 'normal',
     overflowWrap: 'break-word',
     fontStyle: 'normal',
     flex: isMobileLayout ? '0 0 auto' : undefined,
@@ -5120,10 +5121,11 @@ function AboutFolderContent({
       padding: isMobileLayout ? '0 14px 0 0' : '0 0 8px',
       font: 'inherit',
       fontSize: '13px',
-      lineHeight: 1.4,
+      lineHeight: isMobileLayout ? '20px' : 1.4,
+      height: isMobileLayout ? '20px' : undefined,
       color: '#000',
       textAlign: 'left',
-      whiteSpace: 'normal',
+      whiteSpace: isMobileLayout ? 'nowrap' : 'normal',
       overflowWrap: 'break-word',
       fontStyle: 'normal',
       flex: isMobileLayout ? '0 0 auto' : undefined,
@@ -5141,16 +5143,19 @@ function AboutFolderContent({
     }
     const renderExhibitionNav = () => (
       <nav aria-label="Exhibitions" style={{
-        position: isMobileLayout ? 'relative' : 'sticky',
+        position: isMobileLayout ? 'static' : 'sticky',
         top: 0,
         alignSelf: 'start',
         maxHeight: isMobileLayout ? 'none' : 'calc(100vh - 44px)',
         overflowX: isMobileLayout ? 'auto' : 'hidden',
         overflowY: isMobileLayout ? 'hidden' : 'auto',
-        padding: isMobileLayout ? '0' : '0 0 18px',
+        padding: isMobileLayout ? '0 0 2px' : '0 0 18px',
         display: isMobileLayout ? 'flex' : 'block',
+        flexWrap: 'nowrap',
+        minHeight: isMobileLayout ? '20px' : undefined,
         gap: isMobileLayout ? '0' : undefined,
         scrollbarWidth: isMobileLayout ? 'none' : undefined,
+        WebkitOverflowScrolling: 'touch',
       }}>
         <button type="button" onClick={() => onOpenFolderRoute?.(folder.id, 'overview')}
           style={{ ...exhibitionNavBtnStyle, margin: isMobileLayout ? 0 : '0 0 14px', fontWeight: isExhibitionOverview ? 400 : 300, textDecoration: isExhibitionOverview ? 'none' : 'underline' }}>
@@ -5186,12 +5191,13 @@ function AboutFolderContent({
           {renderExhibitionNav()}
           <main style={{ minWidth: 0, padding: '0 0 80px' }}>
             {/* Title block */}
-            <div style={{ margin: isMobileLayout ? '0 0 28px' : '0 0 48px' }}>
-              <h1 style={{ margin: '0 0 6px', fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 400, lineHeight: 1.3, fontStyle: 'normal' }}>
+            {/* One vertical rhythm: 18px between every block; title+venue are a tight pair. */}
+            <div style={{ margin: '18px 0 18px' }}>
+              <h1 style={{ margin: '0 0 4px', fontSize: isMobileLayout ? '20px' : '22px', fontWeight: 400, lineHeight: 1.3, fontStyle: 'italic' }}>
                 {selectedExhibition.title}{(selectedExhibition.dates ?? selectedExhibition.year) ? `, ${selectedExhibition.dates ?? selectedExhibition.year}` : ''}
               </h1>
               {venueLocation && (
-                <p style={{ margin: 0, fontSize: isMobileLayout ? '15px' : '16px', fontWeight: 300, fontStyle: 'normal' }}>
+                <p style={{ margin: 0, fontSize: isMobileLayout ? '15px' : '16px', fontWeight: 300, lineHeight: 1.5, fontStyle: 'normal' }}>
                   {venueLocation}
                 </p>
               )}
@@ -5199,9 +5205,9 @@ function AboutFolderContent({
 
             {/* Description */}
             {selectedExhibition.description?.length > 0 && (
-              <div style={{ marginBottom: '36px' }}>
-                {selectedExhibition.description.map((paragraph) => (
-                  <p key={paragraph} style={{ margin: '0 0 18px', fontSize: isMobileLayout ? '16px' : '18px', lineHeight: 1.5, fontStyle: 'normal' }}>
+              <div style={{ margin: '0 0 18px' }}>
+                {selectedExhibition.description.map((paragraph, pi) => (
+                  <p key={paragraph} style={{ margin: pi === 0 ? 0 : '18px 0 0', fontSize: isMobileLayout ? '16px' : '18px', lineHeight: 1.5, fontStyle: 'normal' }}>
                     {paragraph}
                   </p>
                 ))}
@@ -5210,7 +5216,7 @@ function AboutFolderContent({
 
             {/* Images section */}
             {images.length > 0 && (
-              <div style={{ marginBottom: '28px' }}>
+              <div style={{ margin: '18px 0' }}>
                 <button type="button" onClick={() => openLightbox(0)}
                   style={{ border: 'none', background: 'transparent', padding: '0 0 10px', cursor: 'pointer', fontSize: isMobileLayout ? '16px' : '18px', textDecoration: 'underline', color: 'inherit', fontFamily: 'inherit', fontStyle: 'normal', display: 'block' }}>
                   {`Installation Images (${images.length}) →`}
