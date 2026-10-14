@@ -4359,7 +4359,7 @@ const DESKTOP_LAYOUT_DEFAULT = {
   radio: { x: 1.6, y: 78.2, s: 1, cx: true },
   player: { x: 1.6, y: 83.2, s: 1.05, cx: true },
   knock: { x: 91.2, y: 88.8, s: 1.3 },
-  house: { x: 94.8, y: 11.4, s: 1.1 },
+  house: { x: 94.2, y: 10.6, s: 1.4 },
 }
 // width (px) of the reference block the `cx` items centre on (about window at its scale)
 const DESKTOP_LEFT_AXIS_WIDTH = 290
