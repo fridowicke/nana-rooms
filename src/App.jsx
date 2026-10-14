@@ -4897,7 +4897,7 @@ function AboutFolderContent({
     width: isMobileLayout ? 'auto' : '100%',
     border: 'none',
     background: 'transparent',
-    padding: isMobileLayout ? '0 12px 10px 0' : '0 0 8px',
+    padding: isMobileLayout ? '0 14px 0 0' : '0 0 8px',
     font: 'inherit',
     fontSize: '13px',
     lineHeight: 1.4,
@@ -4915,7 +4915,7 @@ function AboutFolderContent({
     ...plainPageStyle,
     display: 'grid',
     gridTemplateColumns: isMobileLayout ? '1fr' : '240px minmax(0, 1fr)',
-    gap: isMobileLayout ? '22px' : '40px',
+    gap: isMobileLayout ? '0' : '40px',
     alignItems: 'start',
     padding: isMobileLayout ? '20px 16px 70px' : '40px 32px 64px',
     fontSize: isMobileLayout ? '15px' : '16px',
@@ -5041,7 +5041,7 @@ function AboutFolderContent({
         maxHeight: isMobileLayout ? 'none' : 'calc(100vh - 44px)',
         overflowX: isMobileLayout ? 'auto' : 'hidden',
         overflowY: isMobileLayout ? 'hidden' : 'auto',
-        padding: isMobileLayout ? '0 0 4px' : '0 0 18px',
+        padding: isMobileLayout ? '0' : '0 0 18px',
         display: isMobileLayout ? 'flex' : 'block',
         scrollbarWidth: isMobileLayout ? 'none' : undefined,
       }}>
@@ -5117,7 +5117,7 @@ function AboutFolderContent({
       width: isMobileLayout ? 'auto' : '100%',
       border: 'none',
       background: 'transparent',
-      padding: isMobileLayout ? '0 12px 10px 0' : '0 0 8px',
+      padding: isMobileLayout ? '0 14px 0 0' : '0 0 8px',
       font: 'inherit',
       fontSize: '13px',
       lineHeight: 1.4,
@@ -5133,7 +5133,7 @@ function AboutFolderContent({
       ...plainPageStyle,
       display: 'grid',
       gridTemplateColumns: isMobileLayout ? '1fr' : '220px minmax(0, 1fr)',
-      gap: isMobileLayout ? '22px' : '30px',
+      gap: isMobileLayout ? '0' : '30px',
       alignItems: 'start',
       padding: isMobileLayout ? '20px 16px 70px' : '40px 32px 64px',
       fontSize: isMobileLayout ? '15px' : '16px',
@@ -5147,13 +5147,13 @@ function AboutFolderContent({
         maxHeight: isMobileLayout ? 'none' : 'calc(100vh - 44px)',
         overflowX: isMobileLayout ? 'auto' : 'hidden',
         overflowY: isMobileLayout ? 'hidden' : 'auto',
-        padding: isMobileLayout ? '0 0 4px' : '0 0 18px',
+        padding: isMobileLayout ? '0' : '0 0 18px',
         display: isMobileLayout ? 'flex' : 'block',
         gap: isMobileLayout ? '0' : undefined,
         scrollbarWidth: isMobileLayout ? 'none' : undefined,
       }}>
         <button type="button" onClick={() => onOpenFolderRoute?.(folder.id, 'overview')}
-          style={{ ...exhibitionNavBtnStyle, margin: '0 0 14px', fontWeight: isExhibitionOverview ? 400 : 300, textDecoration: isExhibitionOverview ? 'none' : 'underline' }}>
+          style={{ ...exhibitionNavBtnStyle, margin: isMobileLayout ? 0 : '0 0 14px', fontWeight: isExhibitionOverview ? 400 : 300, textDecoration: isExhibitionOverview ? 'none' : 'underline' }}>
           overview
         </button>
         {EXHIBITIONS.map((exhibition) => {
