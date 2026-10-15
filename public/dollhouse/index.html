@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Dollhouse Game</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: tall pointed house on the left, sticker sheet on the right (stacks on phones). Black on white, square corners, dashed cut-lines. */
+:root{
+  --bg:#ffffff; --ink:#000000; --dim:rgba(0,0,0,.35); --faint:rgba(0,0,0,.05); --muted:#666666;
+  --font:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+  color-scheme:light;
+}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;box-sizing:border-box;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px;-webkit-user-select:none;user-select:none}
+*{border-radius:0}
+.app{max-width:1280px;margin:0 auto;display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:24px;align-items:start}
+header{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.how{margin:0;max-width:70ch;line-height:1.5}
+.hud{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#progress{font-variant-numeric:tabular-nums;color:var(--muted);margin-right:4px}
+button{font:inherit;cursor:pointer;color:var(--ink)}
+.btn{background:var(--bg);border:1px solid var(--ink);padding:6px 12px}
+.btn:hover,.btn.primary{background:var(--ink);color:var(--bg)}
+.btn.primary:hover{background:var(--bg);color:var(--ink)}
+.btn:disabled{opacity:.3;cursor:default;background:var(--bg);color:var(--ink)}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+/* house */
+.stageWrap{position:relative;max-width:560px;width:100%;justify-self:center}
+.stage{position:relative;width:100%;aspect-ratio:800/1200}
+.layer{position:absolute;inset:0;width:100%;height:100%}
+.screens{position:absolute;inset:0;pointer-events:none}
+.screens video{position:absolute;object-fit:cover;opacity:0;transition:opacity .7s ease;background:var(--ink)}
+.screens video.on{opacity:1}
+.struct{fill:none;stroke:var(--dim);stroke-width:3;stroke-dasharray:12 9;transition:stroke .4s}
+.alive .struct{stroke:var(--ink);stroke-dasharray:none}
+.zone{fill:transparent;stroke:none;transition:fill .15s}
+.zone.hot{fill:var(--faint)}
+.placed{position:absolute;inset:0}
+.placed img{position:absolute;transform:translate(-50%,-100%);touch-action:none;cursor:grab;-webkit-user-drag:none;transition:left .25s ease,top .25s ease}
+.placed img.lift{opacity:.25;transition:none}
+.placed img.pop{animation:pop .3s ease-out}
+@keyframes pop{from{opacity:0;transform:translate(-50%,-92%) scale(.9)}to{opacity:1;transform:translate(-50%,-100%)}}
+.alive .placed img{cursor:default}
+.banner{position:absolute;left:50%;top:24%;transform:translateX(-50%);opacity:0;pointer-events:none;transition:opacity .4s;z-index:3}
+.alive .banner{opacity:1;pointer-events:auto}
+
+/* sticker sheet */
+.sheet{border:1px dashed var(--dim);padding:16px;min-height:320px;display:flex;flex-wrap:wrap;align-items:flex-end;align-content:flex-start;gap:14px;transition:opacity .3s}
+.sheet.locked{opacity:.3;pointer-events:none}
+.sticker{position:relative;border:1px dashed var(--dim);padding:6px;display:grid;place-items:end center;background:transparent;touch-action:none;cursor:grab;min-width:0}
+.sticker:hover{border-color:var(--ink)}
+.sticker img{display:block;pointer-events:none;-webkit-user-drag:none;max-width:100%}
+.sticker.used img{visibility:hidden}
+.sticker.used{cursor:default}
+.add{border:1px dashed var(--dim);color:var(--muted);font-size:22px;width:72px;height:72px;display:grid;place-items:center;position:relative;cursor:pointer}
+.add:hover{border-color:var(--ink);color:var(--ink)}
+.add input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.emptyNote{color:var(--muted);margin:0;align-self:center;flex:1 1 200px}
+.ghost{position:fixed;left:0;top:0;pointer-events:none;z-index:50;transform:translate(-50%,-50%)}
+.ghost.back{transition:all .25s ease-in}
+
+@media (max-width:860px){ .app{grid-template-columns:minmax(0,1fr)} .stageWrap{max-width:440px} }
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <p class="how">Drag the stickers into the house. Drop one low in a room and it stands on the floor; drop it high and it stays on the wall. Drag a sticker out of the house to take it back. Furnish every room and the house comes alive.</p>
+    <div class="hud">
+      <span id="progress"></span>
+      <button class="btn" id="random" type="button">Random</button>
+      <button class="btn" id="reset" type="button">Reset</button>
+    </div>
+  </header>
+
+  <div class="stageWrap" id="wrap">
+    <div class="stage" id="stage">
+      <svg class="layer" id="zones" viewBox="0 -20 800 1200" aria-hidden="true"></svg>
+      <div class="screens" id="screens"></div>
+      <svg class="layer" id="lines" viewBox="0 -20 800 1200" aria-hidden="true" style="pointer-events:none"></svg>
+      <div class="placed" id="placed" aria-label="House"></div>
+      <div class="banner"><button class="btn primary" id="again" type="button">Play again</button></div>
+    </div>
+  </div>
+
+  <div class="sheet" id="sheet" aria-label="Stickers"></div>
+</div>
+
+<script>
+/* =====================================================================
+   SETTINGS
+   ---------------------------------------------------------------------
+   STICKERS: put your PNG files into  pieces/  and list them here:
+     {src:"pieces/bed.png",   h:80}               h = height in the house
+     {src:"pieces/lamp.png",  h:50, snap:"free"}   (one room is 180 tall)
+     {src:"pieces/sofa.png",  h:70, snap:"floor"}
+   snap: "auto"  (default) low drop → stands on the floor, high drop → stays on the wall
+         "floor" always stands on the floor
+         "free"  always stays where it was dropped
+   MIN_PER_ROOM: how many stickers each of the 8 rooms needs before the house comes alive.
+   ALLOW_UPLOAD: true shows a "+" on the sheet to test PNGs from your computer
+                 (you can also drop files onto the sheet). Set false for the public site.
+   ===================================================================== */
+const STICKERS = [
+  // {src:"pieces/bed.png", h:80},
+];
+const MIN_PER_ROOM = 1;
+const ALLOW_UPLOAD = true;
+const UPLOAD_HEIGHT = 80;
+
+const VIDEOS = ["videos/v01.mp4","videos/v02.mp4","videos/v03.mp4","videos/v04.mp4","videos/v05.mp4",
+                "videos/v06.mp4","videos/v07.mp4","videos/v08.mp4","videos/v09.mp4","videos/v10.mp4"];
+
+// House geometry (800 × 1200 canvas). 4 floors × 2 rooms, each room 320 × 180 (16:9) + attic.
+const ROOMS = [
+  {id:"r1",x:80, y:440,w:320,h:180},{id:"r2",x:400,y:440,w:320,h:180},
+  {id:"r3",x:80, y:620,w:320,h:180},{id:"r4",x:400,y:620,w:320,h:180},
+  {id:"r5",x:80, y:800,w:320,h:180},{id:"r6",x:400,y:800,w:320,h:180},
+  {id:"r7",x:80, y:980,w:320,h:180},{id:"r8",x:400,y:980,w:320,h:180},
+];
+const ATTIC = {id:"attic", apex:[400,10], left:[100,440], right:[700,440], floor:440, video:false};
+
+/* ---------------- setup ---------------- */
+const VB={x:0,y:-20,w:800,h:1200};
+const $=s=>document.querySelector(s);
+const stage=$("#stage"), wrap=$("#wrap"), sheet=$("#sheet"), placedEl=$("#placed"), screens=$("#screens");
+let items=STICKERS.map((s,i)=>({id:"s"+i, src:s.src, h:s.h||80, snap:s.snap||"auto", ratio:1}));
+const pos={};            // id -> {room, x, y}  (x = centre, y = bottom, canvas units)
+let alive=false, lastClips=[];
+
+function drawHouse(){
+  const [ax,ay]=ATTIC.apex,[lx,ly]=ATTIC.left,[rx,ry]=ATTIC.right;
+  $("#lines").innerHTML=`<g class="struct">
+    <polygon points="${lx-40},${ly} ${ax},${ay} ${rx+40},${ry}"/>
+    <rect x="80" y="440" width="640" height="720"/>
+    <path d="M80 620H720M80 800H720M80 980H720M400 440V1160M20 1160H780"/></g>`;
+  $("#zones").innerHTML=ROOMS.map(r=>`<rect class="zone" data-room="${r.id}" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"/>`).join("")+
+    `<polygon class="zone" data-room="attic" points="${lx},${ly} ${ax},${ay} ${rx},${ry}"/>`;
+}
+
+/* ---------------- geometry helpers ---------------- */
+const scale=()=>stage.getBoundingClientRect().width/VB.w;          // px per canvas unit
+function toCanvas(cx,cy){const r=stage.getBoundingClientRect();return [VB.x+(cx-r.left)/r.width*VB.w, VB.y+(cy-r.top)/r.height*VB.h]}
+function inTri(px,py,[ax,ay],[bx,by],[cx,cy]){const d=(bx-ax)*(py-ay)-(by-ay)*(px-ax),e=(cx-bx)*(py-by)-(cy-by)*(px-bx),f=(ax-cx)*(py-cy)-(ay-cy)*(px-cx);return (d>=0&&e>=0&&f>=0)||(d<=0&&e<=0&&f<=0)}
+function roomAt(x,y){
+  const r=ROOMS.find(r=>x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h); if(r)return r;
+  if(inTri(x,y,ATTIC.apex,ATTIC.left,ATTIC.right)) return {id:"attic",attic:true};
+  return null;
+}
+function sizeOf(it,room){ // height/width in canvas units, kept inside the room
+  const maxH=room&&!room.attic?room.h*.92:200, maxW=room&&!room.attic?room.w*.95:400;
+  let h=Math.min(it.h,maxH), w=h*it.ratio; if(w>maxW){w=maxW;h=w/it.ratio}
+  return {w,h};
+}
+function placement(it,room,x,y){ // where a sticker lands for a drop at (x,y)
+  const {w,h}=sizeOf(it,room);
+  if(room.attic){const fy=ATTIC.floor; const half=(fy-ATTIC.apex[1]);
+    const spread=(ATTIC.right[0]-ATTIC.left[0])/2*0.8; const cx=Math.max(400-spread+w/2,Math.min(400+spread-w/2,x));
+    const floor = it.snap==="free"||(it.snap==="auto"&&y<fy-half*.45);
+    return {room:"attic",x:cx,y:floor?Math.min(fy,Math.max(y+h/2,ATTIC.apex[1]+half*.5+h)):fy};}
+  const cx=Math.max(room.x+w/2+4,Math.min(room.x+room.w-w/2-4,x));
+  const toFloor=it.snap==="floor"||(it.snap==="auto"&&y>room.y+room.h*.45);
+  const by=toFloor?room.y+room.h-2:Math.max(room.y+h+4,Math.min(room.y+room.h-2,y+h/2));
+  return {room:room.id,x:cx,y:by};
+}
+
+/* ---------------- render ---------------- */
+function renderSheet(){
+  const s=scale();
+  sheet.innerHTML=items.map(it=>{const {w,h}=sizeOf(it,null);
+    return `<button class="sticker${pos[it.id]?" used":""}" type="button" data-id="${it.id}" aria-label="Sticker"><img src="${it.src}" alt="" draggable="false" style="height:${Math.max(28,h*s)}px"></button>`}).join("")+
+    (items.length?"":`<p class="emptyNote">No stickers yet. Add PNG files in the settings${ALLOW_UPLOAD?" or press + to try some from your computer":""}.</p>`)+
+    (ALLOW_UPLOAD?`<label class="add" title="Add PNG">+<input type="file" id="upload" accept="image/png,image/webp,image/gif,image/svg+xml" multiple aria-label="Add PNG stickers"></label>`:"");
+  sheet.querySelectorAll(".sticker").forEach(el=>{el.addEventListener("pointerdown",startDrag);
+    el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();autoPlace(el.dataset.id)}})});
+  const up=$("#upload"); if(up) up.addEventListener("change",()=>{addFiles(up.files);up.value=""});
+}
+function renderPlaced(popId){
+  placedEl.innerHTML=items.filter(it=>pos[it.id]).map(it=>{const p=pos[it.id],room=ROOMS.find(r=>r.id===p.room)||{attic:true},{h}=sizeOf(it,room);
+    return `<img src="${it.src}" alt="" draggable="false" data-id="${it.id}" class="${popId===it.id?"pop":""}"
+      style="left:${(p.x-VB.x)/VB.w*100}%;top:${(p.y-VB.y)/VB.h*100}%;height:${h/VB.h*100}%">`}).join("");
+  placedEl.querySelectorAll("img").forEach(el=>el.addEventListener("pointerdown",startDrag));
+  updateHud();
+}
+function render(popId){renderSheet();renderPlaced(popId)}
+function filledRooms(){return ROOMS.filter(r=>items.filter(it=>pos[it.id]?.room===r.id).length>=MIN_PER_ROOM).length}
+function updateHud(){ $("#progress").textContent=`${filledRooms()} / ${ROOMS.length} rooms`; $("#random").disabled=!items.some(it=>!pos[it.id]); }
+
+/* ---------------- drag ---------------- */
+let drag=null;
+function startDrag(e){
+  if(alive)return; const el=e.currentTarget, it=items.find(i=>i.id===el.dataset.id); if(!it)return;
+  if(el.classList.contains("sticker")&&pos[it.id])return;
+  el.setPointerCapture(e.pointerId);
+  const {w,h}=sizeOf(it,null), s=scale();
+  const gh=new Image(); gh.src=it.src; gh.className="ghost"; gh.style.height=Math.max(28,h*s)+"px"; document.body.appendChild(gh);
+  drag={el,it,gh,x0:e.clientX,y0:e.clientY,moved:false,fromHouse:!!pos[it.id]};
+  moveGhost(e.clientX,e.clientY);
+  el.onpointermove=ev=>{ if(!drag.moved&&Math.hypot(ev.clientX-drag.x0,ev.clientY-drag.y0)>6){drag.moved=true; if(drag.fromHouse)el.classList.add("lift")}
+    moveGhost(ev.clientX,ev.clientY); const [x,y]=toCanvas(ev.clientX,ev.clientY); hot(roomAt(x,y)) };
+  el.onpointerup=ev=>endDrag(ev); el.onpointercancel=()=>endDrag(null);
+}
+function moveGhost(x,y){drag.gh.style.left=x+"px";drag.gh.style.top=y+"px"}
+function hot(room){document.querySelectorAll(".zone").forEach(z=>z.classList.toggle("hot",!!room&&z.dataset.room===room.id))}
+function endDrag(ev){
+  const d=drag; drag=null; d.el.onpointermove=d.el.onpointerup=d.el.onpointercancel=null; hot(null);
+  if(ev&&!d.moved){ d.gh.remove(); if(d.fromHouse){delete pos[d.it.id];render()} else autoPlace(d.it.id); return }
+  const [x,y]=ev?toCanvas(ev.clientX,ev.clientY):[-1,-1], room=ev&&roomAt(x,y);
+  if(room){ d.gh.remove(); pos[d.it.id]=placement(d.it,room,x,y); render(d.it.id); checkDone(); return }
+  // dropped outside the house → back to the sheet
+  delete pos[d.it.id]; render();
+  const home=sheet.querySelector(`[data-id="${d.it.id}"]`)?.getBoundingClientRect();
+  if(home){ d.gh.classList.add("back"); Object.assign(d.gh.style,{left:home.left+home.width/2+"px",top:home.top+home.height/2+"px",opacity:"0"}); setTimeout(()=>d.gh.remove(),260) } else d.gh.remove();
+}
+function autoPlace(id){ if(alive)return; const it=items.find(i=>i.id===id); if(!it||pos[id])return;
+  const counts=ROOMS.map(r=>items.filter(i=>pos[i.id]?.room===r.id).length), min=Math.min(...counts);
+  const choices=ROOMS.filter((r,i)=>counts[i]===min), room=choices[Math.floor(Math.random()*choices.length)];
+  pos[id]=placement(it,room,room.x+room.w*(.25+Math.random()*.5),room.y+room.h*(it.snap==="free"?.3:.9));
+  render(id); checkDone();
+}
+
+/* ---------------- test uploads ---------------- */
+function addFiles(files){
+  [...files].filter(f=>/^image\//.test(f.type)).forEach(f=>{
+    const src=URL.createObjectURL(f), it={id:"u"+Math.random().toString(36).slice(2,8),src,h:UPLOAD_HEIGHT,snap:"auto",ratio:1};
+    items.push(it); measure(it);
+  }); render();
+}
+if(ALLOW_UPLOAD){
+  sheet.addEventListener("dragover",e=>{if([...e.dataTransfer.types].includes("Files"))e.preventDefault()});
+  sheet.addEventListener("drop",e=>{if(!e.dataTransfer.files.length)return;e.preventDefault();addFiles(e.dataTransfer.files)});
+}
+function measure(it){const im=new Image(); im.onload=()=>{it.ratio=im.naturalWidth/im.naturalHeight||1; render()}; im.src=it.src}
+
+/* ---------------- the house comes alive ---------------- */
+function checkDone(){ if(filledRooms()===ROOMS.length) setTimeout(wake,500) }
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function pickClips(n){
+  let pick,t=0; do{ pick=shuffle(VIDEOS.slice()).slice(0,n); t++ }while(t<30&&pick.join()===lastClips.join());
+  while(pick.length<n) pick.push(VIDEOS[Math.floor(Math.random()*VIDEOS.length)]);
+  lastClips=pick; return pick;
+}
+function wake(){
+  if(alive||filledRooms()<ROOMS.length)return; alive=true; sheet.classList.add("locked");
+  const clips=pickClips(ROOMS.length); screens.innerHTML="";
+  shuffle(ROOMS.map((_,i)=>i)).forEach((ri,k)=>{const r=ROOMS[ri],v=document.createElement("video");
+    Object.assign(v,{src:clips[ri],muted:true,loop:true,playsInline:true,autoplay:true}); v.setAttribute("playsinline","");
+    Object.assign(v.style,{left:(r.x-VB.x)/VB.w*100+"%",top:(r.y-VB.y)/VB.h*100+"%",width:r.w/VB.w*100+"%",height:r.h/VB.h*100+"%"});
+    screens.appendChild(v); v.play().catch(()=>{}); setTimeout(()=>v.classList.add("on"),200+k*260);
+  });
+  wrap.classList.add("alive");
+}
+function reset(){
+  screens.querySelectorAll("video").forEach(v=>v.classList.remove("on")); wrap.classList.remove("alive");
+  placedEl.querySelectorAll("img").forEach(i=>i.style.opacity="0");
+  setTimeout(()=>{for(const k in pos)delete pos[k]; screens.innerHTML=""; alive=false; sheet.classList.remove("locked"); render()},350);
+}
+$("#again").addEventListener("click",reset);
+$("#reset").addEventListener("click",reset);
+$("#random").addEventListener("click",()=>{ if(alive)return; items.filter(it=>!pos[it.id]).forEach((it,i)=>setTimeout(()=>autoPlace(it.id),i*60)) });
+let rt; addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(renderSheet,120)});
+
+drawHouse(); items.forEach(measure); render();
+</script>
+</body>
+</html>
