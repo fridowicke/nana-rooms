@@ -132,11 +132,11 @@ const UPLOAD_HEIGHT = 240;
 const VIDEOS = []; // videos off for now; files stay in videos/ (v01.mp4 … v10.mp4)
 
 // House geometry (800 × 1200 canvas). 4 floors × 2 rooms, floors 162 high; left rooms 16:9 (288 × 162),
-// right rooms 16:9 on floors 1 and 4, 14:9 (252 × 162) on floors 2–3 with a ladder strip on their left. + attic.
+// right rooms 16:9 on floors 1 and 4, 4:3 (216 × 162) on floors 2–3 with a 72-wide ladder strip on their left. + attic.
 const ROOMS = [
   {id:"r1",x:100,y:512, w:288,h:162},{id:"r2",x:388,y:512, w:288,h:162},
-  {id:"r3",x:100,y:674, w:288,h:162},{id:"r4",x:424,y:674, w:252,h:162},
-  {id:"r5",x:100,y:836, w:288,h:162},{id:"r6",x:424,y:836, w:252,h:162},
+  {id:"r3",x:100,y:674, w:288,h:162},{id:"r4",x:460,y:674, w:216,h:162},
+  {id:"r5",x:100,y:836, w:288,h:162},{id:"r6",x:460,y:836, w:216,h:162},
   {id:"r7",x:100,y:998, w:288,h:162},{id:"r8",x:388,y:998, w:288,h:162},
 ];
 const ATTIC = {id:"attic", poly:[[100,512],[230,300],[546,300],[676,512]], top:300, floor:512, video:false};
@@ -166,9 +166,9 @@ function drawHouse(){
     for(let k=1;k<6;k++){const a=Math.PI/2+k*Math.PI/6,cs=Math.cos(a),sn=Math.sin(a);
       fine+=`<path d="M${(100+80*cs).toFixed(1)} ${(c-80*sn).toFixed(1)}L${(100+162*cs).toFixed(1)} ${(c-162*sn).toFixed(1)}"/>`;}
   }
-  // ladder between the columns, floors 2–3
-  fine+=`<path d="M398 678V998M414 678V998`;
-  for(let y=694;y<998;y+=20) fine+=`M398 ${y}H414`;
+  // ladder in the strip between the columns, floors 2–3: two rails, 7 rungs per floor
+  fine+=`<path d="M400 674V998M448 674V998"/><path stroke-width="4" d="`;
+  for(let t=674;t<998;t+=162) for(let k=1;k<8;k++) fine+=`M400 ${t+162*k/8}H448`;
   fine+=`"/>`;
   // tower: window, three hatched flights going down, arched door
   fine+=win(716,526,60);
@@ -182,7 +182,7 @@ function drawHouse(){
   $("#lines").innerHTML=`<g class="struct">
     <polygon points="${pts}"/>
     <rect x="100" y="512" width="576" height="648"/>
-    <path d="M100 674H676M100 836H676M100 998H676M388 512V1160M424 674V998"/>
+    <path d="M100 674H676M100 836H676M100 998H676M388 512V1160M460 674V998"/>
     <path d="M676 512L746 420L816 512V1160"/>
     <path d="M-70 1160H930"/>
     <g class="fine">${fine}</g></g>`;
