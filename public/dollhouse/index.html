@@ -157,10 +157,10 @@ let alive=false, lastClips=[];
 
 function drawHouse(){
   const pts=ATTIC.poly.map(p=>p.join(",")).join(" ");
-  const win=(x,y,w)=>`<rect x="${x}" y="${y}" width="${w}" height="${w}"/><path d="M${x+w/2} ${y}V${y+w}M${x} ${y+w/2}H${x+w}"/>`;
+  const win=(x,y,w,h=w)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}"/><path d="M${x+w/2} ${y}V${y+h}M${x} ${y+h/2}H${x+w}"/>`;
   let fine="";
   // two attic windows, three chimneys
-  fine+=win(258,380,44)+win(474,380,44);
+  fine+=win(250,357,60,90)+win(466,357,60,90);
   [262,370,478].forEach(x=>fine+=`<path d="M${x} 300V262H${x+26}V300"/>`);
   // half-circle stairs on the left wall, one per two floors
   for(let f=0;f<2;f++){const t=512+f*324,c=t+162;
