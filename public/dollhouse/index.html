@@ -30,7 +30,7 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 
 /* house */
 .stageWrap{position:relative;width:100%;justify-self:center}
-.stage{position:relative;width:100%;aspect-ratio:800/1200}
+.stage{position:relative;width:min(100%,calc((100vh - 120px) * 800 / 920));width:min(100%,calc((100dvh - 120px) * 800 / 920));margin:0 auto;aspect-ratio:800/920}
 .layer{position:absolute;inset:0;width:100%;height:100%}
 .screens{position:absolute;inset:0;pointer-events:none}
 .screens video{position:absolute;object-fit:cover;opacity:0;transition:opacity .7s ease;background:var(--ink)}
@@ -42,11 +42,11 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .zone{fill:transparent;stroke:none;transition:fill .15s}
 .zone.hot{fill:var(--faint)}
 .walls{position:absolute;inset:0;pointer-events:none}
-.walls img{position:absolute;object-fit:cover;pointer-events:auto;touch-action:none;cursor:grab;-webkit-user-drag:none}
-.walls img.lift{opacity:.25}
-.walls img.pop{animation:fade .3s ease-out}
+.walls image{pointer-events:auto;touch-action:none;cursor:grab}
+.walls image.lift{opacity:.25}
+.walls image.pop{animation:fade .3s ease-out}
 @keyframes fade{from{opacity:0}to{opacity:1}}
-.alive .walls img{cursor:default}
+.alive .walls image{cursor:default}
 .placed{position:absolute;inset:0;pointer-events:none}
 .placed img{pointer-events:auto;position:absolute;transform:translate(-50%,-100%);touch-action:none;cursor:grab;-webkit-user-drag:none;transition:left .25s ease,top .25s ease}
 .placed img.lift{opacity:.25;transition:none}
@@ -71,7 +71,7 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .ghost{position:fixed;left:0;top:0;pointer-events:none;z-index:50;transform:translate(-50%,-50%)}
 .ghost.back{transition:all .25s ease-in}
 
-@media (max-width:860px){ .app{grid-template-columns:minmax(0,1fr)} }
+@media (max-width:860px){ .app{grid-template-columns:minmax(0,1fr)} .stage{width:100%} }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
@@ -89,10 +89,10 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 
   <div class="stageWrap" id="wrap">
     <div class="stage" id="stage">
-      <svg class="layer" id="zones" viewBox="0 -20 800 1200" aria-hidden="true"></svg>
-      <div class="walls" id="walls"></div>
+      <svg class="layer" id="zones" viewBox="0 250 800 920" preserveAspectRatio="none" aria-hidden="true"></svg>
+      <svg class="layer walls" id="walls" viewBox="0 250 800 920" preserveAspectRatio="none" aria-hidden="true"></svg>
       <div class="screens" id="screens"></div>
-      <svg class="layer" id="lines" viewBox="0 -20 800 1200" aria-hidden="true" style="pointer-events:none"></svg>
+      <svg class="layer" id="lines" viewBox="0 250 800 920" preserveAspectRatio="none" aria-hidden="true" style="pointer-events:none"></svg>
       <div class="placed" id="placed" aria-label="House"></div>
       <div class="banner"><button class="btn primary" id="again" type="button">Play again</button></div>
     </div>
@@ -138,7 +138,7 @@ const ROOMS = [
 const ATTIC = {id:"attic", poly:[[100,512],[230,300],[546,300],[676,512]], top:300, floor:512, video:false};
 
 /* ---------------- setup ---------------- */
-const VB={x:0,y:-20,w:800,h:1200};
+const VB={x:0,y:250,w:800,h:920};          // drawing bounds (chimneys 262 … ground 1160) + margin
 const $=s=>document.querySelector(s);
 const stage=$("#stage"), wrap=$("#wrap"), sheet=$("#sheet"), placedEl=$("#placed"), screens=$("#screens"), wallsEl=$("#walls");
 const isWall=name=>/^wall/i.test(name);
@@ -146,7 +146,6 @@ let items=STICKERS.map((s,i)=>({id:"s"+i, src:s.src, h:(s.h||80)*3, snap:s.snap|
 const pos={};            // id -> {room, x, y}  (x = centre, y = bottom, canvas units); wallpapers: {room}
 const AX=ATTIC.poly.map(p=>p[0]), AY=ATTIC.poly.map(p=>p[1]);
 const ATTIC_BOX={x:Math.min(...AX),y:Math.min(...AY),w:Math.max(...AX)-Math.min(...AX),h:Math.max(...AY)-Math.min(...AY)};
-ATTIC_BOX.clip=`polygon(${ATTIC.poly.map(([x,y])=>`${(x-ATTIC_BOX.x)/ATTIC_BOX.w*100}% ${(y-ATTIC_BOX.y)/ATTIC_BOX.h*100}%`).join(",")})`;
 let alive=false, lastClips=[];
 
 function drawHouse(){
@@ -228,10 +227,13 @@ function renderSheet(){
   const up=$("#upload"); if(up) up.addEventListener("change",()=>{addFiles(up.files);up.value=""});
 }
 function renderPlaced(popId){
-  wallsEl.innerHTML=items.filter(it=>it.wall&&pos[it.id]).map(it=>{const b=ROOMS.find(r=>r.id===pos[it.id].room)||ATTIC_BOX;
-    return `<img src="${it.src}" alt="" draggable="false" data-id="${it.id}" class="${popId===it.id?"pop":""}"
-      style="left:${(b.x-VB.x)/VB.w*100}%;top:${(b.y-VB.y)/VB.h*100}%;width:${b.w/VB.w*100}%;height:${b.h/VB.h*100}%;${b.clip?`clip-path:${b.clip}`:""}">`}).join("");
-  wallsEl.querySelectorAll("img").forEach(el=>el.addEventListener("pointerdown",startDrag));
+  // wallpapers live in the same viewBox as #lines: image = room rect, clipped by the room rect (attic: its polygon)
+  wallsEl.innerHTML=`<defs>${ROOMS.map(r=>`<clipPath id="clip-${r.id}"><rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"/></clipPath>`).join("")}
+    <clipPath id="clip-attic"><polygon points="${ATTIC.poly.map(p=>p.join(",")).join(" ")}"/></clipPath></defs>`+
+    items.filter(it=>it.wall&&pos[it.id]).map(it=>{const id=pos[it.id].room,b=ROOMS.find(r=>r.id===id)||ATTIC_BOX;
+    return `<image href="${it.src}" data-id="${it.id}" class="${popId===it.id?"pop":""}" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}"
+      preserveAspectRatio="xMidYMid slice" clip-path="url(#clip-${id})"/>`}).join("");
+  wallsEl.querySelectorAll("image").forEach(el=>el.addEventListener("pointerdown",startDrag));
   placedEl.innerHTML=items.filter(it=>!it.wall&&pos[it.id]).map(it=>{const p=pos[it.id],room=ROOMS.find(r=>r.id===p.room)||{attic:true},{h}=sizeOf(it,room);
     return `<img src="${it.src}" alt="" draggable="false" data-id="${it.id}" class="${popId===it.id?"pop":""}"
       style="left:${(p.x-VB.x)/VB.w*100}%;top:${(p.y-VB.y)/VB.h*100}%;height:${h/VB.h*100}%">`}).join("");
@@ -310,7 +312,7 @@ function wake(){
 }
 function reset(){
   screens.querySelectorAll("video").forEach(v=>v.classList.remove("on")); wrap.classList.remove("alive");
-  stage.querySelectorAll(".placed img,.walls img").forEach(i=>i.style.opacity="0");
+  stage.querySelectorAll(".placed img,.walls image").forEach(i=>i.style.opacity="0");
   setTimeout(()=>{for(const k in pos)delete pos[k]; screens.innerHTML=""; alive=false; sheet.classList.remove("locked"); render()},350);
 }
 $("#again").addEventListener("click",reset);
