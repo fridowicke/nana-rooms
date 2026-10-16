@@ -49,6 +49,7 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 .alive .walls image{cursor:default}
 .placed{position:absolute;inset:0;pointer-events:none}
+#lines .filled{display:none}
 .placed img{pointer-events:auto;position:absolute;transform:translate(-50%,-100%);touch-action:none;cursor:grab;-webkit-user-drag:none;transition:left .25s ease,top .25s ease}
 .placed img.lift{opacity:.25;transition:none}
 .placed img.pop{animation:pop .3s ease-out}
@@ -119,6 +120,8 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
      Dropped on a room, the attic or the tower it covers that whole area behind the furniture; one per area,
      a new one sends the old one back to the sheet. This works for uploaded files too.
    Objects stay exactly where they are dropped (centre under the finger), anywhere on the stage.
+   SLOTS: a picture whose file name contains "door", "window" or "stair"/"spiral" dropped on (or next to) the matching
+     dashed drawing snaps into it and hides the drawing; one picture per slot. Anywhere else it is a normal object.
    ALLOW_UPLOAD: true shows a "+" on the sheet to test PNGs from your computer
                  (you can also drop files onto the sheet). Set false for the public site.
    ===================================================================== */
@@ -200,6 +203,17 @@ const ROOMS = [
 const ATTIC = {id:"attic", poly:[[100,512],[230,300],[546,300],[676,512]], top:300, floor:512, video:false};
 const TOWER = {id:"tower",x:676,y:512,w:210,h:648}; // inside of the tower below its roof, one wallpaper area
 
+// Slots: the dashed door, windows and spiral stairs; box = bounding box of the drawing (canvas units), g = its SVG group id
+const SLOTS = [
+  {id:"door",         type:"door",   x:736, y:1015, w:90,  h:145},
+  {id:"attic-win-l",  type:"window", x:250, y:357,  w:60,  h:90},
+  {id:"attic-win-r",  type:"window", x:466, y:357,  w:60,  h:90},
+  {id:"tower-win",    type:"window", x:736, y:516,  w:90,  h:90},
+  {id:"stairs",       type:"stairs", x:-40, y:512,  w:124, h:648},
+];
+const SLOT_NEAR = 20; // a drop this close to a slot box still snaps
+const slotType=name=>/door/i.test(name)?"door":/window/i.test(name)?"window":/stair|spiral/i.test(name)?"stairs":null;
+
 /* ---------------- setup ---------------- */
 const VB={x:-80,y:250,w:1090,h:920};       // drawing bounds (spiral stair -40 … ground 1000, chimneys 262 … ground 1160) + margin
 const $=s=>document.querySelector(s);
@@ -207,7 +221,7 @@ const stage=$("#stage"), wrap=$("#wrap"), sheet=$("#sheet"), placedEl=$("#placed
 const isWall=name=>/^wall/i.test(name);
 const isJpeg=(name,type)=>type==="image/jpeg"||/\.jpe?g$/i.test(name);
 let items=STICKERS.map((s,i)=>({id:"s"+i, src:s.src, name:s.src.split("/").pop(), h:(s.h||80)*3, snap:s.snap||"auto", ratio:1, wall:false, ready:false}));
-const pos={};            // id -> {room, x, y}  (x = centre, y = bottom, canvas units, room = area or null); wallpapers: {room}
+const pos={};            // id -> {room, x, y}  (x = centre, y = bottom, canvas units, room = area or null, slot = slot id); wallpapers: {room}
 const AX=ATTIC.poly.map(p=>p[0]), AY=ATTIC.poly.map(p=>p[1]);
 const ATTIC_BOX={x:Math.min(...AX),y:Math.min(...AY),w:Math.max(...AX)-Math.min(...AX),h:Math.max(...AY)-Math.min(...AY)};
 let alive=false, lastClips=[];
@@ -217,7 +231,7 @@ function drawHouse(){
   const win=(x,y,w,h=w)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}"/><path d="M${x+w/2} ${y}V${y+h}M${x} ${y+h/2}H${x+w}"/>`;
   let fine="", spiral="";
   // two attic windows, three chimneys
-  fine+=win(250,357,60,90)+win(466,357,60,90);
+  fine+=`<g id="slot-attic-win-l">${win(250,357,60,90)}</g><g id="slot-attic-win-r">${win(466,357,60,90)}</g>`;
   [262,370,478].forEach(x=>fine+=`<path d="M${x} 300V262H${x+26}V300"/>`);
   // spiral stair outside the left wall: one smooth coil seen from the side, one loop per floor (ground 1160 … top 512),
   // drawn as cubic segments of x=cx-rx·cos, y=floor line-ry·sin (exact tangents); outside .fine so it takes the wall stroke
@@ -226,18 +240,18 @@ function drawHouse(){
   let d=`M${P(0).map(q).join(" ")}`;
   for(let k=0;k<4*n;k++){const t0=k/n,t1=(k+1)/n,a=P(t0),b=P(t1),da=D(t0),db=D(t1),h=1/n/3;
     d+=`C${q(a[0]+da[0]*h)} ${q(a[1]+da[1]*h)} ${q(b[0]-db[0]*h)} ${q(b[1]-db[1]*h)} ${q(b[0])} ${q(b[1])}`}
-  spiral=`<path d="${d}"/>`;}
+  spiral=`<g id="slot-stairs"><path d="${d}"/></g>`;}
   // ladder in the strip between the columns, floors 2–3: the walls are the rails, 4 rungs per floor wall to wall
   fine+=`<path class="rung" d="`;
   for(let t=674;t<998;t+=162) for(let k=1;k<5;k++) fine+=`M388 ${t+162*k/5}H424`;
   fine+=`"/>`;
   // tower: window, three hatched flights going down, arched door
-  fine+=win(736,516,90);
+  fine+=`<g id="slot-tower-win">${win(736,516,90)}</g>`;
   [[600,1],[740,-1],[880,1]].forEach(([y,d])=>{const x0=d>0?706:856,x1=d>0?856:706;
     fine+=`<path d="M${x0} ${y}L${x1} ${y+100}M${x0} ${y+26}L${x1} ${y+126}`;
     for(let k=1;k<21;k++){const x=x0+(x1-x0)*k/21,yy=y+100*k/21; fine+=`M${x} ${yy}V${yy+26}`}
     fine+=`"/>`;});
-  fine+=`<path d="M736 1160V1060A45 45 0 0 1 826 1060V1160"/>`;
+  fine+=`<g id="slot-door"><path d="M736 1160V1060A45 45 0 0 1 826 1060V1160"/></g>`;
   // mailbox on a post
   fine+=`<path d="M944 1160V1024M908 1024V988A38 24 0 0 1 984 988V1024ZM976 988V952H956V968H976"/>`;
   $("#lines").innerHTML=`<g class="struct">
@@ -264,10 +278,22 @@ function roomAt(x,y){
   return null;
 }
 const inRect=(cx,cy,el)=>{const r=el.getBoundingClientRect();return cx>=r.left&&cx<=r.right&&cy>=r.top&&cy<=r.bottom};
-function sizeOf(it){ // height/width in canvas units, never bigger than a normal room
+function sizeOf(it){ // height/width in canvas units, never bigger than a normal room; in a slot: contained in the slot box
+  const sl=pos[it.id]?.slot&&SLOTS.find(s=>s.id===pos[it.id].slot);
+  if(sl){const w=Math.min(sl.w,sl.h*it.ratio); return {w,h:w/it.ratio}}
   const maxH=ROOMS[0].h*.92, maxW=ROOMS[0].w*.95;
   let h=Math.min(it.h,maxH), w=h*it.ratio; if(w>maxW){w=maxW;h=w/it.ratio}
   return {w,h};
+}
+function slotAt(it,x,y){ // nearest slot of the item's type around the drop point, or null
+  const t=slotType(it.name); if(!t||it.wall)return null;
+  const d=s=>Math.hypot(Math.max(s.x-x,0,x-s.x-s.w),Math.max(s.y-y,0,y-s.y-s.h));
+  return SLOTS.filter(s=>s.type===t&&d(s)<=SLOT_NEAR).sort((a,b)=>d(a)-d(b))[0]||null;
+}
+function putSlot(it,sl){ // one picture per slot: the previous one goes back to the sheet
+  items.forEach(o=>{if(o!==it&&pos[o.id]?.slot===sl.id)delete pos[o.id]});
+  pos[it.id]={room:null,slot:sl.id}; const {h}=sizeOf(it);
+  pos[it.id].x=sl.x+sl.w/2; pos[it.id].y=sl.type==="window"?sl.y+sl.h/2+h/2:sl.y+sl.h;
 }
 function put(it,room,x,y){ // place a sticker (x,y = its centre); a wallpaper replaces the one already in that area
   if(it.wall){ items.forEach(o=>{if(o.wall&&o!==it&&pos[o.id]?.room===room.id)delete pos[o.id]}); pos[it.id]={room:room.id}; }
@@ -298,6 +324,7 @@ function renderPlaced(popId){
     return `<image href="${it.src}" data-id="${it.id}" class="${popId===it.id?"pop":""}" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}"
       preserveAspectRatio="xMidYMid slice" clip-path="url(#clip-${id})"/>`}).join("");
   wallsEl.querySelectorAll("image").forEach(el=>el.addEventListener("pointerdown",startDrag));
+  SLOTS.forEach(s=>document.getElementById("slot-"+s.id)?.classList.toggle("filled",items.some(it=>pos[it.id]?.slot===s.id)));
   placedEl.innerHTML=items.filter(it=>!it.wall&&pos[it.id]).map(it=>{const p=pos[it.id],{h}=sizeOf(it);
     return `<img src="${it.src}" alt="" draggable="false" data-id="${it.id}" class="${popId===it.id?"pop":""}"
       style="left:${(p.x-VB.x)/VB.w*100}%;top:${(p.y-VB.y)/VB.h*100}%;height:${h/VB.h*100}%">`}).join("");
@@ -329,7 +356,7 @@ function endDrag(ev){
   if(ev&&!d.moved){ d.gh.remove(); if(d.fromHouse){delete pos[d.it.id];render()} else autoPlace(d.it.id); return }
   const [x,y]=ev?toCanvas(ev.clientX,ev.clientY):[-1,-1], room=ev&&roomAt(x,y);
   // wallpapers need a room, the attic or the tower; objects stay anywhere on the stage except over the sheet
-  if(d.it.wall?room:ev&&!inRect(ev.clientX,ev.clientY,sheet)&&inRect(ev.clientX,ev.clientY,stage)){ d.gh.remove(); put(d.it,room,x,y); render(d.it.id); checkDone(); return }
+  if(d.it.wall?room:ev&&!inRect(ev.clientX,ev.clientY,sheet)&&inRect(ev.clientX,ev.clientY,stage)){ d.gh.remove(); const sl=slotAt(d.it,x,y); if(sl)putSlot(d.it,sl); else put(d.it,room,x,y); render(d.it.id); checkDone(); return }
   // otherwise → back to the sheet
   delete pos[d.it.id]; render();
   const home=sheet.querySelector(`[data-id="${d.it.id}"]`)?.getBoundingClientRect();
