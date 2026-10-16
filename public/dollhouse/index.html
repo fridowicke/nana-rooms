@@ -134,11 +134,11 @@ const UPLOAD_HEIGHT = 240;
 const VIDEOS = []; // videos off for now; files stay in videos/ (v01.mp4 … v10.mp4)
 
 // House geometry (800 × 1200 canvas). 4 floors × 2 rooms, floors 162 high; left rooms 16:9 (288 × 162),
-// right rooms 16:9 on floors 1 and 4, 4:3 (216 × 162) on floors 2–3 with a 72-wide ladder strip on their left. + attic.
+// right rooms 16:9 on floors 1 and 4, 14:9 (252 × 162) on floors 2–3 with a 36-wide ladder strip on their left. + attic.
 const ROOMS = [
   {id:"r1",x:100,y:512, w:288,h:162},{id:"r2",x:388,y:512, w:288,h:162},
-  {id:"r3",x:100,y:674, w:288,h:162},{id:"r4",x:460,y:674, w:216,h:162},
-  {id:"r5",x:100,y:836, w:288,h:162},{id:"r6",x:460,y:836, w:216,h:162},
+  {id:"r3",x:100,y:674, w:288,h:162},{id:"r4",x:424,y:674, w:252,h:162},
+  {id:"r5",x:100,y:836, w:288,h:162},{id:"r6",x:424,y:836, w:252,h:162},
   {id:"r7",x:100,y:998, w:288,h:162},{id:"r8",x:388,y:998, w:288,h:162},
 ];
 const ATTIC = {id:"attic", poly:[[100,512],[230,300],[546,300],[676,512]], top:300, floor:512, video:false};
@@ -175,7 +175,7 @@ function drawHouse(){
     fine+=`<path d="${d}"/>`;}}
   // ladder in the strip between the columns, floors 2–3: the walls are the rails, 4 rungs per floor wall to wall
   fine+=`<path class="rung" d="`;
-  for(let t=674;t<998;t+=162) for(let k=1;k<5;k++) fine+=`M388 ${t+162*k/5}H460`;
+  for(let t=674;t<998;t+=162) for(let k=1;k<5;k++) fine+=`M388 ${t+162*k/5}H424`;
   fine+=`"/>`;
   // tower: window, three hatched flights going down, arched door
   fine+=win(716,526,60);
@@ -189,7 +189,7 @@ function drawHouse(){
   $("#lines").innerHTML=`<g class="struct">
     <polygon points="${pts}"/>
     <rect x="100" y="512" width="576" height="648"/>
-    <path d="M100 674H676M100 836H676M100 998H676M388 512V1160M460 674V998"/>
+    <path d="M100 674H676M100 836H676M100 998H676M388 512V1160M424 674V998"/>
     <path d="M676 512L746 420L816 512V1160"/>
     <path d="M-70 1160H930"/>
     <g class="fine">${fine}</g></g>`;
