@@ -41,8 +41,14 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .alive .struct .fine{stroke-dasharray:none}
 .zone{fill:transparent;stroke:none;transition:fill .15s}
 .zone.hot{fill:var(--faint)}
-.placed{position:absolute;inset:0}
-.placed img{position:absolute;transform:translate(-50%,-100%);touch-action:none;cursor:grab;-webkit-user-drag:none;transition:left .25s ease,top .25s ease}
+.walls{position:absolute;inset:0;pointer-events:none}
+.walls img{position:absolute;object-fit:cover;pointer-events:auto;touch-action:none;cursor:grab;-webkit-user-drag:none}
+.walls img.lift{opacity:.25}
+.walls img.pop{animation:fade .3s ease-out}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.alive .walls img{cursor:default}
+.placed{position:absolute;inset:0;pointer-events:none}
+.placed img{pointer-events:auto;position:absolute;transform:translate(-50%,-100%);touch-action:none;cursor:grab;-webkit-user-drag:none;transition:left .25s ease,top .25s ease}
 .placed img.lift{opacity:.25;transition:none}
 .placed img.pop{animation:pop .3s ease-out}
 @keyframes pop{from{opacity:0;transform:translate(-50%,-92%) scale(.9)}to{opacity:1;transform:translate(-50%,-100%)}}
@@ -84,6 +90,7 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
   <div class="stageWrap" id="wrap">
     <div class="stage" id="stage">
       <svg class="layer" id="zones" viewBox="0 -20 800 1200" aria-hidden="true"></svg>
+      <div class="walls" id="walls"></div>
       <div class="screens" id="screens"></div>
       <svg class="layer" id="lines" viewBox="0 -20 800 1200" aria-hidden="true" style="pointer-events:none"></svg>
       <div class="placed" id="placed" aria-label="House"></div>
@@ -99,9 +106,12 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
    SETTINGS
    ---------------------------------------------------------------------
    STICKERS: put your PNG files into  pieces/  and list them here:
-     {src:"pieces/bed.png",   h:80}               h = height in the house
-     {src:"pieces/lamp.png",  h:50, snap:"free"}   (one room is 180 tall)
+     {src:"pieces/bed.png",   h:80}               h = height in the house, shown 3× bigger
+     {src:"pieces/lamp.png",  h:50, snap:"free"}   (one room is 162 tall; never bigger than the room)
      {src:"pieces/sofa.png",  h:70, snap:"floor"}
+   WALLPAPER: name a file wall_something.png (any name starting with "wall") to make it a wallpaper.
+     Dropped on a room or the attic it covers that whole area behind the furniture; one per area,
+     a new one sends the old one back to the sheet. This works for uploaded files too.
    snap: "auto"  (default) low drop → stands on the floor, high drop → stays on the wall
          "floor" always stands on the floor
          "free"  always stays where it was dropped
@@ -114,7 +124,7 @@ const STICKERS = [
 ];
 const MIN_PER_ROOM = 1;
 const ALLOW_UPLOAD = true;
-const UPLOAD_HEIGHT = 80;
+const UPLOAD_HEIGHT = 240;
 
 const VIDEOS = ["videos/v01.mp4","videos/v02.mp4","videos/v03.mp4","videos/v04.mp4","videos/v05.mp4",
                 "videos/v06.mp4","videos/v07.mp4","videos/v08.mp4","videos/v09.mp4","videos/v10.mp4"];
@@ -132,9 +142,13 @@ const ATTIC = {id:"attic", poly:[[100,512],[230,300],[546,300],[676,512]], top:3
 /* ---------------- setup ---------------- */
 const VB={x:0,y:-20,w:800,h:1200};
 const $=s=>document.querySelector(s);
-const stage=$("#stage"), wrap=$("#wrap"), sheet=$("#sheet"), placedEl=$("#placed"), screens=$("#screens");
-let items=STICKERS.map((s,i)=>({id:"s"+i, src:s.src, h:s.h||80, snap:s.snap||"auto", ratio:1}));
-const pos={};            // id -> {room, x, y}  (x = centre, y = bottom, canvas units)
+const stage=$("#stage"), wrap=$("#wrap"), sheet=$("#sheet"), placedEl=$("#placed"), screens=$("#screens"), wallsEl=$("#walls");
+const isWall=name=>/^wall/i.test(name);
+let items=STICKERS.map((s,i)=>({id:"s"+i, src:s.src, h:(s.h||80)*3, snap:s.snap||"auto", ratio:1, wall:isWall(s.src.split("/").pop())}));
+const pos={};            // id -> {room, x, y}  (x = centre, y = bottom, canvas units); wallpapers: {room}
+const AX=ATTIC.poly.map(p=>p[0]), AY=ATTIC.poly.map(p=>p[1]);
+const ATTIC_BOX={x:Math.min(...AX),y:Math.min(...AY),w:Math.max(...AX)-Math.min(...AX),h:Math.max(...AY)-Math.min(...AY)};
+ATTIC_BOX.clip=`polygon(${ATTIC.poly.map(([x,y])=>`${(x-ATTIC_BOX.x)/ATTIC_BOX.w*100}% ${(y-ATTIC_BOX.y)/ATTIC_BOX.h*100}%`).join(",")})`;
 let alive=false, lastClips=[];
 
 function drawHouse(){
@@ -199,12 +213,16 @@ function placement(it,room,x,y){ // where a sticker lands for a drop at (x,y)
   const by=toFloor?room.y+room.h-2:Math.max(room.y+h+4,Math.min(room.y+room.h-2,y+h/2));
   return {room:room.id,x:cx,y:by};
 }
+function put(it,room,x,y){ // place a sticker; a wallpaper replaces the one already in that area
+  if(it.wall){ items.forEach(o=>{if(o.wall&&o!==it&&pos[o.id]?.room===room.id)delete pos[o.id]}); pos[it.id]={room:room.id}; }
+  else pos[it.id]=placement(it,room,x,y);
+}
 
 /* ---------------- render ---------------- */
+const thumbH=it=>Math.min(160,Math.max(72,sizeOf(it,null).h*scale())); // sticker size on the sheet, px
 function renderSheet(){
-  const s=scale();
-  sheet.innerHTML=items.map(it=>{const {w,h}=sizeOf(it,null);
-    return `<button class="sticker${pos[it.id]?" used":""}" type="button" data-id="${it.id}" aria-label="Sticker"><img src="${it.src}" alt="" draggable="false" style="height:${Math.max(28,h*s)}px"></button>`}).join("")+
+  sheet.innerHTML=items.map(it=>
+    `<button class="sticker${pos[it.id]?" used":""}" type="button" data-id="${it.id}" aria-label="Sticker"><img src="${it.src}" alt="" draggable="false" style="height:${thumbH(it)}px"></button>`).join("")+
     (items.length?"":`<p class="emptyNote">No stickers yet. Add PNG files in the settings${ALLOW_UPLOAD?" or press + to try some from your computer":""}.</p>`)+
     (ALLOW_UPLOAD?`<label class="add" title="Add PNG">+<input type="file" id="upload" accept="image/png,image/webp,image/gif,image/svg+xml" multiple aria-label="Add PNG stickers"></label>`:"");
   sheet.querySelectorAll(".sticker").forEach(el=>{el.addEventListener("pointerdown",startDrag);
@@ -212,7 +230,11 @@ function renderSheet(){
   const up=$("#upload"); if(up) up.addEventListener("change",()=>{addFiles(up.files);up.value=""});
 }
 function renderPlaced(popId){
-  placedEl.innerHTML=items.filter(it=>pos[it.id]).map(it=>{const p=pos[it.id],room=ROOMS.find(r=>r.id===p.room)||{attic:true},{h}=sizeOf(it,room);
+  wallsEl.innerHTML=items.filter(it=>it.wall&&pos[it.id]).map(it=>{const b=ROOMS.find(r=>r.id===pos[it.id].room)||ATTIC_BOX;
+    return `<img src="${it.src}" alt="" draggable="false" data-id="${it.id}" class="${popId===it.id?"pop":""}"
+      style="left:${(b.x-VB.x)/VB.w*100}%;top:${(b.y-VB.y)/VB.h*100}%;width:${b.w/VB.w*100}%;height:${b.h/VB.h*100}%;${b.clip?`clip-path:${b.clip}`:""}">`}).join("");
+  wallsEl.querySelectorAll("img").forEach(el=>el.addEventListener("pointerdown",startDrag));
+  placedEl.innerHTML=items.filter(it=>!it.wall&&pos[it.id]).map(it=>{const p=pos[it.id],room=ROOMS.find(r=>r.id===p.room)||{attic:true},{h}=sizeOf(it,room);
     return `<img src="${it.src}" alt="" draggable="false" data-id="${it.id}" class="${popId===it.id?"pop":""}"
       style="left:${(p.x-VB.x)/VB.w*100}%;top:${(p.y-VB.y)/VB.h*100}%;height:${h/VB.h*100}%">`}).join("");
   placedEl.querySelectorAll("img").forEach(el=>el.addEventListener("pointerdown",startDrag));
@@ -228,8 +250,7 @@ function startDrag(e){
   if(alive)return; const el=e.currentTarget, it=items.find(i=>i.id===el.dataset.id); if(!it)return;
   if(el.classList.contains("sticker")&&pos[it.id])return;
   el.setPointerCapture(e.pointerId);
-  const {w,h}=sizeOf(it,null), s=scale();
-  const gh=new Image(); gh.src=it.src; gh.className="ghost"; gh.style.height=Math.max(28,h*s)+"px"; document.body.appendChild(gh);
+  const gh=new Image(); gh.src=it.src; gh.className="ghost"; gh.style.height=thumbH(it)+"px"; document.body.appendChild(gh);
   drag={el,it,gh,x0:e.clientX,y0:e.clientY,moved:false,fromHouse:!!pos[it.id]};
   moveGhost(e.clientX,e.clientY);
   el.onpointermove=ev=>{ if(!drag.moved&&Math.hypot(ev.clientX-drag.x0,ev.clientY-drag.y0)>6){drag.moved=true; if(drag.fromHouse)el.classList.add("lift")}
@@ -242,23 +263,24 @@ function endDrag(ev){
   const d=drag; drag=null; d.el.onpointermove=d.el.onpointerup=d.el.onpointercancel=null; hot(null);
   if(ev&&!d.moved){ d.gh.remove(); if(d.fromHouse){delete pos[d.it.id];render()} else autoPlace(d.it.id); return }
   const [x,y]=ev?toCanvas(ev.clientX,ev.clientY):[-1,-1], room=ev&&roomAt(x,y);
-  if(room){ d.gh.remove(); pos[d.it.id]=placement(d.it,room,x,y); render(d.it.id); checkDone(); return }
+  if(room){ d.gh.remove(); put(d.it,room,x,y); render(d.it.id); checkDone(); return }
   // dropped outside the house → back to the sheet
   delete pos[d.it.id]; render();
   const home=sheet.querySelector(`[data-id="${d.it.id}"]`)?.getBoundingClientRect();
   if(home){ d.gh.classList.add("back"); Object.assign(d.gh.style,{left:home.left+home.width/2+"px",top:home.top+home.height/2+"px",opacity:"0"}); setTimeout(()=>d.gh.remove(),260) } else d.gh.remove();
 }
 function autoPlace(id){ if(alive)return; const it=items.find(i=>i.id===id); if(!it||pos[id])return;
-  const counts=ROOMS.map(r=>items.filter(i=>pos[i.id]?.room===r.id).length), min=Math.min(...counts);
-  const choices=ROOMS.filter((r,i)=>counts[i]===min), room=choices[Math.floor(Math.random()*choices.length)];
-  pos[id]=placement(it,room,room.x+room.w*(.25+Math.random()*.5),room.y+room.h*(it.snap==="free"?.3:.9));
+  const rooms=it.wall?ROOMS.filter(r=>!items.some(o=>o.wall&&pos[o.id]?.room===r.id)):ROOMS; if(!rooms.length)return;
+  const counts=rooms.map(r=>items.filter(i=>pos[i.id]?.room===r.id).length), min=Math.min(...counts);
+  const choices=rooms.filter((r,i)=>counts[i]===min), room=choices[Math.floor(Math.random()*choices.length)];
+  put(it,room,room.x+room.w*(.25+Math.random()*.5),room.y+room.h*(it.snap==="free"?.3:.9));
   render(id); checkDone();
 }
 
 /* ---------------- test uploads ---------------- */
 function addFiles(files){
   [...files].filter(f=>/^image\//.test(f.type)).forEach(f=>{
-    const src=URL.createObjectURL(f), it={id:"u"+Math.random().toString(36).slice(2,8),src,h:UPLOAD_HEIGHT,snap:"auto",ratio:1};
+    const src=URL.createObjectURL(f), it={id:"u"+Math.random().toString(36).slice(2,8),src,h:UPLOAD_HEIGHT,snap:"auto",ratio:1,wall:isWall(f.name)};
     items.push(it); measure(it);
   }); render();
 }
@@ -288,7 +310,7 @@ function wake(){
 }
 function reset(){
   screens.querySelectorAll("video").forEach(v=>v.classList.remove("on")); wrap.classList.remove("alive");
-  placedEl.querySelectorAll("img").forEach(i=>i.style.opacity="0");
+  stage.querySelectorAll(".placed img,.walls img").forEach(i=>i.style.opacity="0");
   setTimeout(()=>{for(const k in pos)delete pos[k]; screens.innerHTML=""; alive=false; sheet.classList.remove("locked"); render()},350);
 }
 $("#again").addEventListener("click",reset);
