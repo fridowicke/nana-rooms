@@ -30,7 +30,7 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 
 /* house */
 .stageWrap{position:relative;width:100%;justify-self:center}
-.stage{position:relative;width:min(100%,calc((100vh - 60px) * 1020 / 920));width:min(100%,calc((100dvh - 60px) * 1020 / 920));margin:0 auto;aspect-ratio:1020/920}
+.stage{position:relative;width:min(100%,calc((100vh - 60px) * 1090 / 920));width:min(100%,calc((100dvh - 60px) * 1090 / 920));margin:0 auto;aspect-ratio:1090/920}
 .layer{position:absolute;inset:0;width:100%;height:100%}
 .screens{position:absolute;inset:0;pointer-events:none}
 .screens video{position:absolute;object-fit:cover;opacity:0;transition:opacity .7s ease;background:var(--ink)}
@@ -93,10 +93,10 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 
   <div class="stageWrap" id="wrap">
     <div class="stage" id="stage">
-      <svg class="layer" id="zones" viewBox="-80 250 1020 920" preserveAspectRatio="none" aria-hidden="true"></svg>
-      <svg class="layer walls" id="walls" viewBox="-80 250 1020 920" preserveAspectRatio="none" aria-hidden="true"></svg>
+      <svg class="layer" id="zones" viewBox="-80 250 1090 920" preserveAspectRatio="none" aria-hidden="true"></svg>
+      <svg class="layer walls" id="walls" viewBox="-80 250 1090 920" preserveAspectRatio="none" aria-hidden="true"></svg>
       <div class="screens" id="screens"></div>
-      <svg class="layer" id="lines" viewBox="-80 250 1020 920" preserveAspectRatio="none" aria-hidden="true" style="pointer-events:none"></svg>
+      <svg class="layer" id="lines" viewBox="-80 250 1090 920" preserveAspectRatio="none" aria-hidden="true" style="pointer-events:none"></svg>
       <div class="placed" id="placed" aria-label="House"></div>
       <div class="banner"><button class="btn primary" id="again" type="button">Play again</button></div>
     </div>
@@ -116,11 +116,9 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
    WALLPAPER vs OBJECT is decided by the picture itself: a picture with no transparency (a normal photo,
      JPG or opaque PNG) is a wallpaper; a cut-out PNG with transparent parts is an object.
      A file name starting with "wall" (wall_something.png) is always a wallpaper.
-     Dropped on a room or the attic it covers that whole area behind the furniture; one per area,
+     Dropped on a room, the attic or the tower it covers that whole area behind the furniture; one per area,
      a new one sends the old one back to the sheet. This works for uploaded files too.
-   snap: "auto"  (default) low drop → stands on the floor, high drop → stays on the wall
-         "floor" always stands on the floor
-         "free"  always stays where it was dropped
+   Objects stay exactly where they are dropped (centre under the finger), anywhere on the stage.
    ALLOW_UPLOAD: true shows a "+" on the sheet to test PNGs from your computer
                  (you can also drop files onto the sheet). Set false for the public site.
    ===================================================================== */
@@ -148,15 +146,16 @@ const ROOMS = [
   {id:"r7",x:100,y:998, w:288,h:162},{id:"r8",x:388,y:998, w:288,h:162},
 ];
 const ATTIC = {id:"attic", poly:[[100,512],[230,300],[546,300],[676,512]], top:300, floor:512, video:false};
+const TOWER = {id:"tower",x:676,y:512,w:210,h:648}; // inside of the tower below its roof, one wallpaper area
 
 /* ---------------- setup ---------------- */
-const VB={x:-80,y:250,w:1020,h:920};       // drawing bounds (spiral stair -40 … mailbox 914, chimneys 262 … ground 1160) + margin
+const VB={x:-80,y:250,w:1090,h:920};       // drawing bounds (spiral stair -40 … ground 1000, chimneys 262 … ground 1160) + margin
 const $=s=>document.querySelector(s);
 const stage=$("#stage"), wrap=$("#wrap"), sheet=$("#sheet"), placedEl=$("#placed"), screens=$("#screens"), wallsEl=$("#walls");
 const isWall=name=>/^wall/i.test(name);
 const isJpeg=(name,type)=>type==="image/jpeg"||/\.jpe?g$/i.test(name);
 let items=STICKERS.map((s,i)=>({id:"s"+i, src:s.src, name:s.src.split("/").pop(), h:(s.h||80)*3, snap:s.snap||"auto", ratio:1, wall:false, ready:false}));
-const pos={};            // id -> {room, x, y}  (x = centre, y = bottom, canvas units); wallpapers: {room}
+const pos={};            // id -> {room, x, y}  (x = centre, y = bottom, canvas units, room = area or null); wallpapers: {room}
 const AX=ATTIC.poly.map(p=>p[0]), AY=ATTIC.poly.map(p=>p[1]);
 const ATTIC_BOX={x:Math.min(...AX),y:Math.min(...AY),w:Math.max(...AX)-Math.min(...AX),h:Math.max(...AY)-Math.min(...AY)};
 let alive=false, lastClips=[];
@@ -181,24 +180,25 @@ function drawHouse(){
   for(let t=674;t<998;t+=162) for(let k=1;k<5;k++) fine+=`M388 ${t+162*k/5}H424`;
   fine+=`"/>`;
   // tower: window, three hatched flights going down, arched door
-  fine+=win(716,526,60);
-  [[600,1],[740,-1],[880,1]].forEach(([y,d])=>{const x0=d>0?696:796,x1=d>0?796:696;
+  fine+=win(736,516,90);
+  [[600,1],[740,-1],[880,1]].forEach(([y,d])=>{const x0=d>0?706:856,x1=d>0?856:706;
     fine+=`<path d="M${x0} ${y}L${x1} ${y+100}M${x0} ${y+26}L${x1} ${y+126}`;
-    for(let k=1;k<14;k++){const x=x0+(x1-x0)*k/14,yy=y+100*k/14; fine+=`M${x} ${yy}V${yy+26}`}
+    for(let k=1;k<21;k++){const x=x0+(x1-x0)*k/21,yy=y+100*k/21; fine+=`M${x} ${yy}V${yy+26}`}
     fine+=`"/>`;});
-  fine+=`<path d="M716 1160V1060A30 30 0 0 1 776 1060V1160"/>`;
+  fine+=`<path d="M736 1160V1060A45 45 0 0 1 826 1060V1160"/>`;
   // mailbox on a post
-  fine+=`<path d="M874 1160V1024M838 1024V988A38 24 0 0 1 914 988V1024ZM906 988V952H886V968H906"/>`;
+  fine+=`<path d="M944 1160V1024M908 1024V988A38 24 0 0 1 984 988V1024ZM976 988V952H956V968H976"/>`;
   $("#lines").innerHTML=`<g class="struct">
     <polygon points="${pts}"/>
     <rect x="100" y="512" width="576" height="648"/>
     <path d="M100 674H676M100 836H676M100 998H676M388 512V1160M424 674V998"/>
-    <path d="M676 512L746 420L816 512V1160"/>
-    <path d="M-70 1160H930"/>
+    <path d="M676 512L781 374L886 512V1160"/>
+    <path d="M-70 1160H1000"/>
     ${spiral}
     <g class="fine">${fine}</g></g>`;
   $("#zones").innerHTML=ROOMS.map(r=>`<rect class="zone" data-room="${r.id}" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"/>`).join("")+
-    `<polygon class="zone" data-room="attic" points="${pts}"/>`;
+    `<polygon class="zone" data-room="attic" points="${pts}"/>`+
+    `<rect class="zone" data-room="tower" x="${TOWER.x}" y="${TOWER.y}" width="${TOWER.w}" height="${TOWER.h}"/>`;
 }
 
 /* ---------------- geometry helpers ---------------- */
@@ -208,31 +208,22 @@ function inPoly(px,py,poly){let c=false;for(let i=0,j=poly.length-1;i<poly.lengt
 function roomAt(x,y){
   const r=ROOMS.find(r=>x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h); if(r)return r;
   if(inPoly(x,y,ATTIC.poly)) return {id:"attic",attic:true};
+  if(x>=TOWER.x&&x<=TOWER.x+TOWER.w&&y>=TOWER.y&&y<=TOWER.y+TOWER.h) return TOWER;
   return null;
 }
-function sizeOf(it,room){ // height/width in canvas units, kept inside the room
-  const maxH=room&&!room.attic?room.h*.92:(ATTIC.floor-ATTIC.top)*.85, maxW=room&&!room.attic?room.w*.95:400;
+const inRect=(cx,cy,el)=>{const r=el.getBoundingClientRect();return cx>=r.left&&cx<=r.right&&cy>=r.top&&cy<=r.bottom};
+function sizeOf(it){ // height/width in canvas units, never bigger than a normal room
+  const maxH=ROOMS[0].h*.92, maxW=ROOMS[0].w*.95;
   let h=Math.min(it.h,maxH), w=h*it.ratio; if(w>maxW){w=maxW;h=w/it.ratio}
   return {w,h};
 }
-function placement(it,room,x,y){ // where a sticker lands for a drop at (x,y)
-  const {w,h}=sizeOf(it,room);
-  if(room.attic){const fy=ATTIC.floor; const half=(fy-ATTIC.top); const [[l],,,[r]]=ATTIC.poly, mid=(l+r)/2;
-    const spread=(r-l)/2*0.8; const cx=Math.max(mid-spread+w/2,Math.min(mid+spread-w/2,x));
-    const floor = it.snap==="free"||(it.snap==="auto"&&y<fy-half*.45);
-    return {room:"attic",x:cx,y:floor?Math.min(fy,Math.max(y+h/2,ATTIC.top+half*.3+h)):fy};}
-  const cx=Math.max(room.x+w/2+4,Math.min(room.x+room.w-w/2-4,x));
-  const toFloor=it.snap==="floor"||(it.snap==="auto"&&y>room.y+room.h*.45);
-  const by=toFloor?room.y+room.h-2:Math.max(room.y+h+4,Math.min(room.y+room.h-2,y+h/2));
-  return {room:room.id,x:cx,y:by};
-}
-function put(it,room,x,y){ // place a sticker; a wallpaper replaces the one already in that area
+function put(it,room,x,y){ // place a sticker (x,y = its centre); a wallpaper replaces the one already in that area
   if(it.wall){ items.forEach(o=>{if(o.wall&&o!==it&&pos[o.id]?.room===room.id)delete pos[o.id]}); pos[it.id]={room:room.id}; }
-  else pos[it.id]=placement(it,room,x,y);
+  else pos[it.id]={room:room?room.id:null,x,y:y+sizeOf(it).h/2};
 }
 
 /* ---------------- render ---------------- */
-const thumbH=it=>Math.min(56,Math.max(32,sizeOf(it,null).h*scale())); // sticker size on the sheet, px
+const thumbH=it=>Math.min(56,Math.max(32,sizeOf(it).h*scale())); // sticker size on the sheet, px
 function renderSheet(){
   sheet.innerHTML=items.map(it=>
     `<button class="sticker${pos[it.id]?" used":""}" type="button" data-id="${it.id}" aria-label="Sticker"><img src="${it.src}" alt="" draggable="false" style="height:${thumbH(it)}px">${it.upload?`<span class="del" role="button" tabindex="0" aria-label="Delete picture">×</span>`:""}</button>`).join("")+
@@ -249,12 +240,13 @@ function renderSheet(){
 function renderPlaced(popId){
   // wallpapers live in the same viewBox as #lines: image = room rect, clipped by the room rect (attic: its polygon)
   wallsEl.innerHTML=`<defs>${ROOMS.map(r=>`<clipPath id="clip-${r.id}"><rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"/></clipPath>`).join("")}
-    <clipPath id="clip-attic"><polygon points="${ATTIC.poly.map(p=>p.join(",")).join(" ")}"/></clipPath></defs>`+
-    items.filter(it=>it.wall&&pos[it.id]).map(it=>{const id=pos[it.id].room,b=ROOMS.find(r=>r.id===id)||ATTIC_BOX;
+    <clipPath id="clip-attic"><polygon points="${ATTIC.poly.map(p=>p.join(",")).join(" ")}"/></clipPath>
+    <clipPath id="clip-tower"><rect x="${TOWER.x}" y="${TOWER.y}" width="${TOWER.w}" height="${TOWER.h}"/></clipPath></defs>`+
+    items.filter(it=>it.wall&&pos[it.id]).map(it=>{const id=pos[it.id].room,b=ROOMS.find(r=>r.id===id)||(id==="tower"?TOWER:ATTIC_BOX);
     return `<image href="${it.src}" data-id="${it.id}" class="${popId===it.id?"pop":""}" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}"
       preserveAspectRatio="xMidYMid slice" clip-path="url(#clip-${id})"/>`}).join("");
   wallsEl.querySelectorAll("image").forEach(el=>el.addEventListener("pointerdown",startDrag));
-  placedEl.innerHTML=items.filter(it=>!it.wall&&pos[it.id]).map(it=>{const p=pos[it.id],room=ROOMS.find(r=>r.id===p.room)||{attic:true},{h}=sizeOf(it,room);
+  placedEl.innerHTML=items.filter(it=>!it.wall&&pos[it.id]).map(it=>{const p=pos[it.id],{h}=sizeOf(it);
     return `<img src="${it.src}" alt="" draggable="false" data-id="${it.id}" class="${popId===it.id?"pop":""}"
       style="left:${(p.x-VB.x)/VB.w*100}%;top:${(p.y-VB.y)/VB.h*100}%;height:${h/VB.h*100}%">`}).join("");
   placedEl.querySelectorAll("img").forEach(el=>el.addEventListener("pointerdown",startDrag));
@@ -284,17 +276,19 @@ function endDrag(ev){
   const d=drag; drag=null; d.el.onpointermove=d.el.onpointerup=d.el.onpointercancel=null; hot(null);
   if(ev&&!d.moved){ d.gh.remove(); if(d.fromHouse){delete pos[d.it.id];render()} else autoPlace(d.it.id); return }
   const [x,y]=ev?toCanvas(ev.clientX,ev.clientY):[-1,-1], room=ev&&roomAt(x,y);
-  if(room){ d.gh.remove(); put(d.it,room,x,y); render(d.it.id); checkDone(); return }
-  // dropped outside the house → back to the sheet
+  // wallpapers need a room, the attic or the tower; objects stay anywhere on the stage except over the sheet
+  if(d.it.wall?room:ev&&!inRect(ev.clientX,ev.clientY,sheet)&&inRect(ev.clientX,ev.clientY,stage)){ d.gh.remove(); put(d.it,room,x,y); render(d.it.id); checkDone(); return }
+  // otherwise → back to the sheet
   delete pos[d.it.id]; render();
   const home=sheet.querySelector(`[data-id="${d.it.id}"]`)?.getBoundingClientRect();
   if(home){ d.gh.classList.add("back"); Object.assign(d.gh.style,{left:home.left+home.width/2+"px",top:home.top+home.height/2+"px",opacity:"0"}); setTimeout(()=>d.gh.remove(),260) } else d.gh.remove();
 }
 function autoPlace(id){ if(alive)return; const it=items.find(i=>i.id===id); if(!it||!it.ready||pos[id])return;
-  const rooms=it.wall?ROOMS.filter(r=>!items.some(o=>o.wall&&pos[o.id]?.room===r.id)):ROOMS; if(!rooms.length)return;
+  const rooms=it.wall?[...ROOMS,TOWER].filter(r=>!items.some(o=>o.wall&&pos[o.id]?.room===r.id)):ROOMS; if(!rooms.length)return;
   const counts=rooms.map(r=>items.filter(i=>pos[i.id]?.room===r.id).length), min=Math.min(...counts);
   const choices=rooms.filter((r,i)=>counts[i]===min), room=choices[Math.floor(Math.random()*choices.length)];
-  put(it,room,room.x+room.w*(.25+Math.random()*.5),room.y+room.h*(it.snap==="free"?.3:.9));
+  const {w,h}=sizeOf(it); // objects: inside the room, standing on its floor
+  put(it,room,room.x+w/2+4+Math.random()*Math.max(0,room.w-w-8),room.y+room.h-2-h/2);
   render(id); checkDone();
 }
 
