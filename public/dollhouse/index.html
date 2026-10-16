@@ -39,6 +39,8 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .alive .struct{stroke:var(--ink);stroke-dasharray:none}
 .struct .fine{stroke-width:2;stroke-dasharray:5 4}
 .alive .struct .fine{stroke-dasharray:none}
+.struct .fine .rung{stroke-width:4;stroke-dasharray:14 8}
+.alive .struct .fine .rung{stroke-dasharray:none}
 .zone{fill:transparent;stroke:none;transition:fill .15s}
 .zone.hot{fill:var(--faint)}
 .walls{position:absolute;inset:0;pointer-events:none}
@@ -166,9 +168,9 @@ function drawHouse(){
     for(let k=1;k<6;k++){const a=Math.PI/2+k*Math.PI/6,cs=Math.cos(a),sn=Math.sin(a);
       fine+=`<path d="M${(100+80*cs).toFixed(1)} ${(c-80*sn).toFixed(1)}L${(100+162*cs).toFixed(1)} ${(c-162*sn).toFixed(1)}"/>`;}
   }
-  // ladder in the strip between the columns, floors 2–3: two rails, 7 rungs per floor
-  fine+=`<path d="M400 674V998M448 674V998"/><path stroke-width="4" d="`;
-  for(let t=674;t<998;t+=162) for(let k=1;k<8;k++) fine+=`M400 ${t+162*k/8}H448`;
+  // ladder in the strip between the columns, floors 2–3: the walls are the rails, 4 rungs per floor wall to wall
+  fine+=`<path class="rung" d="`;
+  for(let t=674;t<998;t+=162) for(let k=1;k<5;k++) fine+=`M388 ${t+162*k/5}H460`;
   fine+=`"/>`;
   // tower: window, three hatched flights going down, arched door
   fine+=win(716,526,60);
