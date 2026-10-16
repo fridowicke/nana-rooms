@@ -59,21 +59,21 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .alive .banner{opacity:1;pointer-events:auto}
 
 /* sticker sheet */
-.sheet{padding:6px;min-height:68px;display:flex;flex-wrap:wrap;align-items:flex-end;align-content:flex-start;gap:6px;transition:opacity .3s}
+.sheet{padding:4px;min-height:68px;display:flex;flex-wrap:wrap;align-items:flex-end;align-content:flex-start;gap:2px;transition:opacity .3s}
 .sheet.locked{opacity:.3;pointer-events:none}
-.sticker{position:relative;border:0;padding:0;display:grid;place-items:end center;background:transparent;touch-action:none;cursor:grab;min-width:0;transition:opacity .15s,transform .15s}
+.sticker{position:relative;border:0;padding:0;margin:0;display:grid;place-items:end center;background:transparent;touch-action:none;cursor:grab;min-width:0;transition:opacity .15s,transform .15s}
 .sticker:hover{opacity:.75;transform:scale(1.04)}
 .sticker:active{transform:scale(.97)}
 .sticker img{display:block;pointer-events:none;-webkit-user-drag:none;max-width:100%}
 .sticker.used{display:none}
-.del{position:absolute;top:-9px;right:-9px;width:28px;height:28px;display:grid;place-items:center;background:none;border:0;color:var(--ink);font-size:13px;line-height:1;cursor:pointer;touch-action:none;z-index:1}
-.del::before{content:"";position:absolute;inset:5px;background:var(--bg,#fff);border:1px solid var(--dim);z-index:-1}
+.del{position:absolute;top:0;right:0;width:14px;height:14px;display:grid;place-items:center;background:none;border:0;color:var(--ink);font-size:10px;line-height:1;cursor:pointer;touch-action:none;z-index:1}
+.del::before{content:"";position:absolute;inset:0;background:var(--bg,#fff);border:1px solid var(--dim);z-index:-1}
 .del:hover::before{border-color:var(--ink)}
 .add{border:0;color:var(--muted);font-size:22px;width:56px;height:56px;display:grid;place-items:center;position:relative;cursor:pointer;transition:opacity .15s,transform .15s}
 .add:hover{color:var(--ink);transform:scale(1.04)}
 .add input{position:absolute;inset:0;opacity:0;cursor:pointer}
-.types{display:flex;gap:2px;margin-top:3px}
-.types span{font-size:9px;line-height:1;padding:2px 3px;border:1px solid var(--dim);color:var(--muted);background:var(--bg);cursor:pointer;touch-action:none}
+.types{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:center;gap:1px;z-index:1;pointer-events:none}
+.types span{width:14px;height:14px;box-sizing:border-box;display:grid;place-items:center;font-size:9px;line-height:1;padding:0;border:1px solid var(--dim);color:var(--muted);background:var(--bg);cursor:pointer;touch-action:none;pointer-events:auto}
 .types span.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
 .ownerLine{flex:1 1 100%;margin:4px 0 0;font-size:11px;color:var(--muted)}
 .ownerLine a{color:inherit;cursor:pointer;text-decoration:underline}
@@ -243,11 +243,11 @@ const SLOTS = [
 const SLOT_NEAR = 20; // a drop this close to a slot box still snaps
 const slotType=name=>/door/i.test(name)?"door":/window/i.test(name)?"window":/stair|spiral/i.test(name)?"stairs":null;
 
-/* ---------------- owner mode (?owner=shelest on, ?owner=off off; remembered in localStorage) ---------------- */
+/* ---------------- owner mode (only while the URL has ?owner=shelest; never remembered) ---------------- */
 const lsGet=(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}};
 const lsSet=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
-{const q=new URLSearchParams(location.search).get("owner"); if(q==="shelest")lsSet("dollhouse-owner",true); else if(q==="off")lsSet("dollhouse-owner",null);}
-const OWNER=lsGet("dollhouse-owner",false)===true;
+lsSet("dollhouse-owner",null); // clean up the old remembered flag
+const OWNER=new URLSearchParams(location.search).get("owner")==="shelest";
 let removed=OWNER?lsGet("dollhouse-removed",[]):[];   // srcs of built-in stickers hidden by the owner (owner mode only)
 let types=lsGet("dollhouse-types",{});                // src (built-in) or upload id -> "door" | "window" | "stairs"
 const typeKey=it=>it.upload?it.id:it.src;
@@ -341,10 +341,10 @@ function put(it,room,x,y){ // place a sticker (x,y = its centre); a wallpaper re
 }
 
 /* ---------------- render ---------------- */
-const thumbH=it=>Math.min(56,Math.max(32,sizeOf(it).h*scale())); // sticker size on the sheet, px
+const thumbH=it=>Math.min(48,Math.max(24,sizeOf(it).h*scale())); // sticker size on the sheet, px
 function renderSheet(){
   sheet.innerHTML=items.map(it=>
-    `<button class="sticker${pos[it.id]?" used":""}" type="button" data-id="${it.id}" aria-label="Sticker"><img src="${it.src}" alt="" draggable="false" style="height:${thumbH(it)}px">${OWNER?`<span class="del" role="button" tabindex="0" aria-label="Delete picture">×</span>`:""}${OWNER?`<span class="types">${["door","window","stairs"].map(t=>`<span role="button" tabindex="0" data-type="${t}" class="${types[typeKey(it)]===t?"on":""}">${t}</span>`).join("")}</span>`:""}</button>`).join("")+
+    `<button class="sticker${pos[it.id]?" used":""}" type="button" data-id="${it.id}" aria-label="Sticker"><img src="${it.src}" alt="" draggable="false" style="height:${thumbH(it)}px">${OWNER?`<span class="del" role="button" tabindex="0" aria-label="Delete picture">×</span>`:""}${OWNER?`<span class="types">${["door","window","stairs"].map(t=>`<span role="button" tabindex="0" data-type="${t}" class="${types[typeKey(it)]===t?"on":""}" title="${t}" aria-label="${t}">${t[0].toUpperCase()}</span>`).join("")}</span>`:""}</button>`).join("")+
     (items.length?"":`<p class="emptyNote">No stickers yet. Add PNG files in the settings${ALLOW_UPLOAD?" or press + to try some from your computer":""}.</p>`)+
     (ALLOW_UPLOAD?`<label class="add" title="Add PNG">+<input type="file" id="upload" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" multiple aria-label="Add PNG stickers"></label>`:"")+
     (OWNER?`<p class="ownerLine">removed: ${removed.length} - <a id="copyRemoved">copy list</a> - <a id="undoRemoved">undo all</a></p>`:"");
