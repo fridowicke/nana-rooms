@@ -64,6 +64,8 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .sticker img{display:block;pointer-events:none;-webkit-user-drag:none;max-width:100%}
 .sticker.used img{visibility:hidden}
 .sticker.used{cursor:default}
+.del{position:absolute;top:-12px;right:-12px;width:28px;height:28px;display:grid;place-items:center;background:var(--bg,#fff);border:1px dashed var(--dim);color:var(--ink);font-size:16px;line-height:1;cursor:pointer;touch-action:none;z-index:1}
+.del:hover{border-color:var(--ink)}
 .add{border:1px dashed var(--dim);color:var(--muted);font-size:22px;width:72px;height:72px;display:grid;place-items:center;position:relative;cursor:pointer}
 .add:hover{border-color:var(--ink);color:var(--ink)}
 .add input{position:absolute;inset:0;opacity:0;cursor:pointer}
@@ -222,11 +224,15 @@ function put(it,room,x,y){ // place a sticker; a wallpaper replaces the one alre
 const thumbH=it=>Math.min(160,Math.max(72,sizeOf(it,null).h*scale())); // sticker size on the sheet, px
 function renderSheet(){
   sheet.innerHTML=items.map(it=>
-    `<button class="sticker${pos[it.id]?" used":""}" type="button" data-id="${it.id}" aria-label="Sticker"><img src="${it.src}" alt="" draggable="false" style="height:${thumbH(it)}px"></button>`).join("")+
+    `<button class="sticker${pos[it.id]?" used":""}" type="button" data-id="${it.id}" aria-label="Sticker"><img src="${it.src}" alt="" draggable="false" style="height:${thumbH(it)}px">${it.upload?`<span class="del" role="button" tabindex="0" aria-label="Delete picture">×</span>`:""}</button>`).join("")+
     (items.length?"":`<p class="emptyNote">No stickers yet. Add PNG files in the settings${ALLOW_UPLOAD?" or press + to try some from your computer":""}.</p>`)+
     (ALLOW_UPLOAD?`<label class="add" title="Add PNG">+<input type="file" id="upload" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" multiple aria-label="Add PNG stickers"></label>`:"");
   sheet.querySelectorAll(".sticker").forEach(el=>{el.addEventListener("pointerdown",startDrag);
     el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();autoPlace(el.dataset.id)}})});
+  sheet.querySelectorAll(".del").forEach(x=>{const id=x.parentElement.dataset.id;
+    x.addEventListener("pointerdown",e=>e.stopPropagation());
+    x.addEventListener("click",e=>{e.stopPropagation();e.preventDefault();removeUpload(id)});
+    x.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.stopPropagation();e.preventDefault();removeUpload(id)}})});
   const up=$("#upload"); if(up) up.addEventListener("change",()=>{addFiles(up.files);up.value=""});
 }
 function renderPlaced(popId){
@@ -284,10 +290,28 @@ function autoPlace(id){ if(alive)return; const it=items.find(i=>i.id===id); if(!
 /* ---------------- test uploads ---------------- */
 function addFiles(files){
   [...files].filter(f=>/^image\//.test(f.type)).forEach(f=>{
-    const src=URL.createObjectURL(f), it={id:"u"+Math.random().toString(36).slice(2,8),src,name:f.name,type:f.type,h:UPLOAD_HEIGHT,snap:"auto",ratio:1,wall:false,ready:false};
+    const src=URL.createObjectURL(f), it={id:"u"+Math.random().toString(36).slice(2,8),src,name:f.name,type:f.type,h:UPLOAD_HEIGHT,snap:"auto",ratio:1,wall:false,ready:false,upload:true,blob:f,added:Date.now()};
     items.push(it); measure(it);
   }); render();
 }
+function removeUpload(id){
+  if(alive)return; const it=items.find(i=>i.id===id); if(!it||!it.upload)return;
+  items=items.filter(i=>i!==it); delete pos[id]; URL.revokeObjectURL(it.src); dbDel(id); render();
+}
+// saved uploads: IndexedDB "dollhouse" / "uploads", key = item id. Any failure → behave as without saving.
+let dbP=null;
+function db(){ if(!dbP) dbP=new Promise((ok,no)=>{const r=indexedDB.open("dollhouse",1);
+    r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains("uploads"))r.result.createObjectStore("uploads")};
+    r.onsuccess=()=>ok(r.result); r.onerror=()=>no(r.error)}); return dbP }
+function dbTx(mode,fn){ try{ return db().then(d=>new Promise((ok,no)=>{const t=d.transaction("uploads",mode),req=fn(t.objectStore("uploads"));
+    t.oncomplete=()=>ok(req&&req.result); t.onerror=t.onabort=()=>no(t.error)})).catch(()=>{}) }catch(e){ return Promise.resolve() } }
+function dbPut(it){ if(items.includes(it)) dbTx("readwrite",s=>s.put({id:it.id,blob:it.blob,name:it.name,type:it.type,wall:it.wall,added:it.added},it.id)) }
+function dbDel(id){ dbTx("readwrite",s=>s.delete(id)) }
+function loadUploads(){ dbTx("readonly",s=>s.getAll()).then(rows=>{ if(!rows||!rows.length)return;
+  rows.sort((a,b)=>(a.added||0)-(b.added||0)).forEach(r=>{ if(!r||!r.blob||items.some(i=>i.id===r.id))return;
+    const it={id:r.id,src:URL.createObjectURL(r.blob),name:r.name||"",type:r.type||r.blob.type,h:UPLOAD_HEIGHT,snap:"auto",ratio:1,wall:!!r.wall,ready:false,upload:true,blob:r.blob,added:r.added||0,saved:true};
+    items.push(it); measure(it); });
+  render(); }) }
 if(ALLOW_UPLOAD){
   sheet.addEventListener("dragover",e=>{if([...e.dataTransfer.types].includes("Files"))e.preventDefault()});
   sheet.addEventListener("drop",e=>{if(!e.dataTransfer.files.length)return;e.preventDefault();addFiles(e.dataTransfer.files)});
@@ -299,9 +323,9 @@ function opaque(im){ // fewer than 1% of pixels with alpha < 250 → no transpar
   return n<w*h*.01;
 }
 function measure(it){const im=new Image(); im.onload=()=>{it.ratio=im.naturalWidth/im.naturalHeight||1;
-    if(isWall(it.name)||isJpeg(it.name,it.type)) it.wall=true; else try{it.wall=opaque(im)}catch(e){it.wall=false}
-    it.ready=true; render()};
-  im.onerror=()=>{it.wall=isWall(it.name)||isJpeg(it.name,it.type); it.ready=true; render()}; im.src=it.src}
+    if(!it.saved){ if(isWall(it.name)||isJpeg(it.name,it.type)) it.wall=true; else try{it.wall=opaque(im)}catch(e){it.wall=false} }
+    it.ready=true; if(it.upload&&!it.saved){it.saved=true; dbPut(it)} render()};
+  im.onerror=()=>{if(!it.saved)it.wall=isWall(it.name)||isJpeg(it.name,it.type); it.ready=true; if(it.upload&&!it.saved){it.saved=true; dbPut(it)} render()}; im.src=it.src}
 
 /* ---------------- the house comes alive ---------------- */
 function checkDone(){ if(allPlaced()) setTimeout(wake,500) }
@@ -332,7 +356,7 @@ $("#reset").addEventListener("click",reset);
 $("#random").addEventListener("click",()=>{ if(alive)return; items.filter(it=>!pos[it.id]).forEach((it,i)=>setTimeout(()=>autoPlace(it.id),i*60)) });
 let rt; addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(renderSheet,120)});
 
-drawHouse(); items.forEach(measure); render();
+drawHouse(); items.forEach(measure); render(); if(ALLOW_UPLOAD) loadUploads();
 </script>
 </body>
 </html>
