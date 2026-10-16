@@ -79,7 +79,7 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 
 <div class="app">
   <header>
-    <p class="how">Drag the stickers into the house. Drop one low in a room and it stands on the floor; drop it high and it stays on the wall. Drag a sticker out of the house to take it back. Furnish every room and the house comes alive.</p>
+    <p class="how">Drag the stickers into the house. Drop one low in a room and it stands on the floor; drop it high and it stays on the wall. Drag a sticker out of the house to take it back. Use every sticker and the house comes alive.</p>
     <div class="hud">
       <span id="progress"></span>
       <button class="btn" id="random" type="button">Random</button>
@@ -115,14 +115,12 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
    snap: "auto"  (default) low drop → stands on the floor, high drop → stays on the wall
          "floor" always stands on the floor
          "free"  always stays where it was dropped
-   MIN_PER_ROOM: how many stickers each of the 8 rooms needs before the house comes alive.
    ALLOW_UPLOAD: true shows a "+" on the sheet to test PNGs from your computer
                  (you can also drop files onto the sheet). Set false for the public site.
    ===================================================================== */
 const STICKERS = [
   // {src:"pieces/bed.png", h:80},
 ];
-const MIN_PER_ROOM = 1;
 const ALLOW_UPLOAD = true;
 const UPLOAD_HEIGHT = 240;
 
@@ -241,8 +239,9 @@ function renderPlaced(popId){
   updateHud();
 }
 function render(popId){renderSheet();renderPlaced(popId)}
-function filledRooms(){return ROOMS.filter(r=>items.filter(it=>pos[it.id]?.room===r.id).length>=MIN_PER_ROOM).length}
-function updateHud(){ $("#progress").textContent=`${filledRooms()} / ${ROOMS.length} rooms`; $("#random").disabled=!items.some(it=>!pos[it.id]); }
+function placedCount(){return items.filter(it=>pos[it.id]).length}
+function allPlaced(){return items.length>0&&placedCount()===items.length}
+function updateHud(){ $("#progress").textContent=`${placedCount()} / ${items.length} placed`; $("#random").disabled=!items.some(it=>!pos[it.id]); }
 
 /* ---------------- drag ---------------- */
 let drag=null;
@@ -291,7 +290,7 @@ if(ALLOW_UPLOAD){
 function measure(it){const im=new Image(); im.onload=()=>{it.ratio=im.naturalWidth/im.naturalHeight||1; render()}; im.src=it.src}
 
 /* ---------------- the house comes alive ---------------- */
-function checkDone(){ if(filledRooms()===ROOMS.length) setTimeout(wake,500) }
+function checkDone(){ if(allPlaced()) setTimeout(wake,500) }
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function pickClips(n){
   let pick,t=0; do{ pick=shuffle(VIDEOS.slice()).slice(0,n); t++ }while(t<30&&pick.join()===lastClips.join());
@@ -299,7 +298,7 @@ function pickClips(n){
   lastClips=pick; return pick;
 }
 function wake(){
-  if(alive||filledRooms()<ROOMS.length)return; alive=true; sheet.classList.add("locked");
+  if(alive||!allPlaced())return; alive=true; sheet.classList.add("locked");
   const clips=pickClips(ROOMS.length); screens.innerHTML="";
   shuffle(ROOMS.map((_,i)=>i)).forEach((ri,k)=>{const r=ROOMS[ri],v=document.createElement("video");
     Object.assign(v,{src:clips[ri],muted:true,loop:true,playsInline:true,autoplay:true}); v.setAttribute("playsinline","");
