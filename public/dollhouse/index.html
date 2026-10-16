@@ -39,8 +39,7 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .alive .struct{stroke:var(--ink);stroke-dasharray:none}
 .struct .fine{stroke-width:2;stroke-dasharray:5 4}
 .alive .struct .fine{stroke-dasharray:none}
-.struct .fine .rung{stroke-width:4;stroke-dasharray:14 8}
-.alive .struct .fine .rung{stroke-dasharray:none}
+.struct .fine .rung{stroke-width:4;stroke-dasharray:none}
 .zone{fill:transparent;stroke:none;transition:fill .15s}
 .zone.hot{fill:var(--faint)}
 .walls{position:absolute;inset:0;pointer-events:none}
@@ -144,7 +143,7 @@ const ROOMS = [
 const ATTIC = {id:"attic", poly:[[100,512],[230,300],[546,300],[676,512]], top:300, floor:512, video:false};
 
 /* ---------------- setup ---------------- */
-const VB={x:-80,y:250,w:1020,h:920};       // drawing bounds (spiral stairs -58 … mailbox 914, chimneys 262 … ground 1160) + margin
+const VB={x:-80,y:250,w:1020,h:920};       // drawing bounds (curved stairs -50 … mailbox 914, chimneys 262 … ground 1160) + margin
 const $=s=>document.querySelector(s);
 const stage=$("#stage"), wrap=$("#wrap"), sheet=$("#sheet"), placedEl=$("#placed"), screens=$("#screens"), wallsEl=$("#walls");
 const isWall=name=>/^wall/i.test(name);
@@ -162,16 +161,19 @@ function drawHouse(){
   // two attic windows, three chimneys
   fine+=win(250,357,60,90)+win(466,357,60,90);
   [262,370,478].forEach(x=>fine+=`<path d="M${x} 300V262H${x+26}V300"/>`);
-  // spiral staircase outside the left wall, side view: pole + one helix twist per floor (ground 1160 … top 512),
-  // front half as wedge steps fanning out from the pole, back half as the outer edge, handrail above each twist
-  {const cx=17,R=75,b=14,n=16,rail=34,P=(t,f)=>[cx-R*Math.cos(f),t-162*f/(2*Math.PI)+b*Math.sin(f)],
-    pl=(a,c,dy=0)=>{let d="";for(let i=0;i<=24;i++){const [x,y]=P(c,a[0]+(a[1]-a[0])*i/24);d+=(i?"L":"M")+x.toFixed(1)+" "+(y-dy).toFixed(1)}return d};
-  fine+=`<path d="M${cx-3} 512V1160M${cx+3} 512V1160"/>`;
-  for(let t=1160;t>512;t-=162){let d=pl([Math.PI,2*Math.PI],t)+pl([0,2*Math.PI],t,rail);
-    for(let k=0;k<n/2;k++){const f0=k*2*Math.PI/n,f1=(k+1)*2*Math.PI/n,h=t-162*(k+1)/n,
-      [x0,y0]=[cx-R*Math.cos(f0),h+b*Math.sin(f0)],[x1,y1]=[cx-R*Math.cos(f1),h+b*Math.sin(f1)];
-      d+=`M${cx} ${h.toFixed(1)}L${x0.toFixed(1)} ${y0.toFixed(1)}L${x1.toFixed(1)} ${y1.toFixed(1)}Z`+
-        `M${x0.toFixed(1)} ${y0.toFixed(1)}V${(y0+162/n).toFixed(1)}`;}
+  // curved staircase outside the left wall, side view: one flight per floor (ground 1160 … top 512), starting away
+  // from the wall and sweeping up to it; tread + riser profile, stringer under and on the far side, handrail + balusters
+  {const n=9,h=162/n,x0=-50,f=k=>1-.06*k,sw=[...Array(n).keys()].reduce((a,k)=>a+f(k),0),
+    X=[x0];for(let k=0;k<n;k++)X.push(X[k]+150*f(k)/sw);
+    const cr=P=>{let d=`M${P[0][0].toFixed(1)} ${P[0][1].toFixed(1)}`;for(let i=0;i<P.length-1;i++){const a=P[i-1]||P[i],b=P[i],c=P[i+1],e=P[i+2]||c;
+      d+=`C${(b[0]+(c[0]-a[0])/6).toFixed(1)} ${(b[1]+(c[1]-a[1])/6).toFixed(1)} ${(c[0]-(e[0]-b[0])/6).toFixed(1)} ${(c[1]-(e[1]-b[1])/6).toFixed(1)} ${c[0].toFixed(1)} ${c[1].toFixed(1)}`}return d};
+  for(let t=1160;t>512;t-=162){let d=`M${x0} ${t}`;
+    for(let k=0;k<n;k++)d+=`V${(t-(k+1)*h).toFixed(1)}H${X[k+1].toFixed(1)}`;
+    const mid=k=>(X[k]+X[k+1])/2, R=[[x0,t-30]];
+    for(let k=0;k<n-1;k++)R.push([mid(k),t-(k+1)*h-30*(1-k/(n-1))-4*(k<n-2)]);R.push([100,t-162]);
+    d+=cr([[x0,t],...X.slice(1).map((x,k)=>[x,t-(k+1)*h+10])])+
+      cr([...X.slice(0,n-1).map((x,k)=>[x,t-(k+1)*h-7*(1-k/(n-1))]),[100,t-162]])+cr(R)+`M${x0} ${t-h}V${t-30}`;
+    for(let k=0;k<7;k++)d+=`M${mid(k).toFixed(1)} ${(t-(k+1)*h).toFixed(1)}V${R[k+1][1].toFixed(1)}`;
     fine+=`<path d="${d}"/>`;}}
   // ladder in the strip between the columns, floors 2–3: the walls are the rails, 4 rungs per floor wall to wall
   fine+=`<path class="rung" d="`;
