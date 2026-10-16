@@ -37,6 +37,8 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .screens video.on{opacity:1}
 .struct{fill:none;stroke:var(--dim);stroke-width:3;stroke-dasharray:12 9;transition:stroke .4s}
 .alive .struct{stroke:var(--ink);stroke-dasharray:none}
+.struct .fine{stroke-width:2;stroke-dasharray:5 4}
+.alive .struct .fine{stroke-dasharray:none}
 .zone{fill:transparent;stroke:none;transition:fill .15s}
 .zone.hot{fill:var(--faint)}
 .placed{position:absolute;inset:0}
@@ -117,14 +119,15 @@ const UPLOAD_HEIGHT = 80;
 const VIDEOS = ["videos/v01.mp4","videos/v02.mp4","videos/v03.mp4","videos/v04.mp4","videos/v05.mp4",
                 "videos/v06.mp4","videos/v07.mp4","videos/v08.mp4","videos/v09.mp4","videos/v10.mp4"];
 
-// House geometry (800 × 1200 canvas). 4 floors × 2 rooms, each room 320 × 180 (16:9) + attic.
+// House geometry (800 × 1200 canvas). 4 floors × 2 rooms, floors 162 high; left rooms 16:9 (288 × 162),
+// right rooms 16:9 on floors 1 and 4, 14:9 (252 × 162) on floors 2–3 with a ladder strip on their left. + attic.
 const ROOMS = [
-  {id:"r1",x:80, y:440,w:320,h:180},{id:"r2",x:400,y:440,w:320,h:180},
-  {id:"r3",x:80, y:620,w:320,h:180},{id:"r4",x:400,y:620,w:320,h:180},
-  {id:"r5",x:80, y:800,w:320,h:180},{id:"r6",x:400,y:800,w:320,h:180},
-  {id:"r7",x:80, y:980,w:320,h:180},{id:"r8",x:400,y:980,w:320,h:180},
+  {id:"r1",x:100,y:512, w:288,h:162},{id:"r2",x:388,y:512, w:288,h:162},
+  {id:"r3",x:100,y:674, w:288,h:162},{id:"r4",x:424,y:674, w:252,h:162},
+  {id:"r5",x:100,y:836, w:288,h:162},{id:"r6",x:424,y:836, w:252,h:162},
+  {id:"r7",x:100,y:998, w:288,h:162},{id:"r8",x:388,y:998, w:288,h:162},
 ];
-const ATTIC = {id:"attic", apex:[400,10], left:[100,440], right:[700,440], floor:440, video:false};
+const ATTIC = {id:"attic", poly:[[100,512],[230,300],[546,300],[676,512]], top:300, floor:512, video:false};
 
 /* ---------------- setup ---------------- */
 const VB={x:0,y:-20,w:800,h:1200};
@@ -135,35 +138,62 @@ const pos={};            // id -> {room, x, y}  (x = centre, y = bottom, canvas 
 let alive=false, lastClips=[];
 
 function drawHouse(){
-  const [ax,ay]=ATTIC.apex,[lx,ly]=ATTIC.left,[rx,ry]=ATTIC.right;
+  const pts=ATTIC.poly.map(p=>p.join(",")).join(" ");
+  const win=(x,y,w)=>`<rect x="${x}" y="${y}" width="${w}" height="${w}"/><path d="M${x+w/2} ${y}V${y+w}M${x} ${y+w/2}H${x+w}"/>`;
+  let fine="";
+  // two attic windows, three chimneys
+  fine+=win(258,380,44)+win(474,380,44);
+  [262,370,478].forEach(x=>fine+=`<path d="M${x} 300V262H${x+26}V300"/>`);
+  // half-circle stairs on the left wall, one per floor
+  for(let f=0;f<4;f++){const t=512+f*162,c=t+81;
+    fine+=`<path d="M100 ${t}A81 81 0 0 0 100 ${t+162}M100 ${c-40}A40 40 0 0 0 100 ${c+40}"/>`;
+    for(let k=1;k<6;k++){const a=Math.PI/2+k*Math.PI/6,cs=Math.cos(a),sn=Math.sin(a);
+      fine+=`<path d="M${(100+40*cs).toFixed(1)} ${(c-40*sn).toFixed(1)}L${(100+81*cs).toFixed(1)} ${(c-81*sn).toFixed(1)}"/>`;}
+  }
+  // ladder between the columns, floors 2–3
+  fine+=`<path d="M398 678V998M414 678V998`;
+  for(let y=694;y<998;y+=20) fine+=`M398 ${y}H414`;
+  fine+=`"/>`;
+  // tower: window, three hatched flights going down, arched door
+  fine+=win(696,526,30);
+  [[640,1],[792,-1],[944,1]].forEach(([y,d])=>{const x0=d>0?686:736,x1=d>0?736:686;
+    fine+=`<path d="M${x0} ${y}L${x1} ${y+110}M${x0} ${y+22}L${x1} ${y+132}`;
+    for(let k=1;k<7;k++){const x=x0+(x1-x0)*k/7,yy=y+110*k/7; fine+=`M${x} ${yy}V${yy+22}`}
+    fine+=`"/>`;});
+  fine+=`<path d="M696 1160V1110A15 15 0 0 1 726 1110V1160"/>`;
+  // mailbox on a post
+  fine+=`<path d="M770 1160V1092M752 1092V1074A19 12 0 0 1 790 1074V1092ZM786 1074V1056H776V1064H786"/>`;
   $("#lines").innerHTML=`<g class="struct">
-    <polygon points="${lx-40},${ly} ${ax},${ay} ${rx+40},${ry}"/>
-    <rect x="80" y="440" width="640" height="720"/>
-    <path d="M80 620H720M80 800H720M80 980H720M400 440V1160M20 1160H780"/></g>`;
+    <polygon points="${pts}"/>
+    <rect x="100" y="512" width="576" height="648"/>
+    <path d="M100 674H676M100 836H676M100 998H676M388 512V1160M424 674V998"/>
+    <path d="M676 512L711 420L746 512V1160"/>
+    <path d="M10 1160H790"/>
+    <g class="fine">${fine}</g></g>`;
   $("#zones").innerHTML=ROOMS.map(r=>`<rect class="zone" data-room="${r.id}" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"/>`).join("")+
-    `<polygon class="zone" data-room="attic" points="${lx},${ly} ${ax},${ay} ${rx},${ry}"/>`;
+    `<polygon class="zone" data-room="attic" points="${pts}"/>`;
 }
 
 /* ---------------- geometry helpers ---------------- */
 const scale=()=>stage.getBoundingClientRect().width/VB.w;          // px per canvas unit
 function toCanvas(cx,cy){const r=stage.getBoundingClientRect();return [VB.x+(cx-r.left)/r.width*VB.w, VB.y+(cy-r.top)/r.height*VB.h]}
-function inTri(px,py,[ax,ay],[bx,by],[cx,cy]){const d=(bx-ax)*(py-ay)-(by-ay)*(px-ax),e=(cx-bx)*(py-by)-(cy-by)*(px-bx),f=(ax-cx)*(py-cy)-(ay-cy)*(px-cx);return (d>=0&&e>=0&&f>=0)||(d<=0&&e<=0&&f<=0)}
+function inPoly(px,py,poly){let c=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const [xi,yi]=poly[i],[xj,yj]=poly[j];if((yi>py)!==(yj>py)&&px<(xj-xi)*(py-yi)/(yj-yi)+xi)c=!c}return c}
 function roomAt(x,y){
   const r=ROOMS.find(r=>x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h); if(r)return r;
-  if(inTri(x,y,ATTIC.apex,ATTIC.left,ATTIC.right)) return {id:"attic",attic:true};
+  if(inPoly(x,y,ATTIC.poly)) return {id:"attic",attic:true};
   return null;
 }
 function sizeOf(it,room){ // height/width in canvas units, kept inside the room
-  const maxH=room&&!room.attic?room.h*.92:200, maxW=room&&!room.attic?room.w*.95:400;
+  const maxH=room&&!room.attic?room.h*.92:(ATTIC.floor-ATTIC.top)*.85, maxW=room&&!room.attic?room.w*.95:400;
   let h=Math.min(it.h,maxH), w=h*it.ratio; if(w>maxW){w=maxW;h=w/it.ratio}
   return {w,h};
 }
 function placement(it,room,x,y){ // where a sticker lands for a drop at (x,y)
   const {w,h}=sizeOf(it,room);
-  if(room.attic){const fy=ATTIC.floor; const half=(fy-ATTIC.apex[1]);
-    const spread=(ATTIC.right[0]-ATTIC.left[0])/2*0.8; const cx=Math.max(400-spread+w/2,Math.min(400+spread-w/2,x));
+  if(room.attic){const fy=ATTIC.floor; const half=(fy-ATTIC.top); const [[l],,,[r]]=ATTIC.poly, mid=(l+r)/2;
+    const spread=(r-l)/2*0.8; const cx=Math.max(mid-spread+w/2,Math.min(mid+spread-w/2,x));
     const floor = it.snap==="free"||(it.snap==="auto"&&y<fy-half*.45);
-    return {room:"attic",x:cx,y:floor?Math.min(fy,Math.max(y+h/2,ATTIC.apex[1]+half*.5+h)):fy};}
+    return {room:"attic",x:cx,y:floor?Math.min(fy,Math.max(y+h/2,ATTIC.top+half*.3+h)):fy};}
   const cx=Math.max(room.x+w/2+4,Math.min(room.x+room.w-w/2-4,x));
   const toFloor=it.snap==="floor"||(it.snap==="auto"&&y>room.y+room.h*.45);
   const by=toFloor?room.y+room.h-2:Math.max(room.y+h+4,Math.min(room.y+room.h-2,y+h/2));
