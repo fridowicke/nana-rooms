@@ -58,17 +58,18 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .alive .banner{opacity:1;pointer-events:auto}
 
 /* sticker sheet */
-.sheet{border:1px dashed var(--dim);padding:16px;min-height:320px;display:flex;flex-wrap:wrap;align-items:flex-end;align-content:flex-start;gap:14px;transition:opacity .3s}
+.sheet{padding:6px;min-height:68px;display:flex;flex-wrap:wrap;align-items:flex-end;align-content:flex-start;gap:6px;transition:opacity .3s}
 .sheet.locked{opacity:.3;pointer-events:none}
-.sticker{position:relative;border:1px dashed var(--dim);padding:6px;display:grid;place-items:end center;background:transparent;touch-action:none;cursor:grab;min-width:0}
-.sticker:hover{border-color:var(--ink)}
+.sticker{position:relative;border:0;padding:0;display:grid;place-items:end center;background:transparent;touch-action:none;cursor:grab;min-width:0;transition:opacity .15s,transform .15s}
+.sticker:hover{opacity:.75;transform:scale(1.04)}
+.sticker:active{transform:scale(.97)}
 .sticker img{display:block;pointer-events:none;-webkit-user-drag:none;max-width:100%}
-.sticker.used img{visibility:hidden}
-.sticker.used{cursor:default}
-.del{position:absolute;top:-12px;right:-12px;width:28px;height:28px;display:grid;place-items:center;background:var(--bg,#fff);border:1px dashed var(--dim);color:var(--ink);font-size:16px;line-height:1;cursor:pointer;touch-action:none;z-index:1}
-.del:hover{border-color:var(--ink)}
-.add{border:1px dashed var(--dim);color:var(--muted);font-size:22px;width:72px;height:72px;display:grid;place-items:center;position:relative;cursor:pointer}
-.add:hover{border-color:var(--ink);color:var(--ink)}
+.sticker.used{display:none}
+.del{position:absolute;top:-9px;right:-9px;width:28px;height:28px;display:grid;place-items:center;background:none;border:0;color:var(--ink);font-size:13px;line-height:1;cursor:pointer;touch-action:none;z-index:1}
+.del::before{content:"";position:absolute;inset:5px;background:var(--bg,#fff);border:1px solid var(--dim);z-index:-1}
+.del:hover::before{border-color:var(--ink)}
+.add{border:0;color:var(--muted);font-size:22px;width:56px;height:56px;display:grid;place-items:center;position:relative;cursor:pointer;transition:opacity .15s,transform .15s}
+.add:hover{color:var(--ink);transform:scale(1.04)}
 .add input{position:absolute;inset:0;opacity:0;cursor:pointer}
 .emptyNote{color:var(--muted);margin:0;align-self:center;flex:1 1 200px}
 .ghost{position:fixed;left:0;top:0;pointer-events:none;z-index:50;transform:translate(-50%,-50%)}
@@ -231,7 +232,7 @@ function put(it,room,x,y){ // place a sticker; a wallpaper replaces the one alre
 }
 
 /* ---------------- render ---------------- */
-const thumbH=it=>Math.min(160,Math.max(72,sizeOf(it,null).h*scale())); // sticker size on the sheet, px
+const thumbH=it=>Math.min(56,Math.max(32,sizeOf(it,null).h*scale())); // sticker size on the sheet, px
 function renderSheet(){
   sheet.innerHTML=items.map(it=>
     `<button class="sticker${pos[it.id]?" used":""}" type="button" data-id="${it.id}" aria-label="Sticker"><img src="${it.src}" alt="" draggable="false" style="height:${thumbH(it)}px">${it.upload?`<span class="del" role="button" tabindex="0" aria-label="Delete picture">×</span>`:""}</button>`).join("")+
