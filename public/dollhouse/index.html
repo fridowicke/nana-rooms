@@ -72,6 +72,11 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .add{border:0;color:var(--muted);font-size:22px;width:56px;height:56px;display:grid;place-items:center;position:relative;cursor:pointer;transition:opacity .15s,transform .15s}
 .add:hover{color:var(--ink);transform:scale(1.04)}
 .add input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.types{display:flex;gap:2px;margin-top:3px}
+.types span{font-size:9px;line-height:1;padding:2px 3px;border:1px solid var(--dim);color:var(--muted);background:var(--bg);cursor:pointer;touch-action:none}
+.types span.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.ownerLine{flex:1 1 100%;margin:4px 0 0;font-size:11px;color:var(--muted)}
+.ownerLine a{color:inherit;cursor:pointer;text-decoration:underline}
 .emptyNote{color:var(--muted);margin:0;align-self:center;flex:1 1 200px}
 .ghost{position:fixed;left:0;top:0;pointer-events:none;z-index:50;transform:translate(-50%,-50%)}
 .ghost.back{transition:all .25s ease-in}
@@ -214,13 +219,24 @@ const SLOTS = [
 const SLOT_NEAR = 20; // a drop this close to a slot box still snaps
 const slotType=name=>/door/i.test(name)?"door":/window/i.test(name)?"window":/stair|spiral/i.test(name)?"stairs":null;
 
+/* ---------------- owner mode (?owner=shelest on, ?owner=off off; remembered in localStorage) ---------------- */
+const lsGet=(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}};
+const lsSet=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+{const q=new URLSearchParams(location.search).get("owner"); if(q==="shelest")lsSet("dollhouse-owner",true); else if(q==="off")lsSet("dollhouse-owner",null);}
+const OWNER=lsGet("dollhouse-owner",false)===true;
+let removed=OWNER?lsGet("dollhouse-removed",[]):[];   // srcs of built-in stickers hidden by the owner (owner mode only)
+let types=lsGet("dollhouse-types",{});                // src (built-in) or upload id -> "door" | "window" | "stairs"
+const typeKey=it=>it.upload?it.id:it.src;
+const typeOf=it=>types[typeKey(it)]||slotType(it.name);
+
 /* ---------------- setup ---------------- */
 const VB={x:-80,y:250,w:1090,h:920};       // drawing bounds (spiral stair -40 … ground 1000, chimneys 262 … ground 1160) + margin
 const $=s=>document.querySelector(s);
 const stage=$("#stage"), wrap=$("#wrap"), sheet=$("#sheet"), placedEl=$("#placed"), screens=$("#screens"), wallsEl=$("#walls");
 const isWall=name=>/^wall/i.test(name);
 const isJpeg=(name,type)=>type==="image/jpeg"||/\.jpe?g$/i.test(name);
-let items=STICKERS.map((s,i)=>({id:"s"+i, src:s.src, name:s.src.split("/").pop(), h:(s.h||80)*3, snap:s.snap||"auto", ratio:1, wall:false, ready:false}));
+const builtins=STICKERS.map((s,i)=>({id:"s"+i, src:s.src, name:s.src.split("/").pop(), h:(s.h||80)*3, snap:s.snap||"auto", ratio:1, wall:false, ready:false}));
+let items=builtins.filter(it=>!removed.includes(it.src));
 const pos={};            // id -> {room, x, y}  (x = centre, y = bottom, canvas units, room = area or null, slot = slot id); wallpapers: {room}
 const AX=ATTIC.poly.map(p=>p[0]), AY=ATTIC.poly.map(p=>p[1]);
 const ATTIC_BOX={x:Math.min(...AX),y:Math.min(...AY),w:Math.max(...AX)-Math.min(...AX),h:Math.max(...AY)-Math.min(...AY)};
@@ -286,7 +302,7 @@ function sizeOf(it){ // height/width in canvas units, never bigger than a normal
   return {w,h};
 }
 function slotAt(it,x,y){ // nearest slot of the item's type around the drop point, or null
-  const t=slotType(it.name); if(!t||it.wall)return null;
+  const t=typeOf(it); if(!t||it.wall)return null;
   const d=s=>Math.hypot(Math.max(s.x-x,0,x-s.x-s.w),Math.max(s.y-y,0,y-s.y-s.h));
   return SLOTS.filter(s=>s.type===t&&d(s)<=SLOT_NEAR).sort((a,b)=>d(a)-d(b))[0]||null;
 }
@@ -304,15 +320,22 @@ function put(it,room,x,y){ // place a sticker (x,y = its centre); a wallpaper re
 const thumbH=it=>Math.min(56,Math.max(32,sizeOf(it).h*scale())); // sticker size on the sheet, px
 function renderSheet(){
   sheet.innerHTML=items.map(it=>
-    `<button class="sticker${pos[it.id]?" used":""}" type="button" data-id="${it.id}" aria-label="Sticker"><img src="${it.src}" alt="" draggable="false" style="height:${thumbH(it)}px">${it.upload?`<span class="del" role="button" tabindex="0" aria-label="Delete picture">×</span>`:""}</button>`).join("")+
+    `<button class="sticker${pos[it.id]?" used":""}" type="button" data-id="${it.id}" aria-label="Sticker"><img src="${it.src}" alt="" draggable="false" style="height:${thumbH(it)}px">${it.upload||OWNER?`<span class="del" role="button" tabindex="0" aria-label="Delete picture">×</span>`:""}${OWNER?`<span class="types">${["door","window","stairs"].map(t=>`<span role="button" tabindex="0" data-type="${t}" class="${types[typeKey(it)]===t?"on":""}">${t}</span>`).join("")}</span>`:""}</button>`).join("")+
     (items.length?"":`<p class="emptyNote">No stickers yet. Add PNG files in the settings${ALLOW_UPLOAD?" or press + to try some from your computer":""}.</p>`)+
-    (ALLOW_UPLOAD?`<label class="add" title="Add PNG">+<input type="file" id="upload" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" multiple aria-label="Add PNG stickers"></label>`:"");
+    (ALLOW_UPLOAD?`<label class="add" title="Add PNG">+<input type="file" id="upload" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" multiple aria-label="Add PNG stickers"></label>`:"")+
+    (OWNER?`<p class="ownerLine">removed: ${removed.length} - <a id="copyRemoved">copy list</a> - <a id="undoRemoved">undo all</a></p>`:"");
   sheet.querySelectorAll(".sticker").forEach(el=>{el.addEventListener("pointerdown",startDrag);
     el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();autoPlace(el.dataset.id)}})});
   sheet.querySelectorAll(".del").forEach(x=>{const id=x.parentElement.dataset.id;
     x.addEventListener("pointerdown",e=>e.stopPropagation());
-    x.addEventListener("click",e=>{e.stopPropagation();e.preventDefault();removeUpload(id)});
-    x.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.stopPropagation();e.preventDefault();removeUpload(id)}})});
+    x.addEventListener("click",e=>{e.stopPropagation();e.preventDefault();removeItem(id)});
+    x.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.stopPropagation();e.preventDefault();removeItem(id)}})});
+  sheet.querySelectorAll(".types span").forEach(b=>{const id=b.closest(".sticker").dataset.id;
+    b.addEventListener("pointerdown",e=>e.stopPropagation());
+    b.addEventListener("click",e=>{e.stopPropagation();e.preventDefault();toggleType(id,b.dataset.type)});
+    b.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.stopPropagation();e.preventDefault();toggleType(id,b.dataset.type)}})});
+  $("#copyRemoved")?.addEventListener("click",copyRemoved);
+  $("#undoRemoved")?.addEventListener("click",undoRemoved);
   const up=$("#upload"); if(up) up.addEventListener("change",()=>{addFiles(up.files);up.value=""});
 }
 function renderPlaced(popId){
@@ -380,7 +403,23 @@ function addFiles(files){
 }
 function removeUpload(id){
   if(alive)return; const it=items.find(i=>i.id===id); if(!it||!it.upload)return;
-  items=items.filter(i=>i!==it); delete pos[id]; URL.revokeObjectURL(it.src); dbDel(id); render();
+  items=items.filter(i=>i!==it); delete pos[id]; URL.revokeObjectURL(it.src); dbDel(id);
+  if(types[id]){delete types[id]; lsSet("dollhouse-types",types)} render();
+}
+function removeItem(id){ // uploads: delete; built-ins (owner mode): hide in this browser
+  const it=items.find(i=>i.id===id); if(!it)return; if(it.upload)return removeUpload(id);
+  if(alive||!OWNER)return; items=items.filter(i=>i!==it); delete pos[id];
+  if(!removed.includes(it.src)){removed.push(it.src); lsSet("dollhouse-removed",removed)} render();
+}
+function undoRemoved(){ if(alive)return; removed=[]; lsSet("dollhouse-removed",null); items=[...builtins,...items.filter(i=>i.upload)]; render() }
+function copyRemoved(){
+  const text=removed.map(s=>s.split("/").pop()).join("\n"), done=()=>{const a=$("#copyRemoved"); if(a){a.textContent="copied"; setTimeout(()=>{if(a.isConnected)a.textContent="copy list"},1200)}};
+  const fallback=()=>{const t=document.createElement("textarea"); t.value=text; document.body.appendChild(t); t.select(); try{document.execCommand("copy")}catch(e){} t.remove(); done()};
+  navigator.clipboard?navigator.clipboard.writeText(text).then(done,fallback):fallback();
+}
+function toggleType(id,t){ // mark a picture as door / window / stairs (overrides the file-name rule); again clears it
+  const it=items.find(i=>i.id===id); if(!it)return; const k=typeKey(it);
+  if(types[k]===t)delete types[k]; else types[k]=t; lsSet("dollhouse-types",types); renderSheet();
 }
 // saved uploads: IndexedDB "dollhouse" / "uploads", key = item id. Any failure → behave as without saving.
 let dbP=null;
@@ -440,7 +479,7 @@ $("#reset").addEventListener("click",reset);
 $("#random").addEventListener("click",()=>{ if(alive)return; items.filter(it=>!pos[it.id]).forEach((it,i)=>setTimeout(()=>autoPlace(it.id),i*60)) });
 let rt; addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(renderSheet,120)});
 
-drawHouse(); items.forEach(measure); render(); if(ALLOW_UPLOAD) loadUploads();
+drawHouse(); builtins.forEach(measure); render(); if(ALLOW_UPLOAD) loadUploads();
 </script>
 </body>
 </html>
