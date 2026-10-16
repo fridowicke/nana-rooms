@@ -344,7 +344,7 @@ function put(it,room,x,y){ // place a sticker (x,y = its centre); a wallpaper re
 const thumbH=it=>Math.min(56,Math.max(32,sizeOf(it).h*scale())); // sticker size on the sheet, px
 function renderSheet(){
   sheet.innerHTML=items.map(it=>
-    `<button class="sticker${pos[it.id]?" used":""}" type="button" data-id="${it.id}" aria-label="Sticker"><img src="${it.src}" alt="" draggable="false" style="height:${thumbH(it)}px">${it.upload||OWNER?`<span class="del" role="button" tabindex="0" aria-label="Delete picture">×</span>`:""}${OWNER?`<span class="types">${["door","window","stairs"].map(t=>`<span role="button" tabindex="0" data-type="${t}" class="${types[typeKey(it)]===t?"on":""}">${t}</span>`).join("")}</span>`:""}</button>`).join("")+
+    `<button class="sticker${pos[it.id]?" used":""}" type="button" data-id="${it.id}" aria-label="Sticker"><img src="${it.src}" alt="" draggable="false" style="height:${thumbH(it)}px">${OWNER?`<span class="del" role="button" tabindex="0" aria-label="Delete picture">×</span>`:""}${OWNER?`<span class="types">${["door","window","stairs"].map(t=>`<span role="button" tabindex="0" data-type="${t}" class="${types[typeKey(it)]===t?"on":""}">${t}</span>`).join("")}</span>`:""}</button>`).join("")+
     (items.length?"":`<p class="emptyNote">No stickers yet. Add PNG files in the settings${ALLOW_UPLOAD?" or press + to try some from your computer":""}.</p>`)+
     (ALLOW_UPLOAD?`<label class="add" title="Add PNG">+<input type="file" id="upload" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" multiple aria-label="Add PNG stickers"></label>`:"")+
     (OWNER?`<p class="ownerLine">removed: ${removed.length} - <a id="copyRemoved">copy list</a> - <a id="undoRemoved">undo all</a></p>`:"");
@@ -430,8 +430,8 @@ function removeUpload(id){
   items=items.filter(i=>i!==it); delete pos[id]; URL.revokeObjectURL(it.src); dbDel(id);
   if(types[id]){delete types[id]; lsSet("dollhouse-types",types)} render();
 }
-function removeItem(id){ // uploads: delete; built-ins (owner mode): hide in this browser
-  const it=items.find(i=>i.id===id); if(!it)return; if(it.upload)return removeUpload(id);
+function removeItem(id){ // owner mode only. uploads: delete; built-ins: hide in this browser
+  if(!OWNER)return; const it=items.find(i=>i.id===id); if(!it)return; if(it.upload)return removeUpload(id);
   if(alive||!OWNER)return; items=items.filter(i=>i!==it); delete pos[id];
   if(!removed.includes(it.src)){removed.push(it.src); lsSet("dollhouse-removed",removed)} render();
 }
