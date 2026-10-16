@@ -6,7 +6,7 @@
 <title>Dollhouse Game</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
-/* Layout: tall pointed house on the left, sticker sheet on the right (stacks on phones). Black on white, square corners, dashed cut-lines. */
+/* Layout: tall pointed house on the left, sticker sheet on the right (stacks on phones). Cross-section house: brown wall slabs, red roof band, square corners. */
 :root{
   --bg:#ffffff; --ink:#000000; --dim:rgba(0,0,0,.35); --faint:rgba(0,0,0,.05); --muted:#666666;
   --font:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
@@ -35,11 +35,14 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .screens{position:absolute;inset:0;pointer-events:none}
 .screens video{position:absolute;object-fit:cover;opacity:0;transition:opacity .7s ease;background:var(--ink)}
 .screens video.on{opacity:1}
-.struct{fill:none;stroke:var(--dim);stroke-width:3;stroke-dasharray:12 9;transition:stroke .4s}
-.alive .struct{stroke:var(--ink);stroke-dasharray:none}
-.struct .fine{stroke-width:2;stroke-dasharray:5 4}
-.alive .struct .fine{stroke-dasharray:none}
-.struct .fine .rung{stroke-width:4;stroke-dasharray:none}
+.struct{fill:none;stroke-linejoin:miter}
+.struct .fine{stroke:#8b6b4a;stroke-width:1.5}
+.struct .fine .rung{stroke-width:4}
+.struct .slab{stroke:#8b6b4a;stroke-width:10;stroke-linecap:square}
+.struct .slabFill{stroke:#fbf3e4;stroke-width:7;stroke-linecap:square;transition:stroke .6s ease}
+.alive .struct .slabFill{stroke:#fff1d6}
+.struct .roof{stroke:#a8321d;stroke-width:15}
+.struct .roofFill{stroke:#d9452b;stroke-width:12}
 .zone{fill:transparent;stroke:none;transition:fill .15s}
 .zone.hot{fill:var(--faint)}
 .walls{position:absolute;inset:0;pointer-events:none}
@@ -188,13 +191,14 @@ function drawHouse(){
   fine+=`<path d="M716 1160V1060A30 30 0 0 1 776 1060V1160"/>`;
   // mailbox on a post
   fine+=`<path d="M874 1160V1024M838 1024V988A38 24 0 0 1 914 988V1024ZM906 988V952H886V968H906"/>`;
+  // walls and floors as slabs: brown stroke 10 wide under a cream stroke 7 wide = two 1.5 lines, centred on the wall lines
+  const walls=`<rect x="100" y="512" width="576" height="648"/>
+    <path d="M100 674H676M100 836H676M100 998H676M388 512V1160M424 674V998M816 512V1160"/>`;
+  const roof=`<path d="M100 512L230 300H546L676 512M676 512L746 420L816 512"/>`;
   $("#lines").innerHTML=`<g class="struct">
-    <polygon points="${pts}"/>
-    <rect x="100" y="512" width="576" height="648"/>
-    <path d="M100 674H676M100 836H676M100 998H676M388 512V1160M424 674V998"/>
-    <path d="M676 512L746 420L816 512V1160"/>
-    <path d="M-70 1160H930"/>
-    <g class="fine">${fine}</g></g>`;
+    <g class="fine">${fine}<path d="M-70 1160H930"/></g>
+    <g class="slab">${walls}</g><g class="slabFill">${walls}</g>
+    <g class="roof">${roof}</g><g class="roofFill">${roof}</g></g>`;
   $("#zones").innerHTML=ROOMS.map(r=>`<rect class="zone" data-room="${r.id}" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"/>`).join("")+
     `<polygon class="zone" data-room="attic" points="${pts}"/>`;
 }
