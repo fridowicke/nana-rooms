@@ -90,6 +90,15 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .ghost.back{transition:all .25s ease-in}
 
 @media (max-width:860px){ header{flex-wrap:wrap;row-gap:4px} }
+/* phones: the house is width-limited, so it is stretched vertically (up to 2.2x) to fill the height above the sheet.
+   Lines keep their thickness (non-scaling strokes, --k = px per canvas unit set by the script); stickers keep their aspect in JS */
+@media (max-width:700px){
+  .stage{--w:min(100cqw,100cqh * 1090 / 920);width:var(--w);aspect-ratio:auto;height:min(100cqh,var(--w) * 2.2 * 920 / 1090)}
+  .struct *{vector-effect:non-scaling-stroke}
+  .struct{stroke-width:calc(3px * var(--k,1));stroke-dasharray:calc(12px * var(--k,1)) calc(9px * var(--k,1))}
+  .struct .fine{stroke-width:calc(2px * var(--k,1));stroke-dasharray:calc(5px * var(--k,1)) calc(4px * var(--k,1))}
+  .struct .fine .rung{stroke-width:calc(4px * var(--k,1))}
+}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
@@ -318,6 +327,10 @@ function drawHouse(){
 
 /* ---------------- geometry helpers ---------------- */
 const scale=()=>stage.getBoundingClientRect().width/VB.w;          // px per canvas unit
+const PHONE=matchMedia("(max-width:700px)");
+let SY=1; // vertical stretch of the house on phones (1 … 2.2): one canvas unit is SY times taller than wide on screen
+function measureStretch(){ const r=stage.getBoundingClientRect(); stage.style.setProperty("--k",r.width/VB.w);
+  return PHONE.matches&&r.width?Math.min(2.2,Math.max(1,(r.height/VB.h)/(r.width/VB.w))):1 }
 function toCanvas(cx,cy){const r=stage.getBoundingClientRect();return [VB.x+(cx-r.left)/r.width*VB.w, VB.y+(cy-r.top)/r.height*VB.h]}
 function inPoly(px,py,poly){let c=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const [xi,yi]=poly[i],[xj,yj]=poly[j];if((yi>py)!==(yj>py)&&px<(xj-xi)*(py-yi)/(yj-yi)+xi)c=!c}return c}
 function roomAt(x,y){
@@ -328,11 +341,12 @@ function roomAt(x,y){
 }
 const inRect=(cx,cy,el)=>{const r=el.getBoundingClientRect();return cx>=r.left&&cx<=r.right&&cy>=r.top&&cy<=r.bottom};
 function sizeOf(it){ // height/width in canvas units, never bigger than a normal room; in a slot: contained in the slot box
+  // hy = the height in vertical canvas units (= h / SY on a stretched phone house, so the picture keeps its aspect)
   const sl=pos[it.id]?.slot&&SLOTS.find(s=>s.id===pos[it.id].slot);
-  if(sl){const w=Math.min(sl.w,sl.h*it.ratio); return {w,h:w/it.ratio}}
+  if(sl){const w=Math.min(sl.w,sl.h*SY*it.ratio); return {w,h:w/it.ratio,hy:w/it.ratio/SY}}
   const maxH=ROOMS[0].h*.92, maxW=ROOMS[0].w*.95;
   let h=Math.min(it.h,maxH), w=h*it.ratio; if(w>maxW){w=maxW;h=w/it.ratio}
-  return {w,h};
+  return {w,h,hy:h/SY};
 }
 function slotAt(it,x,y){ // nearest slot of the item's type around the drop point, or null
   const t=typeOf(it); if(!t||it.wall)return null;
@@ -341,12 +355,12 @@ function slotAt(it,x,y){ // nearest slot of the item's type around the drop poin
 }
 function putSlot(it,sl){ // one picture per slot: the previous one goes back to the sheet
   items.forEach(o=>{if(o!==it&&pos[o.id]?.slot===sl.id)delete pos[o.id]});
-  pos[it.id]={room:null,slot:sl.id}; const {h}=sizeOf(it);
-  pos[it.id].x=sl.x+sl.w/2; pos[it.id].y=sl.type==="window"?sl.y+sl.h/2+h/2:sl.y+sl.h;
+  pos[it.id]={room:null,slot:sl.id}; slotPos(it,sl);
 }
+function slotPos(it,sl){ const {hy}=sizeOf(it); pos[it.id].x=sl.x+sl.w/2; pos[it.id].y=sl.type==="window"?sl.y+sl.h/2+hy/2:sl.y+sl.h }
 function put(it,room,x,y){ // place a sticker (x,y = its centre); a wallpaper replaces the one already in that area
   if(it.wall){ items.forEach(o=>{if(o.wall&&o!==it&&pos[o.id]?.room===room.id)delete pos[o.id]}); pos[it.id]={room:room.id}; }
-  else pos[it.id]={room:room?room.id:null,x,y:y+sizeOf(it).h/2};
+  else pos[it.id]={room:room?room.id:null,x,y:y+sizeOf(it).hy/2};
 }
 
 /* ---------------- render ---------------- */
@@ -378,17 +392,22 @@ function renderSheet(){
 }
 function renderPlaced(popId){
   // wallpapers live in the same viewBox as #lines: image = room rect, clipped by the room rect (attic: its polygon)
+  SY=measureStretch();
+  // on a stretched phone house the image is drawn SY times taller and squeezed back by the stretch, so it is not distorted
   wallsEl.innerHTML=`<defs>${ROOMS.map(r=>`<clipPath id="clip-${r.id}"><rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"/></clipPath>`).join("")}
     <clipPath id="clip-attic"><polygon points="${ATTIC.poly.map(p=>p.join(",")).join(" ")}"/></clipPath>
     <clipPath id="clip-tower"><rect x="${TOWER.x}" y="${TOWER.y}" width="${TOWER.w}" height="${TOWER.h}"/></clipPath></defs>`+
     items.filter(it=>it.wall&&pos[it.id]).map(it=>{const id=pos[it.id].room,b=ROOMS.find(r=>r.id===id)||(id==="tower"?TOWER:ATTIC_BOX);
-    return `<image href="${it.src}" data-id="${it.id}" class="${popId===it.id?"pop":""}" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}"
-      preserveAspectRatio="xMidYMid slice" clip-path="url(#clip-${id})"/>`}).join("");
+    const img=`<image href="${it.src}" data-id="${it.id}" class="${popId===it.id?"pop":""}" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}"
+      preserveAspectRatio="xMidYMid slice" clip-path="url(#clip-${id})"/>`;
+    return SY===1?img:`<g clip-path="url(#clip-${id})"><image href="${it.src}" data-id="${it.id}" class="${popId===it.id?"pop":""}" x="${b.x}" y="${b.y*SY}" width="${b.w}" height="${b.h*SY}"
+      preserveAspectRatio="xMidYMid slice" transform="scale(1 ${1/SY})"/></g>`}).join("");
   wallsEl.querySelectorAll("image").forEach(el=>el.addEventListener("pointerdown",startDrag));
   SLOTS.forEach(s=>document.getElementById("slot-"+s.id)?.classList.toggle("filled",items.some(it=>pos[it.id]?.slot===s.id)));
-  placedEl.innerHTML=items.filter(it=>!it.wall&&pos[it.id]).map(it=>{const p=pos[it.id],{h}=sizeOf(it);
+  placedEl.innerHTML=items.filter(it=>!it.wall&&pos[it.id]).map(it=>{const p=pos[it.id],{hy}=sizeOf(it);
+    if(p.slot){const sl=SLOTS.find(s=>s.id===p.slot); if(sl)slotPos(it,sl)}
     return `<img src="${it.src}" alt="" draggable="false" data-id="${it.id}" class="${popId===it.id?"pop":""}"
-      style="left:${(p.x-VB.x)/VB.w*100}%;top:${(p.y-VB.y)/VB.h*100}%;height:${h/VB.h*100}%">`}).join("");
+      style="left:${(p.x-VB.x)/VB.w*100}%;top:${(p.y-VB.y)/VB.h*100}%;height:${hy/VB.h*100}%">`}).join("");
   placedEl.querySelectorAll("img").forEach(el=>el.addEventListener("pointerdown",startDrag));
   updateHud();
 }
@@ -427,8 +446,8 @@ function autoPlace(id){ if(alive)return; const it=items.find(i=>i.id===id); if(!
   const rooms=it.wall?[...ROOMS,TOWER].filter(r=>!items.some(o=>o.wall&&pos[o.id]?.room===r.id)):ROOMS; if(!rooms.length)return;
   const counts=rooms.map(r=>items.filter(i=>pos[i.id]?.room===r.id).length), min=Math.min(...counts);
   const choices=rooms.filter((r,i)=>counts[i]===min), room=choices[Math.floor(Math.random()*choices.length)];
-  const {w,h}=sizeOf(it); // objects: inside the room, standing on its floor
-  put(it,room,room.x+w/2+4+Math.random()*Math.max(0,room.w-w-8),room.y+room.h-2-h/2);
+  const {w,hy}=sizeOf(it); // objects: inside the room, standing on its floor
+  put(it,room,room.x+w/2+4+Math.random()*Math.max(0,room.w-w-8),room.y+room.h-2-hy/2);
   render(id); checkDone();
 }
 
@@ -522,6 +541,8 @@ $("#again").addEventListener("click",reset);
 $("#reset").addEventListener("click",reset);
 $("#random").addEventListener("click",()=>{ if(alive)return; items.filter(it=>!pos[it.id]).forEach((it,i)=>setTimeout(()=>autoPlace(it.id),i*60)) });
 let rt; addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(renderSheet,120)});
+// the phone stretch follows the stage size (sheet height, rotation, Safari toolbar): re-place stickers when it changes
+if(window.ResizeObserver) new ResizeObserver(()=>{ if(measureStretch()!==SY) renderPlaced() }).observe(stage);
 
 drawHouse(); builtins.forEach(measure); render();
 if(ALLOW_UPLOAD) loadUploads().finally(()=>{uploadsDone=true; checkLoaded()}); else checkLoaded();
