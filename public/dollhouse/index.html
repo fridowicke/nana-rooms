@@ -6,18 +6,25 @@
 <title>Dollhouse Game</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
+/* loading widget: shown from the first paint until stickers + saved uploads are ready */
+#loader{position:fixed;inset:0;z-index:1000;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .2s;
+  font-family:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;font-size:12px;color:#666}
+#loader img{width:296px;max-width:80vw;height:auto;image-rendering:pixelated}
+#loader.out{opacity:0;pointer-events:none}
+</style>
+<style>
 /* Layout: tall pointed house on the left, sticker sheet on the right (stacks on phones). Black on white, square corners, dashed cut-lines. */
 :root{
   --bg:#ffffff; --ink:#000000; --dim:rgba(0,0,0,.35); --faint:rgba(0,0,0,.05); --muted:#666666;
   --font:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
   color-scheme:light;
 }
-html,body{height:100%}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;box-sizing:border-box;
-  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:8px;-webkit-user-select:none;user-select:none}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+body{margin:0;height:100vh;height:100dvh;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;box-sizing:border-box;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-top:6px;padding-bottom:max(4px,env(safe-area-inset-bottom,0px));-webkit-user-select:none;user-select:none}
 *{border-radius:0}
-.app{margin:0 auto;display:grid;grid-template-columns:1fr;gap:8px;align-items:start}
-header{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:nowrap}
+.app{margin:0 auto;height:100%;display:flex;flex-direction:column;gap:4px;min-height:0}
+header{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:nowrap}
 .how{margin:0;max-width:70ch;font-size:12px;line-height:1.3;color:var(--muted)}
 .hud{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;line-height:1.3}
 #progress{font-variant-numeric:tabular-nums;color:var(--muted);margin-right:4px}
@@ -29,8 +36,9 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 :focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 /* house */
-.stageWrap{position:relative;width:100%;justify-self:center}
-.stage{position:relative;width:min(100%,calc((100vh - 60px) * 1090 / 920));width:min(100%,calc((100dvh - 60px) * 1090 / 920));margin:0 auto;aspect-ratio:1090/920}
+.stageWrap{position:relative;width:100%;flex:1 1 0;min-height:0;container-type:size;display:flex;align-items:center;justify-content:center}
+/* the house takes all height between the top line and the sheet, keeping its aspect */
+.stage{position:relative;width:min(100%,calc((100dvh - 200px) * 1090 / 920));width:min(100cqw,100cqh * 1090 / 920);margin:0 auto;aspect-ratio:1090/920}
 .layer{position:absolute;inset:0;width:100%;height:100%}
 .screens{position:absolute;inset:0;pointer-events:none}
 .screens video{position:absolute;object-fit:cover;opacity:0;transition:opacity .7s ease;background:var(--ink)}
@@ -59,33 +67,34 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .alive .banner{opacity:1;pointer-events:auto}
 
 /* sticker sheet */
-.sheet{padding:4px;min-height:68px;display:flex;flex-wrap:wrap;align-items:flex-end;align-content:flex-start;gap:2px;transition:opacity .3s}
+.sheet{--t:22px;--o:-4px;flex:0 0 auto;max-height:17vh;max-height:17dvh;overflow:hidden;box-sizing:border-box;padding:2px 2px 2px 6px;margin:0;display:flex;flex-wrap:wrap;align-items:flex-end;align-content:flex-start;gap:1px;transition:opacity .3s}
 .sheet.locked{opacity:.3;pointer-events:none}
-.sticker{position:relative;border:0;padding:0;margin:0;display:grid;place-items:end center;background:transparent;touch-action:none;cursor:grab;min-width:0;transition:opacity .15s,transform .15s}
+.sticker{position:relative;border:0;padding:0;margin:0 0 0 var(--o);display:grid;place-items:end center;background:transparent;touch-action:none;cursor:grab;min-width:0;transition:opacity .15s,transform .15s}
 .sticker:hover{opacity:.75;transform:scale(1.04)}
 .sticker:active{transform:scale(.97)}
-.sticker img{display:block;pointer-events:none;-webkit-user-drag:none;max-width:100%}
+.sticker img{display:block;pointer-events:none;-webkit-user-drag:none;height:var(--t);width:auto}
 .sticker.used{display:none}
-.del{position:absolute;top:0;right:0;width:14px;height:14px;display:grid;place-items:center;background:none;border:0;color:var(--ink);font-size:10px;line-height:1;cursor:pointer;touch-action:none;z-index:1}
+.del{position:absolute;top:0;right:0;width:9px;height:9px;padding:0;display:grid;place-items:center;background:none;border:0;color:var(--ink);font-size:8px;line-height:1;cursor:pointer;touch-action:none;z-index:1}
 .del::before{content:"";position:absolute;inset:0;background:var(--bg,#fff);border:1px solid var(--dim);z-index:-1}
 .del:hover::before{border-color:var(--ink)}
-.add{border:0;color:var(--muted);font-size:22px;width:56px;height:56px;display:grid;place-items:center;position:relative;cursor:pointer;transition:opacity .15s,transform .15s}
+.add{border:0;margin-left:2px;color:var(--muted);font-size:14px;width:var(--t);height:var(--t);display:grid;place-items:center;position:relative;cursor:pointer;transition:opacity .15s,transform .15s}
 .add:hover{color:var(--ink);transform:scale(1.04)}
 .add input{position:absolute;inset:0;opacity:0;cursor:pointer}
 .types{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:center;gap:1px;z-index:1;pointer-events:none}
-.types span{width:14px;height:14px;box-sizing:border-box;display:grid;place-items:center;font-size:9px;line-height:1;padding:0;border:1px solid var(--dim);color:var(--muted);background:var(--bg);cursor:pointer;touch-action:none;pointer-events:auto}
+.types span{width:8px;height:8px;box-sizing:border-box;display:grid;place-items:center;font-size:6px;line-height:1;padding:0;border:1px solid var(--dim);color:var(--muted);background:var(--bg);cursor:pointer;touch-action:none;pointer-events:auto}
 .types span.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
-.ownerLine{flex:1 1 100%;margin:4px 0 0;font-size:11px;color:var(--muted)}
+.ownerLine{flex:1 1 100%;margin:0;font-size:10px;line-height:1.2;color:var(--muted)}
 .ownerLine a{color:inherit;cursor:pointer;text-decoration:underline}
 .emptyNote{color:var(--muted);margin:0;align-self:center;flex:1 1 200px}
 .ghost{position:fixed;left:0;top:0;pointer-events:none;z-index:50;transform:translate(-50%,-50%)}
 .ghost.back{transition:all .25s ease-in}
 
-@media (max-width:860px){ header{flex-wrap:wrap;row-gap:4px} .app{grid-template-columns:minmax(0,1fr)} .stage{width:100%} }
+@media (max-width:860px){ header{flex-wrap:wrap;row-gap:4px} }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
+<div id="loader" role="status"><img src="loading-house.webp" alt="" width="296" height="240"><span>loading...</span></div>
 
 <div class="app">
   <header>
@@ -341,10 +350,14 @@ function put(it,room,x,y){ // place a sticker (x,y = its centre); a wallpaper re
 }
 
 /* ---------------- render ---------------- */
-const thumbH=it=>Math.min(48,Math.max(24,sizeOf(it).h*scale())); // sticker size on the sheet, px
+function fitSheet(){ // largest thumbnail height (max 22px phone / 28px desktop, min 14px) at which all stickers fit without scrolling
+  const max=innerWidth<=860?22:28;
+  for(let t=max;t>=14;t--){ sheet.style.setProperty("--t",t+"px"); sheet.style.setProperty("--o",-Math.min(4,Math.round(t*.18))+"px");
+    if(sheet.scrollHeight<=sheet.clientHeight+1) break; }
+}
 function renderSheet(){
   sheet.innerHTML=items.map(it=>
-    `<button class="sticker${pos[it.id]?" used":""}" type="button" data-id="${it.id}" aria-label="Sticker"><img src="${it.src}" alt="" draggable="false" style="height:${thumbH(it)}px">${OWNER?`<span class="del" role="button" tabindex="0" aria-label="Delete picture">×</span>`:""}${OWNER?`<span class="types">${["door","window","stairs"].map(t=>`<span role="button" tabindex="0" data-type="${t}" class="${types[typeKey(it)]===t?"on":""}" title="${t}" aria-label="${t}">${t[0].toUpperCase()}</span>`).join("")}</span>`:""}</button>`).join("")+
+    `<button class="sticker${pos[it.id]?" used":""}" type="button" data-id="${it.id}" aria-label="Sticker"><img src="${it.src}" alt="" draggable="false" style="width:calc(var(--t) * ${it.ratio.toFixed(3)})">${OWNER?`<span class="del" role="button" tabindex="0" aria-label="Delete picture">×</span>`:""}${OWNER?`<span class="types">${["door","window","stairs"].map(t=>`<span role="button" tabindex="0" data-type="${t}" class="${types[typeKey(it)]===t?"on":""}" title="${t}" aria-label="${t}">${t[0].toUpperCase()}</span>`).join("")}</span>`:""}</button>`).join("")+
     (items.length?"":`<p class="emptyNote">No stickers yet. Add PNG files in the settings${ALLOW_UPLOAD?" or press + to try some from your computer":""}.</p>`)+
     (ALLOW_UPLOAD?`<label class="add" title="Add PNG">+<input type="file" id="upload" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" multiple aria-label="Add PNG stickers"></label>`:"")+
     (OWNER?`<p class="ownerLine">removed: ${removed.length} - <a id="copyRemoved">copy list</a> - <a id="undoRemoved">undo all</a></p>`:"");
@@ -361,6 +374,7 @@ function renderSheet(){
   $("#copyRemoved")?.addEventListener("click",copyRemoved);
   $("#undoRemoved")?.addEventListener("click",undoRemoved);
   const up=$("#upload"); if(up) up.addEventListener("change",()=>{addFiles(up.files);up.value=""});
+  fitSheet();
 }
 function renderPlaced(popId){
   // wallpapers live in the same viewBox as #lines: image = room rect, clipped by the room rect (attic: its polygon)
@@ -389,7 +403,7 @@ function startDrag(e){
   if(alive)return; const el=e.currentTarget, it=items.find(i=>i.id===el.dataset.id); if(!it||!it.ready)return;
   if(el.classList.contains("sticker")&&pos[it.id])return;
   el.setPointerCapture(e.pointerId);
-  const gh=new Image(); gh.src=it.src; gh.className="ghost"; gh.style.height=thumbH(it)+"px"; document.body.appendChild(gh);
+  const gh=new Image(); gh.src=it.src; gh.className="ghost"; gh.style.height=sizeOf(it).h*scale()+"px"; document.body.appendChild(gh);
   drag={el,it,gh,x0:e.clientX,y0:e.clientY,moved:false,fromHouse:!!pos[it.id]};
   moveGhost(e.clientX,e.clientY);
   el.onpointermove=ev=>{ if(!drag.moved&&Math.hypot(ev.clientX-drag.x0,ev.clientY-drag.y0)>6){drag.moved=true; if(drag.fromHouse)el.classList.add("lift")}
@@ -454,7 +468,7 @@ function dbTx(mode,fn){ try{ return db().then(d=>new Promise((ok,no)=>{const t=d
     t.oncomplete=()=>ok(req&&req.result); t.onerror=t.onabort=()=>no(t.error)})).catch(()=>{}) }catch(e){ return Promise.resolve() } }
 function dbPut(it){ if(items.includes(it)) dbTx("readwrite",s=>s.put({id:it.id,blob:it.blob,name:it.name,type:it.type,wall:it.wall,added:it.added},it.id)) }
 function dbDel(id){ dbTx("readwrite",s=>s.delete(id)) }
-function loadUploads(){ dbTx("readonly",s=>s.getAll()).then(rows=>{ if(!rows||!rows.length)return;
+function loadUploads(){ return dbTx("readonly",s=>s.getAll()).then(rows=>{ if(!rows||!rows.length)return;
   rows.sort((a,b)=>(a.added||0)-(b.added||0)).forEach(r=>{ if(!r||!r.blob||items.some(i=>i.id===r.id))return;
     const it={id:r.id,src:URL.createObjectURL(r.blob),name:r.name||"",type:r.type||r.blob.type,h:UPLOAD_HEIGHT,snap:"auto",ratio:1,wall:!!r.wall,ready:false,upload:true,blob:r.blob,added:r.added||0,saved:true};
     items.push(it); measure(it); });
@@ -471,8 +485,14 @@ function opaque(im){ // fewer than 1% of pixels with alpha < 250 → no transpar
 }
 function measure(it){const im=new Image(); im.onload=()=>{it.ratio=im.naturalWidth/im.naturalHeight||1;
     if(!it.saved){ if(isWall(it.name)||isJpeg(it.name,it.type)) it.wall=true; else try{it.wall=opaque(im)}catch(e){it.wall=false} }
-    it.ready=true; if(it.upload&&!it.saved){it.saved=true; dbPut(it)} render()};
-  im.onerror=()=>{if(!it.saved)it.wall=isWall(it.name)||isJpeg(it.name,it.type); it.ready=true; if(it.upload&&!it.saved){it.saved=true; dbPut(it)} render()}; im.src=it.src}
+    it.ready=true; if(it.upload&&!it.saved){it.saved=true; dbPut(it)} render(); checkLoaded()};
+  im.onerror=()=>{if(!it.saved)it.wall=isWall(it.name)||isJpeg(it.name,it.type); it.ready=true; if(it.upload&&!it.saved){it.saved=true; dbPut(it)} render(); checkLoaded()}; im.src=it.src}
+
+/* ---------------- loading widget ---------------- */
+let uploadsDone=!ALLOW_UPLOAD;
+function hideLoader(){ const l=$("#loader"); if(!l||l.classList.contains("out"))return; l.classList.add("out"); setTimeout(()=>l.remove(),200) }
+function checkLoaded(){ if(uploadsDone&&items.every(it=>it.ready)) hideLoader() }
+setTimeout(hideLoader,8000); // failsafe
 
 /* ---------------- the house comes alive ---------------- */
 function checkDone(){ if(allPlaced()) setTimeout(wake,500) }
@@ -503,7 +523,8 @@ $("#reset").addEventListener("click",reset);
 $("#random").addEventListener("click",()=>{ if(alive)return; items.filter(it=>!pos[it.id]).forEach((it,i)=>setTimeout(()=>autoPlace(it.id),i*60)) });
 let rt; addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(renderSheet,120)});
 
-drawHouse(); builtins.forEach(measure); render(); if(ALLOW_UPLOAD) loadUploads();
+drawHouse(); builtins.forEach(measure); render();
+if(ALLOW_UPLOAD) loadUploads().finally(()=>{uploadsDone=true; checkLoaded()}); else checkLoaded();
 </script>
 </body>
 </html>
