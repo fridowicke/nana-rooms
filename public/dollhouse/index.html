@@ -38,7 +38,7 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 /* house */
 .stageWrap{position:relative;width:100%;flex:1 1 0;min-height:0;container-type:size;display:flex;align-items:center;justify-content:center}
 /* the house takes all height between the top line and the sheet, keeping its aspect */
-.stage{position:relative;width:min(100%,calc((100dvh - 200px) * 828 / 920));width:min(100cqw,100cqh * 828 / 920);margin:0 auto;aspect-ratio:828/920}
+.stage{position:relative;width:min(100%,calc((100dvh - 200px) * 820 / 906));width:min(100cqw,100cqh * 820 / 906);margin:0 auto;aspect-ratio:820/906}
 .layer{position:absolute;inset:0;width:100%;height:100%}
 .screens{position:absolute;inset:0;pointer-events:none}
 .screens video{position:absolute;object-fit:cover;opacity:0;transition:opacity .7s ease;background:var(--ink)}
@@ -93,7 +93,9 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 /* phones: the house is width-limited, so it is stretched vertically (up to 2.2x) to fill the height above the sheet.
    Lines keep their thickness (non-scaling strokes, --k = px per canvas unit set by the script); stickers keep their aspect in JS */
 @media (max-width:700px){
-  .stage{--w:min(100cqw,100cqh * 828 / 920);width:var(--w);aspect-ratio:auto;height:min(100cqh,var(--w) * 2.2 * 920 / 828)}
+  body{padding-left:max(4px,env(safe-area-inset-left,0px));padding-right:max(4px,env(safe-area-inset-right,0px))}
+  .sheet{padding:2px 0 2px 4px}
+  .stage{--w:min(100cqw,100cqh * 820 / 906);width:var(--w);aspect-ratio:auto;height:min(100cqh,var(--w) * 2.2 * 906 / 820)}
   .struct *{vector-effect:non-scaling-stroke}
   .struct{stroke-width:calc(3px * var(--k,1));stroke-dasharray:calc(12px * var(--k,1)) calc(9px * var(--k,1))}
   .struct .fine{stroke-width:calc(2px * var(--k,1));stroke-dasharray:calc(5px * var(--k,1)) calc(4px * var(--k,1))}
@@ -117,10 +119,10 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 
   <div class="stageWrap" id="wrap">
     <div class="stage" id="stage">
-      <svg class="layer" id="zones" viewBox="18 250 828 920" preserveAspectRatio="none" aria-hidden="true"></svg>
-      <svg class="layer walls" id="walls" viewBox="18 250 828 920" preserveAspectRatio="none" aria-hidden="true"></svg>
+      <svg class="layer" id="zones" viewBox="22 258 820 906" preserveAspectRatio="none" aria-hidden="true"></svg>
+      <svg class="layer walls" id="walls" viewBox="22 258 820 906" preserveAspectRatio="none" aria-hidden="true"></svg>
       <div class="screens" id="screens"></div>
-      <svg class="layer" id="lines" viewBox="18 250 828 920" preserveAspectRatio="none" aria-hidden="true" style="pointer-events:none"></svg>
+      <svg class="layer" id="lines" viewBox="22 258 820 906" preserveAspectRatio="none" aria-hidden="true" style="pointer-events:none"></svg>
       <div class="placed" id="placed" aria-label="House"></div>
       <div class="banner"><button class="btn primary" id="again" type="button">Play again</button></div>
     </div>
@@ -272,7 +274,7 @@ const typeKey=it=>it.upload?it.id:it.src;
 const typeOf=it=>types[typeKey(it)]||slotType(it.name);
 
 /* ---------------- setup ---------------- */
-const VB={x:18,y:250,w:828,h:920};         // drawing bounds (ground line 26 … 838, chimneys 262 … ground 1160) + margin
+const VB={x:22,y:258,w:820,h:906};         // tight drawing bounds (ground line 26 … 838, chimneys 262 … ground 1160) + 4 margin
 const $=s=>document.querySelector(s);
 const stage=$("#stage"), wrap=$("#wrap"), sheet=$("#sheet"), placedEl=$("#placed"), screens=$("#screens"), wallsEl=$("#walls");
 const isWall=name=>/^wall/i.test(name);
