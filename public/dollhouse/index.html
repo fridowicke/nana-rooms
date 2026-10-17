@@ -38,7 +38,7 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 /* house */
 .stageWrap{position:relative;width:100%;flex:1 1 0;min-height:0;container-type:size;display:flex;align-items:center;justify-content:center}
 /* the house takes all height between the top line and the sheet, keeping its aspect */
-.stage{position:relative;width:min(100%,calc((100dvh - 200px) * 1090 / 920));width:min(100cqw,100cqh * 1090 / 920);margin:0 auto;aspect-ratio:1090/920}
+.stage{position:relative;width:min(100%,calc((100dvh - 200px) * 983 / 920));width:min(100cqw,100cqh * 983 / 920);margin:0 auto;aspect-ratio:983/920}
 .layer{position:absolute;inset:0;width:100%;height:100%}
 .screens{position:absolute;inset:0;pointer-events:none}
 .screens video{position:absolute;object-fit:cover;opacity:0;transition:opacity .7s ease;background:var(--ink)}
@@ -93,7 +93,7 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 /* phones: the house is width-limited, so it is stretched vertically (up to 2.2x) to fill the height above the sheet.
    Lines keep their thickness (non-scaling strokes, --k = px per canvas unit set by the script); stickers keep their aspect in JS */
 @media (max-width:700px){
-  .stage{--w:min(100cqw,100cqh * 1090 / 920);width:var(--w);aspect-ratio:auto;height:min(100cqh,var(--w) * 2.2 * 920 / 1090)}
+  .stage{--w:min(100cqw,100cqh * 983 / 920);width:var(--w);aspect-ratio:auto;height:min(100cqh,var(--w) * 2.2 * 920 / 983)}
   .struct *{vector-effect:non-scaling-stroke}
   .struct{stroke-width:calc(3px * var(--k,1));stroke-dasharray:calc(12px * var(--k,1)) calc(9px * var(--k,1))}
   .struct .fine{stroke-width:calc(2px * var(--k,1));stroke-dasharray:calc(5px * var(--k,1)) calc(4px * var(--k,1))}
@@ -117,10 +117,10 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 
   <div class="stageWrap" id="wrap">
     <div class="stage" id="stage">
-      <svg class="layer" id="zones" viewBox="-80 250 1090 920" preserveAspectRatio="none" aria-hidden="true"></svg>
-      <svg class="layer walls" id="walls" viewBox="-80 250 1090 920" preserveAspectRatio="none" aria-hidden="true"></svg>
+      <svg class="layer" id="zones" viewBox="-35 250 983 920" preserveAspectRatio="none" aria-hidden="true"></svg>
+      <svg class="layer walls" id="walls" viewBox="-35 250 983 920" preserveAspectRatio="none" aria-hidden="true"></svg>
       <div class="screens" id="screens"></div>
-      <svg class="layer" id="lines" viewBox="-80 250 1090 920" preserveAspectRatio="none" aria-hidden="true" style="pointer-events:none"></svg>
+      <svg class="layer" id="lines" viewBox="-35 250 983 920" preserveAspectRatio="none" aria-hidden="true" style="pointer-events:none"></svg>
       <div class="placed" id="placed" aria-label="House"></div>
       <div class="banner"><button class="btn primary" id="again" type="button">Play again</button></div>
     </div>
@@ -248,15 +248,15 @@ const ROOMS = [
   {id:"r7",x:100,y:998, w:288,h:162},{id:"r8",x:388,y:998, w:288,h:162},
 ];
 const ATTIC = {id:"attic", poly:[[100,512],[230,300],[546,300],[676,512]], top:300, floor:512, video:false};
-const TOWER = {id:"tower",x:676,y:512,w:210,h:648}; // inside of the tower below its roof, one wallpaper area
+const TOWER = {id:"tower",x:676,y:512,w:148,h:648}; // inside of the tower below its roof, one wallpaper area
 
 // Slots: the dashed door, windows and spiral stairs; box = bounding box of the drawing (canvas units), g = its SVG group id
 const SLOTS = [
-  {id:"door",         type:"door",   x:736, y:1015, w:90,  h:145},
+  {id:"door",         type:"door",   x:715, y:1015, w:70,  h:145},
   {id:"attic-win-l",  type:"window", x:250, y:357,  w:60,  h:90},
   {id:"attic-win-r",  type:"window", x:466, y:357,  w:60,  h:90},
-  {id:"tower-win",    type:"window", x:736, y:516,  w:90,  h:90},
-  {id:"stairs",       type:"stairs", x:-40, y:512,  w:124, h:648},
+  {id:"tower-win",    type:"window", x:715, y:516,  w:70,  h:70},
+  {id:"stairs",       type:"stairs", x:-4,  y:512,  w:88,  h:648},
 ];
 const SLOT_NEAR = 20; // a drop this close to a slot box still snaps
 const slotType=name=>/door/i.test(name)?"door":/window/i.test(name)?"window":/stair|spiral/i.test(name)?"stairs":null;
@@ -272,7 +272,7 @@ const typeKey=it=>it.upload?it.id:it.src;
 const typeOf=it=>types[typeKey(it)]||slotType(it.name);
 
 /* ---------------- setup ---------------- */
-const VB={x:-80,y:250,w:1090,h:920};       // drawing bounds (spiral stair -40 … ground 1000, chimneys 262 … ground 1160) + margin
+const VB={x:-35,y:250,w:983,h:920};        // drawing bounds (ground line -25 … 938, chimneys 262 … ground 1160) + margin
 const $=s=>document.querySelector(s);
 const stage=$("#stage"), wrap=$("#wrap"), sheet=$("#sheet"), placedEl=$("#placed"), screens=$("#screens"), wallsEl=$("#walls");
 const isWall=name=>/^wall/i.test(name);
@@ -293,7 +293,7 @@ function drawHouse(){
   [262,370,478].forEach(x=>fine+=`<path d="M${x} 300V262H${x+26}V300"/>`);
   // spiral stair outside the left wall: one smooth coil seen from the side, one loop per floor (ground 1160 … top 512),
   // drawn as cubic segments of x=cx-rx·cos, y=floor line-ry·sin (exact tangents); outside .fine so it takes the wall stroke
-  {const cx=22,rx=62,ry=40,P=t=>[cx-rx*Math.cos(2*Math.PI*t),1160-162*t-ry*Math.sin(2*Math.PI*t)],
+  {const cx=40,rx=44,ry=40,P=t=>[cx-rx*Math.cos(2*Math.PI*t),1160-162*t-ry*Math.sin(2*Math.PI*t)],
     D=t=>[2*Math.PI*rx*Math.sin(2*Math.PI*t),-162-2*Math.PI*ry*Math.cos(2*Math.PI*t)],q=v=>v.toFixed(1),n=8;
   let d=`M${P(0).map(q).join(" ")}`;
   for(let k=0;k<4*n;k++){const t0=k/n,t1=(k+1)/n,a=P(t0),b=P(t1),da=D(t0),db=D(t1),h=1/n/3;
@@ -304,20 +304,20 @@ function drawHouse(){
   for(let t=674;t<998;t+=162) for(let k=1;k<5;k++) fine+=`M388 ${t+162*k/5}H424`;
   fine+=`"/>`;
   // tower: window, three hatched flights going down, arched door
-  fine+=`<g id="slot-tower-win">${win(736,516,90)}</g>`;
-  [[600,1],[740,-1],[880,1]].forEach(([y,d])=>{const x0=d>0?706:856,x1=d>0?856:706;
+  fine+=`<g id="slot-tower-win">${win(715,516,70)}</g>`;
+  [[600,1],[740,-1],[880,1]].forEach(([y,d])=>{const x0=d>0?697:803,x1=d>0?803:697;
     fine+=`<path d="M${x0} ${y}L${x1} ${y+100}M${x0} ${y+26}L${x1} ${y+126}`;
-    for(let k=1;k<21;k++){const x=x0+(x1-x0)*k/21,yy=y+100*k/21; fine+=`M${x} ${yy}V${yy+26}`}
+    for(let k=1;k<15;k++){const x=x0+(x1-x0)*k/15,yy=y+100*k/15; fine+=`M${x} ${yy}V${yy+26}`}
     fine+=`"/>`;});
-  fine+=`<g id="slot-door"><path d="M736 1160V1060A45 45 0 0 1 826 1060V1160"/></g>`;
+  fine+=`<g id="slot-door"><path d="M715 1160V1050A35 35 0 0 1 785 1050V1160"/></g>`;
   // mailbox on a post
-  fine+=`<path d="M944 1160V1024M908 1024V988A38 24 0 0 1 984 988V1024ZM976 988V952H956V968H976"/>`;
+  fine+=`<path d="M882 1160V1024M846 1024V988A38 24 0 0 1 922 988V1024ZM914 988V952H894V968H914"/>`;
   $("#lines").innerHTML=`<g class="struct">
     <polygon points="${pts}"/>
     <rect x="100" y="512" width="576" height="648"/>
     <path d="M100 674H676M100 836H676M100 998H676M388 512V1160M424 674V998"/>
-    <path d="M676 512L781 374L886 512V1160"/>
-    <path d="M-70 1160H1000"/>
+    <path d="M676 512L750 374L824 512V1160"/>
+    <path d="M-25 1160H938"/>
     ${spiral}
     <g class="fine">${fine}</g></g>`;
   $("#zones").innerHTML=ROOMS.map(r=>`<rect class="zone" data-room="${r.id}" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"/>`).join("")+
