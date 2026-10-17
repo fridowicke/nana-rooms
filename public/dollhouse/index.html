@@ -82,6 +82,15 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .ghost.back{transition:all .25s ease-in}
 
 @media (max-width:860px){ header{flex-wrap:wrap;row-gap:4px} .app{grid-template-columns:minmax(0,1fr)} .stage{width:100%} }
+@media (max-width:700px){ /* phones: house 2x screen width in a swipeable area, sticker sheet pinned at the bottom */
+  html,body{height:100%;height:100dvh;overflow:hidden}
+  body{padding-block:6px 0}
+  .app{display:flex;flex-direction:column;height:100%;gap:6px}
+  header{flex:0 0 auto}
+  .stageWrap{flex:1 1 auto;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  .stage{width:200vw;max-width:none;margin:0}
+  .sheet{flex:0 0 28vh;flex:0 0 28dvh;box-sizing:border-box;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:max(4px,env(safe-area-inset-bottom,0px))}
+}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
@@ -393,8 +402,18 @@ function startDrag(e){
   drag={el,it,gh,x0:e.clientX,y0:e.clientY,moved:false,fromHouse:!!pos[it.id]};
   moveGhost(e.clientX,e.clientY);
   el.onpointermove=ev=>{ if(!drag.moved&&Math.hypot(ev.clientX-drag.x0,ev.clientY-drag.y0)>6){drag.moved=true; if(drag.fromHouse)el.classList.add("lift")}
-    moveGhost(ev.clientX,ev.clientY); const [x,y]=toCanvas(ev.clientX,ev.clientY); hot(roomAt(x,y)) };
+    drag.cx=ev.clientX; drag.cy=ev.clientY; moveGhost(ev.clientX,ev.clientY); const [x,y]=toCanvas(ev.clientX,ev.clientY); hot(roomAt(x,y)) };
+  if(PHONE.matches) edgeScroll(drag);
   el.onpointerup=ev=>endDrag(ev); el.onpointercancel=()=>endDrag(null);
+}
+const PHONE=matchMedia("(max-width:700px)");
+function edgeScroll(d){ // phones: holding a sticker near an edge of the house area scrolls it a bit
+  if(drag!==d)return; const r=wrap.getBoundingClientRect(), m=44, v=10;
+  if(d.moved&&d.cx!=null&&d.cx>=r.left-m&&d.cx<=r.right+m&&d.cy>=r.top-m&&d.cy<=r.bottom){
+    const dx=d.cx<r.left+m?-v:d.cx>r.right-m?v:0, dy=d.cy<r.top+m?-v:d.cy>r.bottom-m?v:0;
+    if(dx||dy){wrap.scrollBy(dx,dy); const [x,y]=toCanvas(d.cx,d.cy); hot(roomAt(x,y))}
+  }
+  requestAnimationFrame(()=>edgeScroll(d));
 }
 function moveGhost(x,y){drag.gh.style.left=x+"px";drag.gh.style.top=y+"px"}
 function hot(room){document.querySelectorAll(".zone").forEach(z=>z.classList.toggle("hot",!!room&&z.dataset.room===room.id))}
@@ -403,7 +422,8 @@ function endDrag(ev){
   if(ev&&!d.moved){ d.gh.remove(); if(d.fromHouse){delete pos[d.it.id];render()} else autoPlace(d.it.id); return }
   const [x,y]=ev?toCanvas(ev.clientX,ev.clientY):[-1,-1], room=ev&&roomAt(x,y);
   // wallpapers need a room, the attic or the tower; objects stay anywhere on the stage except over the sheet
-  if(d.it.wall?room:ev&&!inRect(ev.clientX,ev.clientY,sheet)&&inRect(ev.clientX,ev.clientY,stage)){ d.gh.remove(); const sl=slotAt(d.it,x,y); if(sl)putSlot(d.it,sl); else put(d.it,room,x,y); render(d.it.id); checkDone(); return }
+  const seen=ev&&(!PHONE.matches||inRect(ev.clientX,ev.clientY,wrap)); // phones: only the visible part of the scrolled house
+  if(seen&&(d.it.wall?room:!inRect(ev.clientX,ev.clientY,sheet)&&inRect(ev.clientX,ev.clientY,stage))){ d.gh.remove(); const sl=slotAt(d.it,x,y); if(sl)putSlot(d.it,sl); else put(d.it,room,x,y); render(d.it.id); checkDone(); return }
   // otherwise → back to the sheet
   delete pos[d.it.id]; render();
   const home=sheet.querySelector(`[data-id="${d.it.id}"]`)?.getBoundingClientRect();
