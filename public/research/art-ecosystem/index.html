@@ -1,0 +1,173 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover"><title>ART ECOSYSTEM — SHELESTVETROVKI</title><style>
+:root{color-scheme:light}*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif}button,input,a{font:inherit}button{cursor:pointer;border:1px solid #111;background:#fff;color:#111;border-radius:0}button.active{background:#111;color:#fff}#map{position:fixed;inset:0;width:100%;height:100%;touch-action:none;display:block;background:#fff;cursor:grab}#map:active{cursor:grabbing}.header{position:fixed;z-index:3;top:16px;left:16px;width:310px;max-width:calc(100vw - 32px);background:#fff;border:1px solid #111;padding:14px}.eyebrow{font-size:10px;letter-spacing:.12em}.title{font-weight:800;font-size:22px;line-height:1.03;letter-spacing:-.05em;margin:9px 0}.intro{font-size:11px;line-height:1.4;margin:0 0 10px;color:#555}.search{width:100%;height:36px;border:1px solid #111;border-radius:0;background:#fff;color:#111;padding:8px;font-size:13px;outline:none}.toolbar{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;margin-top:8px}.toolbar button{white-space:nowrap;flex-shrink:0;font-size:10px;padding:7px}.citybar{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;margin-top:6px}.citybar button{white-space:nowrap;flex-shrink:0;font-size:10px;padding:6px}.detail{position:fixed;z-index:4;right:16px;bottom:16px;width:310px;max-width:calc(100vw - 32px);background:#fff;border:1px solid #111;padding:14px;display:none}.detail.open{display:block}.detail h2{font-size:21px;letter-spacing:-.045em;margin:9px 0}.detail a{display:block;border:1px solid #111;background:#111;color:#fff;text-decoration:none;padding:11px;font-size:12px;text-align:center;margin-top:12px}.detail .close{position:absolute;right:8px;top:8px;padding:4px 9px}.detail p{font-size:12px;color:#555;line-height:1.4}.zoom{position:fixed;z-index:3;right:16px;top:16px;display:flex;flex-direction:column;gap:4px}.zoom button{width:38px;height:38px;font-size:20px}.count{position:fixed;z-index:2;left:16px;bottom:16px;background:#fff;padding:5px 0;font-size:10px;letter-spacing:.06em;color:#555}.mobile-note{display:none}@media(max-width:650px){.header{top:max(8px,env(safe-area-inset-top));left:8px;width:calc(100vw - 64px);padding:10px}.eyebrow{font-size:9px}.title{font-size:17px;margin:5px 0}.intro{display:none}.search{height:34px;margin-top:8px}.toolbar,.citybar{margin-top:5px}.toolbar button,.citybar button{font-size:9px;padding:6px}.zoom{top:max(8px,env(safe-area-inset-top));right:8px}.zoom button{width:38px;height:38px}.detail{left:8px;right:8px;bottom:max(8px,env(safe-area-inset-bottom));width:auto;max-width:none;padding:12px}.count{left:8px;bottom:max(8px,env(safe-area-inset-bottom));font-size:9px}.mobile-note{display:block;font-size:9px;color:#666;margin-top:6px}}
+</style></head><body><canvas id="map" aria-label="Interactive map of arts institutions"></canvas><div class="header"><div class="eyebrow">SHELESTVETROVKI / RESEARCH INDEX</div><div class="title">ART ECOSYSTEM ATLAS ↗</div><p class="intro">Museums, galleries, residencies, independent spaces and research institutions. Drag to explore; select to open official websites.</p><input class="search" id="search" placeholder="SEARCH INSTITUTIONS ↗"><div class="toolbar" id="types"></div><div class="citybar" id="cities"></div><div class="mobile-note">DRAG TO MOVE · PINCH TO ZOOM · TAP A NODE</div></div><div class="zoom"><button id="plus" aria-label="Zoom in">+</button><button id="minus" aria-label="Zoom out">−</button><button id="reset" aria-label="Reset view" style="font-size:14px">⌂</button></div><div class="count" id="count"></div><aside class="detail" id="detail"><button class="close" id="close" aria-label="Close">×</button><div class="eyebrow" id="meta"></div><h2 id="name"></h2><p>Official institution website and programme information.</p><a id="visit" target="_blank" rel="noopener noreferrer">OPEN OFFICIAL WEBSITE ↗</a></aside><script>
+const raw=`New York|museum|MoMA|https://www.moma.org
+New York|museum|MoMA PS1|https://www.momaps1.org
+New York|museum|Whitney Museum|https://whitney.org
+New York|museum|The Met|https://www.metmuseum.org
+New York|museum|New Museum|https://www.newmuseum.org
+New York|museum|Guggenheim New York|https://www.guggenheim.org
+New York|museum|Brooklyn Museum|https://www.brooklynmuseum.org
+New York|museum|Studio Museum in Harlem|https://www.studiomuseum.org
+New York|gallery|Gagosian New York|https://gagosian.com
+New York|gallery|David Zwirner New York|https://www.davidzwirner.com
+New York|gallery|Hauser & Wirth New York|https://www.hauserwirth.com
+New York|gallery|Pace Gallery|https://www.pacegallery.com
+New York|gallery|Gladstone Gallery|https://www.gladstonegallery.com
+New York|gallery|Perrotin New York|https://www.perrotin.com
+New York|gallery|Tanya Bonakdar|https://www.tanyabonakdargallery.com
+New York|gallery|47 Canal|https://47canal.us
+New York|gallery|Chapter NY|https://chapter-ny.com
+New York|gallery|Company Gallery|https://companygallery.us
+New York|gallery|JTT|https://www.jttnyc.com
+New York|gallery|Bortolami|https://bortolamigallery.com
+New York|gallery|Miguel Abreu Gallery|https://miguelabreugallery.com
+New York|gallery|Karma|https://karmakarma.org
+New York|residency|Eyebeam|https://www.eyebeam.org
+New York|residency|NEW INC|https://www.newinc.org
+New York|residency|NARS Foundation|https://www.narsfoundation.org
+New York|residency|ISCP|https://iscp-nyc.org
+New York|residency|Residency Unlimited|https://residencyunlimited.org
+New York|research|Rhizome|https://rhizome.org
+New York|research|e-flux|https://www.e-flux.com
+New York|research|Artforum|https://www.artforum.com
+New York|research|Metalabel|https://www.metalabel.com
+New York|research|Triple Canopy|https://www.canopycanopycanopy.com
+New York|independent|Pioneer Works|https://pioneerworks.org
+New York|independent|The Kitchen|https://thekitchen.org
+New York|independent|Creative Time|https://creativetime.org
+New York|independent|Artists Alliance Inc.|https://www.artistsallianceinc.org
+New York|independent|apexart|https://apexart.org
+New York|independent|SculptureCenter|https://www.sculpture-center.org
+Los Angeles|museum|MOCA Los Angeles|https://www.moca.org
+Los Angeles|museum|Hammer Museum|https://hammer.ucla.edu
+Los Angeles|museum|The Broad|https://www.thebroad.org
+Los Angeles|museum|LACMA|https://www.lacma.org
+Los Angeles|museum|Getty|https://www.getty.edu
+Los Angeles|museum|ICA LA|https://www.theicala.org
+Los Angeles|gallery|Gagosian Beverly Hills|https://gagosian.com
+Los Angeles|gallery|Hauser & Wirth LA|https://www.hauserwirth.com
+Los Angeles|gallery|David Kordansky|https://www.davidkordanskygallery.com
+Los Angeles|gallery|Blum|https://www.blum-gallery.com
+Los Angeles|gallery|Night Gallery|https://www.nightgallery.ca
+Los Angeles|gallery|Commonwealth and Council|https://commonwealthandcouncil.com
+Los Angeles|gallery|Vielmetter Los Angeles|https://vielmetter.com
+Los Angeles|gallery|Matthew Brown|https://www.matthewbrownla.com
+Los Angeles|residency|18th Street Arts Center|https://18thstreet.org
+Los Angeles|residency|MAK Center|https://www.makcenter.org
+Los Angeles|research|REDCAT|https://www.redcat.org
+Los Angeles|research|LACE|https://welcometolace.org
+Los Angeles|independent|Human Resources LA|https://www.h-r.la
+Los Angeles|independent|The Box LA|https://theboxla.com
+London|museum|Tate Modern|https://www.tate.org.uk
+London|museum|Tate Britain|https://www.tate.org.uk
+London|museum|Serpentine|https://www.serpentinegalleries.org
+London|museum|ICA London|https://www.ica.art
+London|museum|Whitechapel Gallery|https://www.whitechapelgallery.org
+London|museum|Hayward Gallery|https://www.southbankcentre.co.uk
+London|museum|Camden Art Centre|https://camdenartcentre.org
+London|museum|Barbican|https://www.barbican.org.uk
+London|gallery|Gagosian London|https://gagosian.com
+London|gallery|White Cube|https://www.whitecube.com
+London|gallery|Victoria Miro|https://www.victoria-miro.com
+London|gallery|Sadie Coles HQ|https://www.sadiecoles.com
+London|gallery|Maureen Paley|https://www.maureenpaley.com
+London|gallery|Carlos/Ishikawa|https://www.carlosishikawa.com
+London|gallery|Arcadia Missa|https://arcadiamissa.com
+London|gallery|Seventeen|https://www.seventeengallery.com
+London|gallery|Soft Opening|https://www.softopening.london
+London|gallery|The Approach|https://www.theapproach.co.uk
+London|residency|Delfina Foundation|https://www.delfinafoundation.com
+London|residency|Gasworks|https://www.gasworks.org.uk
+London|residency|Acme|https://acme.org.uk
+London|research|Goldsmiths University|https://www.gold.ac.uk
+London|research|Warburg Institute|https://warburg.sas.ac.uk
+London|research|LUX|https://lux.org.uk
+London|research|Institute of Contemporary Arts|https://www.ica.art
+London|research|Frieze|https://www.frieze.com
+London|independent|Chisenhale Gallery|https://chisenhale.org.uk
+London|independent|Auto Italia|https://autoitaliasoutheast.org
+London|independent|SPACE|https://spacestudios.org.uk
+Tokyo|museum|Mori Art Museum|https://www.mori.art.museum
+Tokyo|museum|Museum of Contemporary Art Tokyo|https://www.mot-art-museum.jp
+Tokyo|museum|National Art Center Tokyo|https://www.nact.jp
+Tokyo|museum|Tokyo Photographic Art Museum|https://topmuseum.jp
+Tokyo|museum|Watari-um|https://www.watarium.co.jp
+Tokyo|museum|21_21 DESIGN SIGHT|https://www.2121designsight.jp
+Tokyo|gallery|Taka Ishii Gallery|https://www.takaishiigallery.com
+Tokyo|gallery|SCAI THE BATHHOUSE|https://www.scaithebathhouse.com
+Tokyo|gallery|Take Ninagawa|https://www.takeninagawa.com
+Tokyo|gallery|NANZUKA|https://nanzuka.com
+Tokyo|gallery|KOTARO NUKAGA|https://kotaronukaga.com
+Tokyo|gallery|ANOMALY|https://anomalytokyo.com
+Tokyo|gallery|WAITINGROOM|https://waitingroom.jp
+Tokyo|gallery|KANA KAWANISHI GALLERY|https://www.kanakawanishi.com
+Tokyo|gallery|Yutaka Kikutake Gallery|https://www.yutakakikutakegallery.com
+Tokyo|gallery|XYZ collective|https://xyzcollective.org
+Tokyo|residency|TOKAS Residency|https://www.tokyoartsandspace.jp
+Tokyo|residency|AIT Artist in Residence|https://www.a-i-t.net
+Tokyo|research|Tama Art University|https://www.tamabi.ac.jp
+Tokyo|research|ICC InterCommunication Center|https://www.ntticc.or.jp
+Tokyo|research|Tokyo Arts and Space|https://www.tokyoartsandspace.jp
+Tokyo|research|Yamaguchi Center for Arts and Media|https://www.ycam.jp
+Tokyo|independent|Calm & Punk Gallery|https://calmandpunk.com
+Tokyo|independent|3331 Arts Chiyoda|https://www.3331.jp
+Tokyo|independent|The 5th Floor|https://the5thfloor.org
+Paris|museum|Centre Pompidou|https://www.centrepompidou.fr
+Paris|museum|Palais de Tokyo|https://palaisdetokyo.com
+Paris|museum|Bourse de Commerce Pinault Collection|https://www.pinaultcollection.com
+Paris|museum|Fondation Louis Vuitton|https://www.fondationlouisvuitton.fr
+Paris|museum|Musée d'Art Moderne de Paris|https://www.mam.paris.fr
+Paris|museum|Jeu de Paume|https://jeudepaume.org
+Paris|gallery|Perrotin Paris|https://www.perrotin.com
+Paris|gallery|Thaddaeus Ropac Paris|https://ropac.net
+Paris|gallery|Kamel Mennour|https://mennour.com
+Paris|gallery|Chantal Crousel|https://www.crousel.com
+Paris|gallery|Galerie Balice Hertling|https://www.balicehertling.com
+Paris|gallery|Air de Paris|https://www.airdeparis.com
+Paris|gallery|Crèvecœur|https://www.crevecoeur.com
+Paris|gallery|High Art|https://www.highart.fr
+Paris|residency|Cité internationale des arts|https://www.citeinternationaledesarts.fr
+Paris|residency|Art Explora|https://www.artexplora.org
+Paris|residency|Poush|https://poush.fr
+Paris|residency|Villa Belleville|https://www.villabelleville.org
+Paris|research|Bétonsalon|https://www.betonsalon.net
+Paris|research|Le BAL|https://www.le-bal.fr
+Paris|independent|La Gaîté Lyrique|https://www.gaite-lyrique.net
+Paris|independent|Glassbox|https://glassbox.fr
+Berlin|museum|Hamburger Bahnhof|https://www.smb.museum
+Berlin|museum|KW Institute for Contemporary Art|https://www.kw-berlin.de
+Berlin|museum|Gropius Bau|https://www.berlinerfestspiele.de
+Berlin|museum|Berlinische Galerie|https://berlinischegalerie.de
+Berlin|museum|Neue Nationalgalerie|https://www.smb.museum
+Berlin|gallery|Esther Schipper|https://www.estherschipper.com
+Berlin|gallery|König Galerie|https://www.koeniggalerie.com
+Berlin|gallery|Sprüth Magers|https://spruethmagers.com
+Berlin|gallery|Galerie Neu|https://galerieneu.net
+Berlin|gallery|Société|https://societeberlin.com
+Berlin|gallery|ChertLüdde|https://chertluedde.com
+Berlin|gallery|Klemm's|https://www.klemms-berlin.com
+Berlin|gallery|Barbara Weiss|https://galeriebarbaraweiss.de
+Berlin|residency|Künstlerhaus Bethanien|https://www.bethanien.de
+Berlin|residency|ZK/U|https://www.zku-berlin.org
+Berlin|residency|Akademie Schloss Solitude|https://www.akademie-solitude.de
+Berlin|research|transmediale|https://transmediale.de
+Berlin|research|SAVVY Contemporary|https://savvy-contemporary.com
+Berlin|research|Haus der Kulturen der Welt|https://www.hkw.de
+Berlin|independent|ACUD MACHT NEU|https://acudmachtneu.de
+Berlin|independent|Schinkel Pavillon|https://www.schinkelpavillon.de
+Kyiv|museum|Mystetskyi Arsenal|https://artarsenal.in.ua
+Kyiv|museum|National Art Museum of Ukraine|https://namu.ua
+Kyiv|museum|PinchukArtCentre|https://pinchukartcentre.org
+Kyiv|museum|M17 Contemporary Art Center|https://m17.kiev.ua
+Kyiv|gallery|The Naked Room|https://www.thenakedroom.com
+Kyiv|gallery|Voloshyn Gallery|https://voloshyngallery.art
+Kyiv|gallery|Dymchuk Gallery|https://dymchuk.com
+Kyiv|gallery|Shcherbenko Art Centre|https://www.shcherbenkoartcentre.com
+Kyiv|residency|IZOLYATSIA|https://izolyatsia.org
+Kyiv|research|Ukrainian Institute|https://ui.org.ua
+Kyiv|research|Visual Culture Research Center|https://vcrc.org.ua
+Kyiv|research|Krytyka|https://krytyka.com
+Kyiv|independent|Closer Art Centre|https://closer.ua`;
+const cities=['New York','Los Angeles','London','Tokyo','Paris','Berlin','Kyiv'],types=['all','museum','gallery','residency','research','independent'];const nodes=raw.trim().split('\n').map((line,i)=>{const [city,type,name,url]=line.split('|');const ci=cities.indexOf(city);const angle=ci*2*Math.PI/7-Math.PI/2;const anchor={x:Math.cos(angle)*1000,y:Math.sin(angle)*780};const a=i*2.399963;const r=type==='museum'?100:type==='gallery'?260:type==='residency'?425:type==='research'?550:680;return {id:i,city,type,name,url,x:anchor.x+Math.cos(a)*r,y:anchor.y+Math.sin(a)*r,anchor}});let filterType='all',filterCity='all',search='',selected=null;const cv=document.getElementById('map'),ctx=cv.getContext('2d');let W=0,H=0,D=1;const cam={x:0,y:0,z:0.33};const isMobile=()=>innerWidth<650;function resize(){W=innerWidth;H=innerHeight;D=Math.min(devicePixelRatio||1,2);cv.width=Math.round(W*D);cv.height=Math.round(H*D);ctx.setTransform(D,0,0,D,0,0)}addEventListener('resize',resize);resize();function visible(n){return(filterType==='all'||n.type===filterType)&&(filterCity==='all'||n.city===filterCity)&&(!search||(n.name+' '+n.city+' '+n.type).toLowerCase().includes(search))}function scr(n){return{x:(n.x-cam.x)*cam.z+W/2,y:(n.y-cam.y)*cam.z+H/2}}function world(x,y){return{x:(x-W/2)/cam.z+cam.x,y:(y-H/2)/cam.z+cam.y}}function hit(x,y){let found=null,dist=isMobile()?26:18;for(const n of nodes){if(!visible(n))continue;const p=scr(n),d=Math.hypot(x-p.x,y-p.y);if(d<dist){dist=d;found=n}}return found}function draw(){ctx.clearRect(0,0,W,H);ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);const count={};for(const c of cities)count[c]=nodes.filter(n=>n.city===c&&visible(n)).length;ctx.save();ctx.translate(W/2-cam.x*cam.z,H/2-cam.y*cam.z);ctx.scale(cam.z,cam.z);for(const c of cities){if(!count[c])continue;const a=nodes.find(n=>n.city===c).anchor;ctx.strokeStyle='#ddd';ctx.lineWidth=1/cam.z;for(const n of nodes){if(n.city!==c||!visible(n))continue;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(n.x,n.y);ctx.stroke()}ctx.fillStyle='#111';ctx.font='bold 38px Arial';ctx.textAlign='center';ctx.fillText(c.toUpperCase(),a.x,a.y-38);ctx.font='18px Arial';ctx.fillStyle='#777';ctx.fillText(count[c]+' INSTITUTIONS',a.x,a.y-12)}for(const n of nodes){if(!visible(n))continue;const r=n.type==='museum'?9:n.type==='gallery'?6:5;ctx.beginPath();ctx.arc(n.x,n.y,r,0,Math.PI*2);ctx.fillStyle=n.type==='museum'?'#111':'#fff';ctx.fill();ctx.strokeStyle='#111';ctx.lineWidth=(n===selected?3:1.5)/cam.z;ctx.stroke();if(n===selected){ctx.beginPath();ctx.arc(n.x,n.y,r+8/cam.z,0,Math.PI*2);ctx.stroke()}if(cam.z>.64||n===selected||(cam.z>.38&&n.type==='museum')){ctx.textAlign='left';ctx.fillStyle='#111';ctx.font='14px Arial';ctx.fillText(n.name,n.x+r+9,n.y+5)}}ctx.restore();requestAnimationFrame(draw)}draw();function show(n){selected=n;document.getElementById('detail').classList.add('open');document.getElementById('meta').textContent=n.city.toUpperCase()+' / '+n.type.toUpperCase();document.getElementById('name').textContent=n.name;document.getElementById('visit').href=n.url}document.getElementById('close').onclick=()=>{document.getElementById('detail').classList.remove('open');selected=null};function update(){document.getElementById('types').innerHTML=types.map(t=>'<button data-type="'+t+'" class="'+(t===filterType?'active':'')+'">'+(t==='all'?'ALL':t.toUpperCase())+'</button>').join('');document.getElementById('cities').innerHTML=['all',...cities].map(c=>'<button data-city="'+c+'" class="'+(c===filterCity?'active':'')+'">'+(c==='all'?'ALL CITIES':c.toUpperCase())+'</button>').join('');document.getElementById('count').textContent=nodes.filter(visible).length+' / '+nodes.length+' INSTITUTIONS · 7 CITIES'}document.getElementById('types').onclick=e=>{if(e.target.dataset.type){filterType=e.target.dataset.type;update()}};document.getElementById('cities').onclick=e=>{if(e.target.dataset.city){filterCity=e.target.dataset.city;update();if(filterCity==='all'){cam.x=0;cam.y=0;cam.z=.33}else{const a=nodes.find(n=>n.city===filterCity).anchor;cam.x=a.x;cam.y=a.y;cam.z=isMobile()?.55:.85}}};document.getElementById('search').oninput=e=>{search=e.target.value.toLowerCase().trim();update();const matches=nodes.filter(visible);if(matches.length===1){cam.x=matches[0].x;cam.y=matches[0].y;cam.z=1.4;show(matches[0])}};function zoom(f,x=W/2,y=H/2){const p=world(x,y);cam.z=Math.max(.11,Math.min(3,cam.z*f));const q=world(x,y);cam.x+=p.x-q.x;cam.y+=p.y-q.y}document.getElementById('plus').onclick=()=>zoom(1.45);document.getElementById('minus').onclick=()=>zoom(1/1.45);document.getElementById('reset').onclick=()=>{cam.x=0;cam.y=0;cam.z=.33;filterCity='all';filterType='all';search='';document.getElementById('search').value='';update()};cv.addEventListener('wheel',e=>{e.preventDefault();zoom(Math.exp(-e.deltaY*.001),e.clientX,e.clientY)},{passive:false});const pointers=new Map();let gesture=null;function pair(){const a=[...pointers.values()];return{cx:(a[0].x+a[1].x)/2,cy:(a[0].y+a[1].y)/2,d:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)}}cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===1)gesture={mode:'single',startX:e.clientX,startY:e.clientY,lastX:e.clientX,lastY:e.clientY,node:hit(e.clientX,e.clientY),moved:false};else if(pointers.size===2)gesture={mode:'pinch',prev:pair()}});cv.addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(!gesture)return;if(pointers.size===2){const p=pair();if(gesture.mode==='pinch'){zoom(p.d/Math.max(1,gesture.prev.d),p.cx,p.cy);cam.x-=(p.cx-gesture.prev.cx)/cam.z;cam.y-=(p.cy-gesture.prev.cy)/cam.z}gesture={mode:'pinch',prev:p};return}if(gesture.mode!=='single')return;const dx=e.clientX-gesture.lastX,dy=e.clientY-gesture.lastY;if(Math.hypot(e.clientX-gesture.startX,e.clientY-gesture.startY)>7)gesture.moved=true;if(gesture.moved&&gesture.node){gesture.node.x+=dx/cam.z;gesture.node.y+=dy/cam.z}else if(gesture.moved){cam.x-=dx/cam.z;cam.y-=dy/cam.z}gesture.lastX=e.clientX;gesture.lastY=e.clientY});function end(e){if(gesture?.mode==='single'&&!gesture.moved&&gesture.node)show(gesture.node);pointers.delete(e.pointerId);gesture=null}cv.addEventListener('pointerup',end);cv.addEventListener('pointercancel',end);cv.addEventListener('dblclick',e=>{const n=hit(e.clientX,e.clientY);if(n)window.open(n.url,'_blank','noopener,noreferrer')});update();
+</script></body></html>
