@@ -41,8 +41,9 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .stage{position:relative;width:min(100%,calc((100dvh - 200px) * 2400 / 1677));width:min(100cqw,100cqh * 2400 / 1677);margin:0 auto;aspect-ratio:2400/1677}
 .layer{position:absolute;inset:0;width:100%;height:100%}
 .screens{position:absolute;inset:0;pointer-events:none}
-.screens video{position:absolute;object-fit:cover;opacity:0;transition:opacity .7s ease;background:var(--ink)}
-.screens video.on{opacity:1}
+.screens video,.screens canvas{position:absolute;display:block;object-fit:cover;opacity:0;transition:opacity .7s ease;background:var(--ink)}
+.screens .on{opacity:1}
+.stage .tag{position:absolute;z-index:2;pointer-events:none;margin:4px;padding:1px 4px;background:var(--ink);color:var(--bg);font-size:10px;line-height:1.3;white-space:nowrap}
 .zone{fill:transparent;stroke:none;transition:fill .15s}
 .zone.hot{fill:var(--faint)}
 .walls{position:absolute;inset:0;pointer-events:none}
@@ -83,16 +84,6 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .ghost{position:fixed;left:0;top:0;pointer-events:none;z-index:50;transform:translate(-50%,-50%)}
 .ghost.back{transition:all .25s ease-in}
 
-/* finale video: centred over the house once it is dressed; pink/cyan early-2000s window */
-.finale{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.55);opacity:0;pointer-events:none;transition:opacity .4s}
-.finale.on{opacity:1;pointer-events:auto}
-.finale .win{position:relative;border:1px solid #ff4fc4;box-shadow:4px 4px 0 #00e5ff;background:#fff;max-width:90vw}
-.finale .bar{display:flex;align-items:center;justify-content:flex-end;gap:4px;height:18px;padding:0 3px;background:linear-gradient(90deg,#ff9be0,#9ff4ff);border-bottom:1px solid #ff4fc4}
-.finale .bar button{height:13px;min-width:13px;padding:0 3px;border:1px solid #ff4fc4;background:#fff;color:#ff4fc4;font-size:10px;line-height:1;display:grid;place-items:center}
-.finale .bar button:hover{background:#00e5ff;border-color:#00e5ff;color:#fff}
-.finale .bar button[hidden]{display:none}
-.finale video{display:block;width:min(90vw,80vh * 1280 / 714);width:min(90vw,80dvh * 1280 / 714);aspect-ratio:1280/714;height:auto;background:#000;object-fit:contain}
-
 @media (max-width:860px){ header{flex-wrap:wrap;row-gap:4px} }
 /* phones: same picture, same aspect (width-limited), centred above the sheet */
 @media (max-width:700px){
@@ -129,13 +120,6 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
   <div class="sheet" id="sheet" aria-label="Stickers"></div>
 </div>
 
-<div class="finale" id="finale" aria-hidden="true">
-  <div class="win" role="dialog" aria-label="Finale video">
-    <div class="bar"><button id="finaleSound" type="button" hidden aria-label="Unmute">sound on</button><button id="finaleClose" type="button" aria-label="Close">&times;</button></div>
-    <video id="finaleVideo" preload="none" playsinline></video>
-  </div>
-</div>
-
 <script>
 /* =====================================================================
    SETTINGS
@@ -155,6 +139,17 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
    ALLOW_UPLOAD: true shows a "+" on the sheet to test PNGs from your computer
                  (you can also drop files onto the sheet). Set false for the public site.
    ===================================================================== */
+/* FINALE: when the house is dressed a video plays inside every room, cut to the room and covering it.
+   room id -> video file (r1 r2 = top floor left/right … r7 r8 = ground floor, tower = inside of the tower).
+   Rooms with the same file share one decoded video. Leave a room out to keep it without video. */
+const ROOM_VIDEOS = {
+  r1:"finale.mp4", r2:"finale.mp4",
+  r3:"finale.mp4", r4:"finale.mp4",
+  r5:"finale.mp4", r6:"finale.mp4",
+  r7:"finale.mp4", r8:"finale.mp4",
+  tower:"finale.mp4",
+};
+
 const STICKERS = [
   // {src:"pieces/bed.png", h:80},
   {src:"pieces/door.png", h:50, snap:"floor"},
@@ -244,8 +239,6 @@ const STICKERS = [
 const ALLOW_UPLOAD = true;
 const UPLOAD_HEIGHT = 240; // ×K below
 
-const VIDEOS = []; // videos off for now; files stay in videos/ (v01.mp4 … v10.mp4)
-
 // House geometry = pixels of blueprint.png (2400 × 1677). 4 floors × 2 rooms (the see-through parts of the picture);
 // the roof is drawn opaque, so it is not a wallpaper area. K = old room height (162) → new, keeps sticker sizes relative to a room.
 const ROOMS = [
@@ -287,7 +280,7 @@ const isJpeg=(name,type)=>type==="image/jpeg"||/\.jpe?g$/i.test(name);
 const builtins=STICKERS.map((s,i)=>({id:"s"+i, src:s.src, name:s.src.split("/").pop(), h:(s.h||80)*3*K, snap:s.snap||"auto", ratio:1, wall:false, ready:false}));
 let items=builtins.filter(it=>!removed.includes(it.src));
 const pos={};            // id -> {room, x, y}  (x = centre, y = bottom, canvas units, room = area or null, slot = slot id); wallpapers: {room}
-let alive=false, lastClips=[];
+let alive=false;
 
 function drawHouse(){ // the picture is an <img>; only the drop zones are drawn
   $("#zones").innerHTML=ROOMS.map(r=>`<rect class="zone" data-room="${r.id}" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"/>`).join("")+
@@ -481,47 +474,67 @@ setTimeout(hideLoader,8000); // failsafe
 /* ---------------- the house comes alive ---------------- */
 function checkDone(){ if(allPlaced()) setTimeout(wake,500) }
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
-function pickClips(n){
-  let pick,t=0; do{ pick=shuffle(VIDEOS.slice()).slice(0,n); t++ }while(t<30&&pick.join()===lastClips.join());
-  while(pick.length<n) pick.push(VIDEOS[Math.floor(Math.random()*VIDEOS.length)]);
-  lastClips=pick; return pick;
-}
 function wake(){
   if(alive||!allPlaced())return; alive=true; sheet.classList.add("locked");
-  screens.innerHTML="";
-  if(VIDEOS.length){ const clips=pickClips(ROOMS.length);
-  shuffle(ROOMS.map((_,i)=>i)).forEach((ri,k)=>{const r=ROOMS[ri],v=document.createElement("video");
-    Object.assign(v,{src:clips[ri],muted:true,loop:true,playsInline:true,autoplay:true}); v.setAttribute("playsinline","");
-    Object.assign(v.style,{left:(r.x-VB.x)/VB.w*100+"%",top:(r.y-VB.y)/VB.h*100+"%",width:r.w/VB.w*100+"%",height:r.h/VB.h*100+"%"});
-    screens.appendChild(v); v.play().catch(()=>{}); setTimeout(()=>v.classList.add("on"),200+k*260);
-  }); }
   wrap.classList.add("alive");
-  finaleT=setTimeout(showFinale,1200);
+  finaleT=setTimeout(startFinale,1200);
 }
-/* finale video over the dressed house: with sound if the browser allows, else muted with a "sound on" button */
-let finaleT; const finale=$("#finale"), fv=$("#finaleVideo"), fSound=$("#finaleSound");
-function showFinale(){
-  if(!alive)return; if(!fv.getAttribute("src")) fv.src="finale.mp4"; // nothing is loaded before this moment
-  fv.currentTime=0; fv.muted=false; fSound.hidden=true; finale.classList.add("on"); finale.setAttribute("aria-hidden","false");
-  fv.play().catch(()=>{ fv.muted=true; fSound.hidden=false; fv.play().catch(()=>{}) });
+/* room videos: one <video> per file, shown in the first room that uses it; the other rooms are canvases copying its frames.
+   Nothing is loaded before the finale. All start muted (autoplay rule); tapping a room turns on that room's sound. */
+let finaleT, feeds=[], soundRoom=null, finaleGen=0;
+const HOW=$(".how").textContent, boxOf=id=>ROOMS.find(r=>r.id===id)||TOWER;
+const boxStyle=r=>({left:(r.x-VB.x)/VB.w*100+"%",top:(r.y-VB.y)/VB.h*100+"%",width:r.w/VB.w*100+"%",height:r.h/VB.h*100+"%"});
+function startFinale(){
+  if(!alive)return; stopFinale(); const gen=finaleGen, byFile={};
+  [...ROOMS,TOWER].forEach((r,k)=>{ const file=ROOM_VIDEOS[r.id]; if(!file)return;
+    let f=byFile[file], el;
+    if(!f){ el=document.createElement("video"); el.muted=true; el.loop=true; el.playsInline=true; el.autoplay=true;
+      ["muted","playsinline","autoplay"].forEach(a=>el.setAttribute(a,"")); el.src=file;
+      f=byFile[file]={video:el,rooms:[],copies:[]}; feeds.push(f) }
+    else { el=document.createElement("canvas"); f.copies.push(el) }
+    f.rooms.push(r.id); el.dataset.room=r.id; Object.assign(el.style,boxStyle(r));
+    screens.appendChild(el); setTimeout(()=>{if(gen===finaleGen)el.classList.add("on")},150+k*120);
+  });
+  sizeCopies();
+  feeds.forEach(f=>{ f.video.play().catch(()=>{}); copyLoop(f,gen) });
+  $(".how").textContent="Tap a room to hear it.";
 }
-function hideFinale(){ clearTimeout(finaleT); fv.pause(); finale.classList.remove("on"); finale.setAttribute("aria-hidden","true") }
-fSound.addEventListener("click",()=>{ fv.muted=false; fSound.hidden=true; fv.play().catch(()=>{}) });
-$("#finaleClose").addEventListener("click",hideFinale);
-finale.addEventListener("click",e=>{ if(e.target===finale) hideFinale() });
-addEventListener("keydown",e=>{ if(e.key==="Escape"&&finale.classList.contains("on")) hideFinale() });
+function copyLoop(f,gen){ // draw the shared video into its canvases on every new frame (object-fit: cover)
+  const v=f.video, next=()=>{ if(gen!==finaleGen)return; v.requestVideoFrameCallback?v.requestVideoFrameCallback(tick):requestAnimationFrame(tick) };
+  const tick=()=>{ if(gen!==finaleGen)return;
+    if(v.readyState>=2&&v.videoWidth) f.copies.forEach(c=>{ if(!c.width||!c.height)return;
+      const s=Math.max(c.width/v.videoWidth,c.height/v.videoHeight), sw=c.width/s, sh=c.height/s;
+      c.getContext("2d").drawImage(v,(v.videoWidth-sw)/2,(v.videoHeight-sh)/2,sw,sh,0,0,c.width,c.height) });
+    next() };
+  next();
+}
+function sizeCopies(){ const d=Math.min(2,devicePixelRatio||1);
+  feeds.forEach(f=>f.copies.forEach(c=>{ const w=Math.round(c.clientWidth*d), h=Math.round(c.clientHeight*d); if(c.width!==w||c.height!==h){c.width=w;c.height=h} })) }
+function setSound(id){ // the tapped room plays with sound, all others muted; tapping it again mutes it
+  soundRoom=soundRoom===id?null:id; stage.querySelector(".tag")?.remove();
+  feeds.forEach(f=>{ f.video.muted=!f.rooms.includes(soundRoom); if(!f.video.muted) f.video.play().catch(()=>{}) });
+  if(soundRoom){ const r=boxOf(soundRoom), t=document.createElement("span"); t.className="tag"; t.textContent="sound on";
+    Object.assign(t.style,{left:(r.x-VB.x)/VB.w*100+"%",top:(r.y-VB.y)/VB.h*100+"%"}); stage.appendChild(t) }
+}
+function stopFinale(){
+  finaleGen++; clearTimeout(finaleT); soundRoom=null;
+  feeds.forEach(f=>{ f.video.pause(); f.video.removeAttribute("src"); f.video.load() }); feeds=[];
+  screens.innerHTML=""; stage.querySelector(".tag")?.remove(); $(".how").textContent=HOW;
+}
+stage.addEventListener("click",e=>{ if(!alive||!feeds.length||e.target.closest("button"))return;
+  const [x,y]=toCanvas(e.clientX,e.clientY), r=roomAt(x,y); if(r&&ROOM_VIDEOS[r.id]) setSound(r.id) });
 function reset(){
-  hideFinale();
-  screens.querySelectorAll("video").forEach(v=>v.classList.remove("on")); wrap.classList.remove("alive");
+  clearTimeout(finaleT); feeds.forEach(f=>f.video.muted=true);
+  screens.querySelectorAll(".on").forEach(v=>v.classList.remove("on")); stage.querySelector(".tag")?.remove(); wrap.classList.remove("alive");
   stage.querySelectorAll(".placed img,.walls image").forEach(i=>i.style.opacity="0");
-  setTimeout(()=>{for(const k in pos)delete pos[k]; screens.innerHTML=""; alive=false; sheet.classList.remove("locked"); render()},350);
+  setTimeout(()=>{for(const k in pos)delete pos[k]; stopFinale(); alive=false; sheet.classList.remove("locked"); render()},350);
 }
 $("#again").addEventListener("click",reset);
 $("#reset").addEventListener("click",reset);
 $("#random").addEventListener("click",()=>{ if(alive)return; items.filter(it=>!pos[it.id]).forEach((it,i)=>setTimeout(()=>autoPlace(it.id),i*60)) });
-let rt; addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(renderSheet,120)});
+let rt; addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(()=>{renderSheet();sizeCopies()},120)});
 // the phone stretch follows the stage size (sheet height, rotation, Safari toolbar): re-place stickers when it changes
-if(window.ResizeObserver) new ResizeObserver(()=>{ if(measureStretch()!==SY) renderPlaced() }).observe(stage);
+if(window.ResizeObserver) new ResizeObserver(()=>{ if(measureStretch()!==SY) renderPlaced(); sizeCopies() }).observe(stage);
 
 drawHouse(); builtins.forEach(measure); render();
 if(ALLOW_UPLOAD) loadUploads().finally(()=>{uploadsDone=true; checkLoaded()}); else checkLoaded();
