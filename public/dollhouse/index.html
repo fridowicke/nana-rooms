@@ -83,6 +83,16 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .ghost{position:fixed;left:0;top:0;pointer-events:none;z-index:50;transform:translate(-50%,-50%)}
 .ghost.back{transition:all .25s ease-in}
 
+/* finale video: centred over the house once it is dressed; pink/cyan early-2000s window */
+.finale{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.55);opacity:0;pointer-events:none;transition:opacity .4s}
+.finale.on{opacity:1;pointer-events:auto}
+.finale .win{position:relative;border:1px solid #ff4fc4;box-shadow:4px 4px 0 #00e5ff;background:#fff;max-width:90vw}
+.finale .bar{display:flex;align-items:center;justify-content:flex-end;gap:4px;height:18px;padding:0 3px;background:linear-gradient(90deg,#ff9be0,#9ff4ff);border-bottom:1px solid #ff4fc4}
+.finale .bar button{height:13px;min-width:13px;padding:0 3px;border:1px solid #ff4fc4;background:#fff;color:#ff4fc4;font-size:10px;line-height:1;display:grid;place-items:center}
+.finale .bar button:hover{background:#00e5ff;border-color:#00e5ff;color:#fff}
+.finale .bar button[hidden]{display:none}
+.finale video{display:block;width:min(90vw,80vh * 1280 / 714);width:min(90vw,80dvh * 1280 / 714);aspect-ratio:1280/714;height:auto;background:#000;object-fit:contain}
+
 @media (max-width:860px){ header{flex-wrap:wrap;row-gap:4px} }
 /* phones: same picture, same aspect (width-limited), centred above the sheet */
 @media (max-width:700px){
@@ -117,6 +127,13 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
   </div>
 
   <div class="sheet" id="sheet" aria-label="Stickers"></div>
+</div>
+
+<div class="finale" id="finale" aria-hidden="true">
+  <div class="win" role="dialog" aria-label="Finale video">
+    <div class="bar"><button id="finaleSound" type="button" hidden aria-label="Unmute">sound on</button><button id="finaleClose" type="button" aria-label="Close">&times;</button></div>
+    <video id="finaleVideo" preload="none" playsinline></video>
+  </div>
 </div>
 
 <script>
@@ -479,8 +496,22 @@ function wake(){
     screens.appendChild(v); v.play().catch(()=>{}); setTimeout(()=>v.classList.add("on"),200+k*260);
   }); }
   wrap.classList.add("alive");
+  finaleT=setTimeout(showFinale,1200);
 }
+/* finale video over the dressed house: with sound if the browser allows, else muted with a "sound on" button */
+let finaleT; const finale=$("#finale"), fv=$("#finaleVideo"), fSound=$("#finaleSound");
+function showFinale(){
+  if(!alive)return; if(!fv.getAttribute("src")) fv.src="finale.mp4"; // nothing is loaded before this moment
+  fv.currentTime=0; fv.muted=false; fSound.hidden=true; finale.classList.add("on"); finale.setAttribute("aria-hidden","false");
+  fv.play().catch(()=>{ fv.muted=true; fSound.hidden=false; fv.play().catch(()=>{}) });
+}
+function hideFinale(){ clearTimeout(finaleT); fv.pause(); finale.classList.remove("on"); finale.setAttribute("aria-hidden","true") }
+fSound.addEventListener("click",()=>{ fv.muted=false; fSound.hidden=true; fv.play().catch(()=>{}) });
+$("#finaleClose").addEventListener("click",hideFinale);
+finale.addEventListener("click",e=>{ if(e.target===finale) hideFinale() });
+addEventListener("keydown",e=>{ if(e.key==="Escape"&&finale.classList.contains("on")) hideFinale() });
 function reset(){
+  hideFinale();
   screens.querySelectorAll("video").forEach(v=>v.classList.remove("on")); wrap.classList.remove("alive");
   stage.querySelectorAll(".placed img,.walls image").forEach(i=>i.style.opacity="0");
   setTimeout(()=>{for(const k in pos)delete pos[k]; screens.innerHTML=""; alive=false; sheet.classList.remove("locked"); render()},350);
