@@ -895,7 +895,7 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
     }
   }, [roomNumber, roomAudio, closeReaction])
 
-  // Visitor hover: glow the hotspot under the pointer, show its name, run its hover reaction.
+  // Visitor hover: glow the hotspot under the pointer, run its hover reaction (no name label).
   const [hoverInfo, setHoverInfo] = useState(null)
   const hoverAudioRef = useRef(null)
   useEffect(() => {
@@ -1166,16 +1166,16 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
         const hv = hotspot.hover
         const media = hv?.type === 'image' || hv?.type === 'gif' || hv?.type === 'gallery' ? hv.value : null
         const text = hv?.type === 'text' ? hv.value : null
+        if (!media && !text) return null
         const W = media ? 220 : 'auto'
         const left = Math.min(x + 16, (typeof window !== 'undefined' ? window.innerWidth : 9999) - (media ? 240 : 200))
         const top = Math.max(8, y - (media ? 190 : 40))
         return (
           <div style={{ position: 'fixed', left, top, width: W, zIndex: 9400, pointerEvents: 'none', background: '#fff', border: '1px solid #111', padding: media ? '6px' : '4px 9px', fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif', fontSize: '12px', fontWeight: 300, color: '#111', boxShadow: '0 6px 20px rgba(0,0,0,0.18)' }}>
-            {media && <div style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'center', marginBottom: '5px' }}>
+            {media && <div style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'center', marginBottom: text ? '5px' : 0 }}>
               {[media, ...(hv.images ?? [])].map((src) => <img key={src} src={src} alt="" style={{ display: 'block', maxWidth: hv.images?.length ? '48%' : '100%', maxHeight: '150px', objectFit: 'contain' }} />)}
             </div>}
-            <div>{hotspot.name}</div>
-            {text && <div style={{ opacity: 0.7, marginTop: '2px' }}>{text}</div>}
+            {text && <div>{text}</div>}
           </div>
         )
       })()}
