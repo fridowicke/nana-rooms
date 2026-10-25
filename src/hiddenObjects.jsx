@@ -348,6 +348,25 @@ function ReactionPopup({ reaction, onClose, isMobileLayout }) {
       ? { position: 'fixed', left: Math.max(30, Math.min(vwp - 30, a.x)), top: Math.max(40, Math.min(vhp - 40, a.y)), transform: 'translate(-50%, -50%)' }
       : { position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }
 
+  if (reaction.type === 'image') {
+    // Image reactions are the PNG alone, centred over the room; any click or tap closes it.
+    return (
+      <div
+        onPointerDown={(e) => { e.stopPropagation(); onClose() }}
+        style={{ position: 'fixed', inset: 0, zIndex: 9500, background: 'transparent', cursor: 'pointer' }}
+      >
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={reaction.title || 'Object reaction'}
+          style={{ position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: winW, maxHeight: isMobileLayout ? 'calc(100dvh - 96px - env(safe-area-inset-top) - env(safe-area-inset-bottom))' : 'calc(100dvh - 60px)', overflow: 'hidden' }}
+        >
+          {body}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
       onPointerDown={(e) => { if (e.target === e.currentTarget) onClose() }}
