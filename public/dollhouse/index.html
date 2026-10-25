@@ -5,18 +5,20 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Dollhouse Game</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preload" as="image" href="blueprint.webp" type="image/webp" fetchpriority="high">
-<link rel="preload" as="image" href="backdrop.webp" type="image/webp" fetchpriority="high">
+<link rel="preload" as="image" href="loader-house.webp" type="image/webp" fetchpriority="high">
+<link rel="preload" as="image" href="blueprint.svg" type="image/svg+xml" fetchpriority="high">
+<link rel="preload" as="image" href="backdrop.svg" type="image/svg+xml" fetchpriority="high">
 <style>
 /* loading widget: shown from the first paint until the house picture, its backdrop, the stickers and saved uploads are ready */
 #loader{position:fixed;inset:0;z-index:1000;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .2s;
   font-family:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;font-size:12px;color:#666}
-#loader img{display:block;width:min(360px,70vw);height:auto;aspect-ratio:2400/1677;object-fit:contain;animation:pulse 1.6s ease-in-out infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+/* loader-house.webp: animated pixel art, 160 × 212, shown at an integer scale (2×, 1× on narrow screens), never cropped */
+#loader img{display:block;width:320px;height:424px;flex:none;object-fit:contain;image-rendering:pixelated}
+@media (max-width:479px),(max-height:519px){#loader img{width:160px;height:212px}}
 #loader.out{opacity:0;pointer-events:none}
 </style>
 <style>
-/* Layout: the scene backdrop with the blueprint picture (blueprint.webp, 2400 × 1677) in it, fitted above the sticker sheet. Black on white, square corners. */
+/* Layout: the scene backdrop with the blueprint picture (blueprint.svg, 2400 × 1677) in it, fitted above the sticker sheet. Black on white, square corners. */
 :root{
   --bg:#ffffff; --ink:#000000; --dim:rgba(0,0,0,.35); --faint:rgba(0,0,0,.05); --muted:#666666;
   --font:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
@@ -42,7 +44,7 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .stageWrap{position:relative;width:100%;flex:1 1 0;min-height:0;container-type:size;display:flex;align-items:center;justify-content:center}
 /* the picture takes all the space between the top line and the sheet, keeping its exact aspect */
 .stage{position:relative;z-index:0;width:min(100%,calc((100dvh - 200px) * 2400 / 1677));width:min(100cqw,100cqh * 2400 / 1677);margin:0 auto;aspect-ratio:2400/1677}
-/* the scene (backdrop.webp, 3500 × 2473) is anchored to the house: the house is its hole at left 17.857%, top 14.153%, width 66.43%.
+/* the scene (backdrop.svg, 3500 × 2473) is anchored to the house: the house is its hole at left 17.857%, top 14.153%, width 66.43%.
    In house units: width 100/0.6643 = 150.534%, left -0.17857 × 150.534% = -26.881%,
    height 150.534% × (2473/3500) / (1677/2400) = 152.219%, top -0.14153 × 152.219% = -21.544%.
    It may run past the screen; body clips it at the viewport edge. */
@@ -105,7 +107,7 @@ header,.sheet{position:relative;z-index:1}
 </style>
 </head>
 <body>
-<div id="loader" role="status"><img src="loader.webp" alt="" width="360" height="252"><span>loading...</span></div>
+<div id="loader" role="status"><img src="loader-house.webp" alt="" width="320" height="424"><span>loading...</span></div>
 
 <div class="app">
   <header>
@@ -119,11 +121,11 @@ header,.sheet{position:relative;z-index:1}
 
   <div class="stageWrap" id="wrap">
     <div class="stage" id="stage">
-      <img class="backdrop" src="backdrop.webp" alt="" draggable="false">
+      <img class="backdrop" src="backdrop.svg" alt="" draggable="false">
       <svg class="layer" id="zones" viewBox="0 0 2400 1677" preserveAspectRatio="none" aria-hidden="true"></svg>
       <svg class="layer walls" id="walls" viewBox="0 0 2400 1677" preserveAspectRatio="none" aria-hidden="true"></svg>
       <div class="screens" id="screens"></div>
-      <img class="layer" id="lines" src="blueprint.webp" alt="" draggable="false" style="pointer-events:none;-webkit-user-drag:none">
+      <img class="layer" id="lines" src="blueprint.svg" alt="" draggable="false" style="pointer-events:none;-webkit-user-drag:none">
       <div class="placed" id="placed" aria-label="House"></div>
       <div class="banner"><button class="btn primary" id="again" type="button">Play again</button></div>
     </div>
@@ -248,7 +250,7 @@ const STICKERS = [
 const ALLOW_UPLOAD = true;
 const UPLOAD_HEIGHT = 240; // ×K below
 
-// House geometry = pixels of blueprint.webp (2400 × 1677). 4 floors × 2 rooms (the see-through parts of the picture);
+// House geometry = pixels of blueprint.svg (2400 × 1677). 4 floors × 2 rooms (the see-through parts of the picture);
 // the roof is drawn opaque, so it is not a wallpaper area. K = old room height (162) → new, keeps sticker sizes relative to a room.
 const ROOMS = [
   {id:"r1",x:232,y:447, w:457,h:252},{id:"r2",x:731,y:447, w:455,h:252},
