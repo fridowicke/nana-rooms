@@ -37,11 +37,14 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 
 /* house */
 .stageWrap{position:relative;width:100%;flex:1 1 0;min-height:0;container-type:size;display:flex;align-items:center;justify-content:center}
-/* the scene (backdrop.png, 3500 × 2473) takes all the space between the top line and the sheet, keeping its exact aspect;
-   the house sits in the hole of the backdrop: left 17.857%, top 14.153%, width 66.43% (height = 65.7% by its own aspect) */
-.scene{position:relative;width:min(100%,calc((100dvh - 200px) * 3500 / 2473));width:min(100cqw,100cqh * 3500 / 2473);margin:0 auto;aspect-ratio:3500/2473;background:var(--bg)}
-.backdrop{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;-webkit-user-drag:none}
-.stage{position:absolute;left:17.857%;top:14.153%;width:66.43%;aspect-ratio:2400/1677}
+/* the picture takes all the space between the top line and the sheet, keeping its exact aspect */
+.stage{position:relative;z-index:0;width:min(100%,calc((100dvh - 200px) * 2400 / 1677));width:min(100cqw,100cqh * 2400 / 1677);margin:0 auto;aspect-ratio:2400/1677}
+/* the scene (backdrop.png, 3500 × 2473) is anchored to the house: the house is its hole at left 17.857%, top 14.153%, width 66.43%.
+   In house units: width 100/0.6643 = 150.534%, left -0.17857 × 150.534% = -26.881%,
+   height 150.534% × (2473/3500) / (1677/2400) = 152.219%, top -0.14153 × 152.219% = -21.544%.
+   It may run past the screen; body clips it at the viewport edge. */
+.backdrop{position:absolute;z-index:-1;left:-26.881%;top:-21.544%;width:150.534%;height:152.219%;max-width:none;display:block;pointer-events:none;-webkit-user-drag:none}
+header,.sheet{position:relative;z-index:1}
 .layer{position:absolute;inset:0;width:100%;height:100%}
 .screens{position:absolute;inset:0;pointer-events:none;z-index:1}
 .screens video{position:absolute;display:block;object-fit:cover;opacity:0;transition:opacity .7s ease;background:var(--ink)}
@@ -112,16 +115,14 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
   </header>
 
   <div class="stageWrap" id="wrap">
-    <div class="scene" id="scene">
-    <img class="backdrop" src="backdrop.png" alt="" draggable="false">
     <div class="stage" id="stage">
+      <img class="backdrop" src="backdrop.png" alt="" draggable="false">
       <svg class="layer" id="zones" viewBox="0 0 2400 1677" preserveAspectRatio="none" aria-hidden="true"></svg>
       <svg class="layer walls" id="walls" viewBox="0 0 2400 1677" preserveAspectRatio="none" aria-hidden="true"></svg>
       <div class="screens" id="screens"></div>
       <img class="layer" id="lines" src="blueprint.png" alt="" draggable="false" style="pointer-events:none;-webkit-user-drag:none">
       <div class="placed" id="placed" aria-label="House"></div>
       <div class="banner"><button class="btn primary" id="again" type="button">Play again</button></div>
-    </div>
     </div>
   </div>
 
