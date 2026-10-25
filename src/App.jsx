@@ -103,7 +103,6 @@ const ROOM_KEY_CURSOR_URLS = [
   'assets/cursors/key-room-3-hover-aligned.png',
   'assets/cursors/key-room-4-hover-aligned.png',
 ]
-const HOVER_KEY_CURSOR_URL = '/assets/cursors/key-hover-aligned.png'
 const CURSOR_TRAIL_LIFETIME_MS = 850
 const CURSOR_CLICK_LIFETIME_MS = 700
 const CURSOR_TRAIL_MIN_DISTANCE = 14
@@ -117,7 +116,6 @@ const HOME_HEADER_TOP = 24
 const PREVIEW_WINDOW_TOP = 190
 const DOOR_OCCLUSION_CLEARANCE = 0.04
 const MAIN_KEY_CURSOR_HOTSPOT = '28 24'
-const HOVER_KEY_CURSOR_HOTSPOT = '13 12'
 const HOME_EDITOR_STORAGE_KEY = 'nana-home-editor-state'
 const FOLDER_DRAG_THRESHOLD_PX = 4
 const DEFAULT_ABOUT_HTML = `shelestvetrovki is a Ukrainian-born, Tokyo-based media artist and filmmaker working across art, technology, internet culture, and collective practice. Her work examines how digital culture materialises through private space, identity, intimacy, and community.\n\nShe is the co-founder of <a href="https://localgr0up.com/" target="_blank" rel="noreferrer">local.group</a>, a Ukrainian art collective and print publication working across exhibitions, publishing, and collective cultural projects through a post-internet lens. In 2023, following the full-scale invasion of Ukraine, she received a research scholarship in Media Arts at Tama Art University, where her practice developed around hyperfeminist politics, media theory, meme culture, and emerging forms of digital intimacy.\n\nHer ongoing project "she is so hot i wanna clean her room" has been exhibited and featured by PHMuseum, i-D, SABUKARU, Festival Panoràmic, and PhotoVogue. She is currently developing a feature-length desktop documentary exploring Ukrainian Gen Z, war-shaped identity, and digital spirituality.`
@@ -707,7 +705,6 @@ function buildCursorValue(cursorUrl, fallback = 'auto', hotspot = MAIN_KEY_CURSO
 }
 
 const MAIN_KEY_CURSOR = buildCursorValue(MAIN_KEY_CURSOR_URL, 'auto')
-const HOVER_KEY_CURSOR = buildCursorValue(HOVER_KEY_CURSOR_URL, 'pointer', HOVER_KEY_CURSOR_HOTSPOT)
 const DEFAULT_RESPONSIVE_STATE = {
   viewportWidth: 1440,
   viewportHeight: 900,
@@ -1412,7 +1409,7 @@ function AboutBrowserChrome({
                 fontSize: '10px',
                 lineHeight: 1,
                 opacity: button.disabled ? 0.55 : 1,
-                cursor: button.disabled ? 'default' : HOVER_KEY_CURSOR,
+                cursor: button.disabled ? 'default' : 'pointer',
                 padding: 0,
               }}
             >
@@ -1758,14 +1755,14 @@ function ExhibitionLightbox({ image, onNext, onClose }) {
           border: 'none',
           background: 'transparent',
           padding: 0,
-          cursor: HOVER_KEY_CURSOR,
+          cursor: 'pointer',
         }}
       >
         <img
           src={GO_BACK_GIF}
           alt="Go back"
           draggable={false}
-          style={{ width: 'min(42px, 7vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
+          style={{ width: 'min(42px, 7vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: 'pointer' }}
         />
       </button>
       <img
@@ -2323,7 +2320,7 @@ function DoorLinkArea({ door, onOpenRoom, occluderMeshes, isHovered = false, onH
       }}
       onPointerOut={isMobileLayout ? undefined : (event) => {
         onHoverChange?.(null)
-        applyDoorCursor(event, MAIN_KEY_CURSOR)
+        applyDoorCursor(event, '')
       }}
       onPointerDown={(event) => {
         event.stopPropagation()
@@ -2757,14 +2754,14 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
           background: 'transparent',
           padding: 0,
           zIndex: 20,
-          cursor: canGoBack ? HOVER_KEY_CURSOR : 'default',
+          cursor: canGoBack ? 'pointer' : 'default',
         }}
         aria-label="Go back to previous room"
       >
         <img
           src={GO_BACK_GIF}
           alt="Go back"
-          style={{ width: isMobileLayout ? '48px' : 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: canGoBack ? HOVER_KEY_CURSOR : 'default' }}
+          style={{ width: isMobileLayout ? '48px' : 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: canGoBack ? 'pointer' : 'default' }}
         />
       </button>
 
@@ -2782,14 +2779,14 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
           border: 'none',
           background: 'transparent',
           padding: 0,
-          cursor: HOVER_KEY_CURSOR,
+          cursor: 'pointer',
         }}
       >
         <img
           src={ABOUT_HOME_GIF}
           alt="home"
           draggable={false}
-          style={{ width: isMobileLayout ? '48px' : 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
+          style={{ width: isMobileLayout ? '48px' : 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: 'pointer' }}
         />
       </button>
 
@@ -2808,13 +2805,13 @@ function RoomPage({ roomNumber, roomFile, cameraDefault, onBack, onHome, onOpenN
           border: 'none',
           background: 'transparent',
           padding: 0,
-          cursor: HOVER_KEY_CURSOR,
+          cursor: 'pointer',
         }}
       >
         <img
           src={NEXT_DOOR_GIF}
           alt={`Go to room ${roomNumber === ROOM_FILES.length ? 1 : roomNumber + 1}`}
-          style={{ width: isMobileLayout ? '48px' : 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
+          style={{ width: isMobileLayout ? '48px' : 'min(55px, 9vw)', height: 'auto', display: 'block', objectFit: 'contain', cursor: 'pointer' }}
         />
       </button>
     </div>
@@ -3123,7 +3120,7 @@ function DiaryDeck({ left, top, width, availableHeight, inline = false, compact 
                 opacity,
                 zIndex: 10 - Math.abs(offset),
                 pointerEvents: 'auto',
-                cursor: isActive && onOpenDiary ? HOVER_KEY_CURSOR : 'pointer',
+                cursor: 'pointer',
               }}
             >
               <img
@@ -3676,7 +3673,7 @@ function AboutPage({
                 type="button"
                 aria-label="Close expanded about"
                 onClick={() => setIsAboutExpanded(false)}
-                style={{ width: isMobileLayout ? '44px' : '12px', height: isMobileLayout ? '44px' : '12px', borderRadius: '50%', background: isMobileLayout ? 'radial-gradient(circle, #ff5f57 0 6px, transparent 7px)' : '#ff5f57', border: isMobileLayout ? 'none' : '0.5px solid #e0443e', padding: 0, appearance: 'none', WebkitAppearance: 'none', cursor: HOVER_KEY_CURSOR, flexShrink: 0 }}
+                style={{ width: isMobileLayout ? '44px' : '12px', height: isMobileLayout ? '44px' : '12px', borderRadius: '50%', background: isMobileLayout ? 'radial-gradient(circle, #ff5f57 0 6px, transparent 7px)' : '#ff5f57', border: isMobileLayout ? 'none' : '0.5px solid #e0443e', padding: 0, appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer', flexShrink: 0 }}
               />
               <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#febc2e', border: '0.5px solid #d4a017', display: 'inline-block' }} />
               <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#28c840', border: '0.5px solid #1aab29', display: 'inline-block' }} />
@@ -3741,7 +3738,7 @@ function AboutPage({
                     event.stopPropagation()
                     setIsMobileAboutWindowOpen(false)
                   }}
-                  style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'radial-gradient(circle, #ff5f57 0 5px, transparent 6px)', border: 'none', display: 'inline-block', flexShrink: 0, padding: 0, appearance: 'none', WebkitAppearance: 'none', cursor: HOVER_KEY_CURSOR }}
+                  style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'radial-gradient(circle, #ff5f57 0 5px, transparent 6px)', border: 'none', display: 'inline-block', flexShrink: 0, padding: 0, appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' }}
                 />
               ) : (
                 <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f57', border: '0.5px solid #e0443e', display: 'inline-block' }} />
@@ -3756,7 +3753,7 @@ function AboutPage({
                   event.stopPropagation()
                   setIsAboutExpanded(true)
                 }}
-                style={{ width: isMobileLayout ? '32px' : '10px', height: isMobileLayout ? '32px' : '10px', borderRadius: '50%', background: isMobileLayout ? 'radial-gradient(circle, #28c840 0 5px, transparent 6px)' : '#28c840', border: isMobileLayout ? 'none' : '0.5px solid #1aab29', display: 'inline-block', flexShrink: 0, padding: 0, appearance: 'none', WebkitAppearance: 'none', cursor: HOVER_KEY_CURSOR }}
+                style={{ width: isMobileLayout ? '32px' : '10px', height: isMobileLayout ? '32px' : '10px', borderRadius: '50%', background: isMobileLayout ? 'radial-gradient(circle, #28c840 0 5px, transparent 6px)' : '#28c840', border: isMobileLayout ? 'none' : '0.5px solid #1aab29', display: 'inline-block', flexShrink: 0, padding: 0, appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' }}
               />
               <span style={{ flex: 1, textAlign: 'center', fontSize: '11px', fontWeight: 500, color: '#333', marginRight: '30px' }}>About</span>
             </div>
@@ -3975,7 +3972,7 @@ function AboutPage({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              cursor: HOVER_KEY_CURSOR,
+              cursor: 'pointer',
             }}
           >
             <img
@@ -3983,7 +3980,7 @@ function AboutPage({
               alt="home"
               draggable={false}
               className="cursor-pointer"
-              style={{ width: isMobileLayout ? '44px' : '51px', height: 'auto', display: 'block', objectFit: 'contain', cursor: HOVER_KEY_CURSOR }}
+              style={{ width: isMobileLayout ? '44px' : '51px', height: 'auto', display: 'block', objectFit: 'contain', cursor: 'pointer' }}
             />
           </button>
           </TunableBlock>
@@ -6423,8 +6420,9 @@ export default function App() {
       return
     }
 
-    document.documentElement.style.setProperty('--app-cursor', MAIN_KEY_CURSOR)
-    document.documentElement.style.setProperty('--app-hover-cursor', HOVER_KEY_CURSOR)
+    // Key cursor appears only over the room doors (DoorHitArea); everywhere else uses the normal cursor.
+    document.documentElement.style.removeProperty('--app-cursor')
+    document.documentElement.style.setProperty('--app-hover-cursor', 'pointer')
   }, [isTouch, route.type])
 
   const clearTransitionCover = useCallback(() => {
