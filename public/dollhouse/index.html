@@ -13,7 +13,7 @@
 #loader.out{opacity:0;pointer-events:none}
 </style>
 <style>
-/* Layout: the blueprint picture (blueprint.png, 2400 × 1677) fitted above the sticker sheet. Black on white, square corners. */
+/* Layout: the scene backdrop with the blueprint picture (blueprint.png, 2400 × 1677) in it, fitted above the sticker sheet. Black on white, square corners. */
 :root{
   --bg:#ffffff; --ink:#000000; --dim:rgba(0,0,0,.35); --faint:rgba(0,0,0,.05); --muted:#666666;
   --font:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
@@ -37,8 +37,11 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 
 /* house */
 .stageWrap{position:relative;width:100%;flex:1 1 0;min-height:0;container-type:size;display:flex;align-items:center;justify-content:center}
-/* the picture takes all the space between the top line and the sheet, keeping its exact aspect */
-.stage{position:relative;width:min(100%,calc((100dvh - 200px) * 2400 / 1677));width:min(100cqw,100cqh * 2400 / 1677);margin:0 auto;aspect-ratio:2400/1677}
+/* the scene (backdrop.png, 3500 × 2473) takes all the space between the top line and the sheet, keeping its exact aspect;
+   the house sits in the hole of the backdrop: left 17.857%, top 14.153%, width 66.43% (height = 65.7% by its own aspect) */
+.scene{position:relative;width:min(100%,calc((100dvh - 200px) * 3500 / 2473));width:min(100cqw,100cqh * 3500 / 2473);margin:0 auto;aspect-ratio:3500/2473;background:var(--bg)}
+.backdrop{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;-webkit-user-drag:none}
+.stage{position:absolute;left:17.857%;top:14.153%;width:66.43%;aspect-ratio:2400/1677}
 .layer{position:absolute;inset:0;width:100%;height:100%}
 .screens{position:absolute;inset:0;pointer-events:none;z-index:1}
 .screens video{position:absolute;display:block;object-fit:cover;opacity:0;transition:opacity .7s ease;background:var(--ink)}
@@ -109,6 +112,8 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
   </header>
 
   <div class="stageWrap" id="wrap">
+    <div class="scene" id="scene">
+    <img class="backdrop" src="backdrop.png" alt="" draggable="false">
     <div class="stage" id="stage">
       <svg class="layer" id="zones" viewBox="0 0 2400 1677" preserveAspectRatio="none" aria-hidden="true"></svg>
       <svg class="layer walls" id="walls" viewBox="0 0 2400 1677" preserveAspectRatio="none" aria-hidden="true"></svg>
@@ -116,6 +121,7 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
       <img class="layer" id="lines" src="blueprint.png" alt="" draggable="false" style="pointer-events:none;-webkit-user-drag:none">
       <div class="placed" id="placed" aria-label="House"></div>
       <div class="banner"><button class="btn primary" id="again" type="button">Play again</button></div>
+    </div>
     </div>
   </div>
 
