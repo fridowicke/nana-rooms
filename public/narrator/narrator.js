@@ -21,37 +21,33 @@ if (!window.__assNarrator) { window.__assNarrator = true; boot(); }
 function boot() {
   /* ---------------- DOM ---------------- */
   const css = `
-  .ass-n{position:fixed;right:max(14px,env(safe-area-inset-right,0px));bottom:calc(132px + env(safe-area-inset-bottom,0px));z-index:2147483000;
-    display:flex;align-items:flex-end;gap:6px;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;color:#111;pointer-events:none;
+  .ass-n{position:fixed;left:0;top:0;z-index:2147483000;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;color:#111;pointer-events:none;
     --mint:#3dffb8}
   .ass-n *{box-sizing:border-box}
-  .ass-n__bubble{pointer-events:auto;position:relative;max-width:min(300px,calc(100vw - 170px));margin-bottom:34px;padding:10px 12px 11px;
+  .ass-n__bubble{pointer-events:auto;position:absolute;left:0;top:0;width:max-content;max-width:min(300px,calc(100vw - 24px));padding:10px 12px 11px;
     background:rgba(255,255,255,.86);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(0,0,0,.14);border-radius:10px;
     font-size:13px;line-height:1.38;font-weight:300;letter-spacing:.005em;box-shadow:0 6px 24px rgba(0,0,0,.08);
-    transition:opacity .25s ease,transform .25s ease;transform-origin:100% 100%}
-  .ass-n__bubble::after{content:"";position:absolute;right:-7px;bottom:16px;width:12px;height:12px;background:inherit;border-right:1px solid rgba(0,0,0,.14);
+    transition:opacity .25s ease,transform .25s ease;transform-origin:50% 0}
+  .ass-n__bubble::after{content:"";position:absolute;left:var(--ax,50%);top:-7px;width:12px;height:12px;border-left:1px solid rgba(0,0,0,.14);
     border-top:1px solid rgba(0,0,0,.14);transform:rotate(45deg);-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(255,255,255,.86)}
+  .ass-n__bubble.up{transform-origin:50% 100%}
+  .ass-n__bubble.up::after{top:auto;bottom:-7px;transform:rotate(225deg)}
   .ass-n__bubble[data-empty="1"]{opacity:0;transform:scale(.92);pointer-events:none}
   .ass-n__w{opacity:0;transition:opacity .08s}
   .ass-n__w.on{opacity:1}
   .ass-n__w.hl.on{background:var(--mint);box-shadow:.14em 0 0 var(--mint),-.14em 0 0 var(--mint);border-radius:2px}
   .ass-n__close{position:absolute;top:-9px;left:-9px;width:20px;height:20px;border-radius:999px;border:1px solid rgba(0,0,0,.25);background:#fff;
     font:11px/1 "Helvetica Neue",Helvetica,Arial,sans-serif;color:#111;cursor:pointer;display:grid;place-items:center;padding:0}
-  .ass-n__body{pointer-events:auto;position:relative;width:150px;height:112px;cursor:pointer}
+  .ass-n__close:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
+  .ass-n__body{pointer-events:auto;position:relative;width:min(450px,calc(100vw - 24px));aspect-ratio:4/3;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+  .ass-n__body.drag{cursor:grabbing}
   .ass-n__body canvas{width:100%!important;height:100%!important;display:block}
-  .ass-n__tools{position:absolute;right:2px;bottom:-4px;display:flex;gap:4px}
-  .ass-n__btn{border:1px solid #111;background:rgba(255,255,255,.9);color:#111;border-radius:999px;padding:2px 8px;font:300 10px/1.4 "Helvetica Neue",Helvetica,Arial,sans-serif;cursor:pointer}
-  .ass-n__btn:hover{background:#111;color:#fff}
-  .ass-n__btn:focus-visible,.ass-n__close:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
   .ass-n.min .ass-n__bubble{display:none}
-  .ass-n.min .ass-n__body{width:64px;height:48px}
-  .ass-n.min .ass-n__tools{display:none}
-  .ass-n__fallback{position:absolute;inset:14px 30px;border-radius:50% 50% 46% 46%;background:#e8b3bf}
+  .ass-n.min .ass-n__body{width:64px}
+  .ass-n__fallback{position:absolute;inset:12% 20%;border-radius:50% 50% 46% 46%;background:#e8b3bf}
   @media (max-width:640px){
-    .ass-n{bottom:calc(150px + env(safe-area-inset-bottom,0px));flex-direction:column;align-items:flex-end}
-    .ass-n__bubble{margin:0 6px 0 0;max-width:min(260px,calc(100vw - 32px));font-size:12.5px}
-    .ass-n__bubble::after{right:28px;bottom:-7px;transform:rotate(135deg)}
-    .ass-n__body{width:112px;height:84px}
+    .ass-n__bubble{max-width:min(260px,calc(100vw - 24px));font-size:12.5px}
+    .ass-n__body{width:min(336px,calc(100vw - 24px))}
   }
   @media (prefers-reduced-motion:reduce){.ass-n *{transition:none!important}}`;
   const style = document.createElement("style"); style.textContent = css; document.head.appendChild(style);
@@ -59,12 +55,10 @@ function boot() {
   const root = document.createElement("div"); root.className = "ass-n"; root.setAttribute("aria-label", "Narrator");
   root.innerHTML = `
     <div class="ass-n__bubble" data-empty="1"><button class="ass-n__close" type="button" aria-label="Hide her">×</button><p class="ass-n__text" aria-live="polite" style="margin:0"></p></div>
-    <div class="ass-n__body" title="Tap her">
-      <div class="ass-n__tools"><button class="ass-n__btn ass-n__sound" type="button" aria-pressed="true">sound on</button></div>
-    </div>`;
+    <div class="ass-n__body" title="Tap her, drag her"></div>`;
   document.body.appendChild(root);
   const bubble = root.querySelector(".ass-n__bubble"), textEl = root.querySelector(".ass-n__text"),
-        body = root.querySelector(".ass-n__body"), soundBtn = root.querySelector(".ass-n__sound"),
+        body = root.querySelector(".ass-n__body"),
         closeBtn = root.querySelector(".ass-n__close");
 
   const store = {
@@ -77,16 +71,55 @@ function boot() {
   };
 
   /* ---------------- speech ---------------- */
-  let soundOn = store.get("sound", true), unlocked = false, current = null, busy = false, lastTalk = 0;
+  let unlocked = false, current = null, busy = false, lastTalk = 0;
   let minimized = store.get("min", !SETTINGS.startOpen);
   let ac = null, analyser = null, buf = null; const missing = new Set();
   const mouth = { jaw: 0, target: 0, smile: 0 };
   const lastPick = {};
 
-  const setSound = () => { soundBtn.setAttribute("aria-pressed", String(soundOn)); soundBtn.textContent = soundOn ? "sound on" : "sound off"; };
-  setSound();
-  soundBtn.addEventListener("click", e => { e.stopPropagation(); soundOn = !soundOn; store.set("sound", soundOn); setSound(); if (!soundOn && current?.audio) current.audio.pause(); });
-  const setMin = v => { minimized = v; store.set("min", v); root.classList.toggle("min", v); if (v) stop(); };
+  /* ---------------- position: top right by default, draggable, remembered ---------------- */
+  const M = 14;
+  let pos = store.get("pos", null);
+  function layout() {
+    const vw = document.documentElement.clientWidth || innerWidth, vh = innerHeight;
+    const bw = body.offsetWidth, bh = body.offsetHeight;
+    let x = pos ? pos.x : vw - bw - M, y = pos ? pos.y : M;
+    x = Math.max(M, Math.min(x, vw - bw - M)); y = Math.max(M, Math.min(y, vh - bh - M));
+    if (vw - bw - M < M) x = Math.max(0, (vw - bw) / 2);
+    root.style.transform = `translate(${Math.round(x)}px,${Math.round(y)}px)`;
+    // bubble below her if it fits, otherwise above; kept inside the screen horizontally
+    const pw = bubble.offsetWidth, ph = bubble.offsetHeight, gap = 4;
+    const below = y + bh + gap + ph <= vh - M || y - gap - ph < M;
+    let bx = bw - pw; bx = Math.max(M - x, Math.min(bx, vw - M - x - pw));
+    const by = below ? bh + gap : -gap - ph;
+    bubble.classList.toggle("up", !below);
+    bubble.style.left = Math.round(bx) + "px"; bubble.style.top = Math.round(by) + "px";
+    bubble.style.setProperty("--ax", Math.round(Math.max(14, Math.min(pw - 26, bw / 2 - bx - 6))) + "px");
+  }
+  new ResizeObserver(layout).observe(body); new ResizeObserver(layout).observe(bubble);
+  addEventListener("resize", layout);
+  let drag = null, dragged = false;
+  body.addEventListener("pointerdown", e => {
+    if (e.button > 0) return;
+    const r = body.getBoundingClientRect();
+    drag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: r.left, oy: r.top, moved: false }; dragged = false;
+    try { body.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  body.addEventListener("pointermove", e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+    if (!drag.moved && Math.hypot(dx, dy) < 6) return;
+    if (!drag.moved) { drag.moved = true; body.classList.add("drag"); }
+    e.preventDefault(); pos = { x: drag.ox + dx, y: drag.oy + dy }; layout();
+  });
+  const endDrag = e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    if (drag.moved) { dragged = true; const r = body.getBoundingClientRect(); pos = { x: r.left, y: r.top }; store.set("pos", pos); }
+    body.classList.remove("drag"); drag = null;
+  };
+  body.addEventListener("pointerup", endDrag); body.addEventListener("pointercancel", endDrag);
+
+  const setMin = v => { minimized = v; store.set("min", v); root.classList.toggle("min", v); if (v) stop(); layout(); };
   setMin(minimized);
   closeBtn.addEventListener("click", e => { e.stopPropagation(); setMin(true); });
   // in a room: the Young-Girl lines from a shuffled deck (no repeats until all are used); elsewhere: poke lines
@@ -100,7 +133,7 @@ function boot() {
     const i = deck.shift(); ss.set("ygDeck", deck); return all[i];
   }
   const pokeLine = () => (route && route.kind === "room" && LINES.roomPoke?.length) ? roomDeckLine() : pick(LINES.poke, "poke");
-  body.addEventListener("click", () => { if (minimized) setMin(false); say(pokeLine()); });
+  body.addEventListener("click", () => { if (dragged) { dragged = false; return; } if (minimized) setMin(false); say(pokeLine()); });
 
   addEventListener("pointerdown", () => {
     if (unlocked) return; unlocked = true;
@@ -132,10 +165,10 @@ function boot() {
     if (opt.optional && (busy || performance.now() - lastTalk < 6000)) return false;
     stop(); clearTimeout(hideT); busy = true; lastTalk = performance.now();
     bubble.dataset.empty = "0";
-    const spans = renderWords(line.text), words = spans.map(s => s.textContent);
+    const spans = renderWords(line.text), words = spans.map(s => s.textContent); layout();
     const run = { spans, cancel: false }; current = run;
     const src = line.audio || (line.id ? `${BASE}voice/${line.id}.mp3` : null);
-    if (soundOn && unlocked && ac && src && !missing.has(src)) {
+    if (unlocked && ac && src && !missing.has(src)) {
       const a = new Audio(src); run.audio = a; a.preload = "auto"; let started = false;
       a.addEventListener("error", () => { missing.add(src); if (!started && !run.cancel) { run.audio = null; typeText(run, words); } }, { once: true });
       a.addEventListener("loadedmetadata", () => {
