@@ -3325,7 +3325,9 @@ function AboutPage({
   const mobileK = isMobileLayout ? viewport.width / MOBILE_DESIGN_WIDTH : 1
   const mobileRefH = MOBILE_DESIGN_HEIGHT * mobileK
   const mobileRefTop = MOBILE_BROWSER_CHROME_HEIGHT * (1 - mobileK)
-  const tbProps = { layout: mobileLayout, tuner: layoutTuner, onChange: tuneBlock, mobile: true, position: isMobileLayout ? 'absolute' : 'fixed', ...(isMobileLayout ? { refW: viewport.width, refH: mobileRefH, refTop: mobileRefTop, frameScale: mobileK } : { refW: viewport.width, refH: viewport.height, pointerScale: stageScale }) }
+  // Blocks are part of the page, never pinned to the screen: with pinch-zoom (trackpad) pinned blocks stay put
+  // while the folders zoom, and everything slides into one corner. The desktop page doesn't scroll, so this is the same spot.
+  const tbProps = { layout: mobileLayout, tuner: layoutTuner, onChange: tuneBlock, mobile: true, position: 'absolute', ...(isMobileLayout ? { refW: viewport.width, refH: mobileRefH, refTop: mobileRefTop, frameScale: mobileK } : { refW: viewport.width, refH: viewport.height, pointerScale: stageScale }) }
 
   // Keep the collage, with a wider reading column and a narrow lane of actual folders.
   // On phones blocks are sized for the design frame and scaled by mobileK.
@@ -3642,8 +3644,8 @@ function AboutPage({
     <DesktopStageContext.Provider value={desktopStage}>
     <div
       style={stageScale < 1
-        // transformed, so it is also the frame for the position: fixed windows and blocks inside
-        ? { position: 'fixed', left: 0, top: 0, width: `${viewport.width}px`, height: `${viewport.height}px`, transform: `scale(${stageScale})`, transformOrigin: '0 0', overflow: 'hidden' }
+        // part of the page (not pinned), so pinch-zoom magnifies it like everything else
+        ? { position: 'absolute', left: 0, top: 0, width: `${viewport.width}px`, height: `${viewport.height}px`, transform: `scale(${stageScale})`, transformOrigin: '0 0', overflow: 'hidden' }
         : { width: '100%', height: '100%', overflowY: isMobileLayout && !isFolderView ? 'auto' : 'hidden', overflowX: 'hidden' }}
     >
     <div
