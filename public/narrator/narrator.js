@@ -53,17 +53,29 @@ function boot() {
     .ass-n__bubble{max-width:min(260px,calc(100vw - 24px));font-size:12.5px}
     .ass-n__body{width:min(336px,calc(100vw - 24px))}
   }
+  .ass-n__hit{display:none;position:absolute}
+  /* phone / touch: only her silhouette and the bubble take touches, the room underneath stays usable */
+  .ass-n.mob .ass-n__body{pointer-events:none;touch-action:auto}
+  .ass-n.mob .ass-n__hit{display:block;pointer-events:auto;touch-action:none}
+  .ass-n.mob .ass-n__bubble{z-index:2}
+  .ass-n.mob .ass-n__close::before{content:"";position:absolute;inset:-12px}
+  .ass-n.mob.min .ass-n__bubble{display:block;max-width:min(200px,calc(100vw - 24px));padding:7px 9px 8px;font-size:11.5px}
+  .ass-n.mob.min .ass-n__body{width:60px}
+  .ass-n.mob.min .ass-n__hit{inset:0!important;width:auto!important;height:auto!important}
   @media (prefers-reduced-motion:reduce){.ass-n *{transition:none!important}}`;
   const style = document.createElement("style"); style.textContent = css; document.head.appendChild(style);
 
   const root = document.createElement("div"); root.className = "ass-n"; root.setAttribute("aria-label", "Narrator");
   root.innerHTML = `
     <div class="ass-n__bubble" data-empty="1"><button class="ass-n__close" type="button" aria-label="Hide her">×</button><p class="ass-n__text" aria-live="polite" style="margin:0"></p></div>
-    <div class="ass-n__body" title="Tap her, drag her"></div>`;
+    <div class="ass-n__body" title="Tap her, drag her"><div class="ass-n__hit"></div></div>`;
   document.body.appendChild(root);
   const bubble = root.querySelector(".ass-n__bubble"), textEl = root.querySelector(".ass-n__text"),
         body = root.querySelector(".ass-n__body"),
-        closeBtn = root.querySelector(".ass-n__close");
+        closeBtn = root.querySelector(".ass-n__close"), hit = root.querySelector(".ass-n__hit");
+  // phones and touch screens: she shrinks to a small avatar instead of going silent
+  const mobQ = matchMedia("(max-width:640px), (pointer:coarse)"), mob = () => mobQ.matches;
+  root.classList.toggle("mob", mob());
 
   const store = {
     get(k, d) { try { const v = localStorage.getItem("assN:" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -89,8 +101,10 @@ function boot() {
   function layout() {
     const vw = document.documentElement.clientWidth || innerWidth, vh = innerHeight;
     const bw = body.offsetWidth, bh = body.offsetHeight;
-    let x = pos ? pos.x : vw - bw - M, y = pos ? pos.y : M;
-    x = Math.max(M, Math.min(x, vw - bw - M)); y = Math.max(M, Math.min(y, vh - bh - M));
+    // phone: stay below the site's top bar, and the small avatar below the house icon
+    const T = mob() ? (minimized ? 100 : 44) : M;
+    let x = pos ? pos.x : vw - bw - M, y = pos ? pos.y : T;
+    x = Math.max(M, Math.min(x, vw - bw - M)); y = Math.max(T, Math.min(y, vh - bh - M));
     if (vw - bw - M < M) x = Math.max(0, (vw - bw) / 2);
     root.style.transform = `translate(${Math.round(x)}px,${Math.round(y)}px)`;
     // bubble a few px from her silhouette, tail pointing at her: beside her (left, then right), else below/above;
@@ -99,12 +113,12 @@ function boot() {
     const f = fig || { l: bw * .2, t: bh * .12, r: bw * .8, b: bh * .88 };
     const cx = (f.l + f.r) / 2, cy = f.t + (f.b - f.t) * .3;
     const side = x + f.l - off - pw >= M ? "left" : x + f.r + off + pw <= vw - M ? "right"
-      : y + f.b + off + ph <= vh - M || y + f.t - off - ph < M ? "down" : "up";
+      : y + f.b + off + ph <= vh - M || y + f.t - off - ph < T ? "down" : "up";
     const clamp = (v, a, b) => Math.max(a, Math.min(v, b));
     let bx, by;
     if (side === "left" || side === "right") {
       bx = side === "left" ? f.l - off - pw : f.r + off;
-      by = clamp(cy - ph / 2, M - y, vh - M - y - ph);
+      by = clamp(cy - ph / 2, T - y, vh - M - y - ph);
       bubble.style.setProperty("--ay", Math.round(clamp(cy - by - 6, 8, ph - 20)) + "px");
     } else {
       by = side === "down" ? f.b + off : f.t - off - ph;
@@ -115,6 +129,8 @@ function boot() {
     bubble.classList.toggle("left", side === "left");
     bubble.classList.toggle("right", side === "right");
     bubble.style.left = Math.round(bx) + "px"; bubble.style.top = Math.round(by) + "px";
+    hit.style.left = Math.round(f.l) + "px"; hit.style.top = Math.round(f.t) + "px";
+    hit.style.width = Math.round(f.r - f.l) + "px"; hit.style.height = Math.round(f.b - f.t) + "px";
   }
   new ResizeObserver(layout).observe(body); new ResizeObserver(layout).observe(bubble);
   addEventListener("resize", layout);
@@ -123,7 +139,7 @@ function boot() {
     if (e.button > 0) return;
     const r = body.getBoundingClientRect();
     drag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: r.left, oy: r.top, moved: false }; dragged = false;
-    try { body.setPointerCapture(e.pointerId); } catch (err) {}
+    try { (mob() ? hit : body).setPointerCapture(e.pointerId); } catch (err) {}
   });
   body.addEventListener("pointermove", e => {
     if (!drag || e.pointerId !== drag.id) return;
@@ -139,9 +155,20 @@ function boot() {
   };
   body.addEventListener("pointerup", endDrag); body.addEventListener("pointercancel", endDrag);
 
-  const setMin = v => { minimized = v; store.set("min", v); root.classList.toggle("min", v); if (v) stop(); layout(); };
+  const setMin = v => {
+    const r = body.getBoundingClientRect();
+    minimized = v; store.set("min", v); root.classList.toggle("min", v); if (v && !mob()) stop();
+    // on the phone keep her in the same corner while she changes size
+    if (mob() && pos && r.width && r.left + r.width / 2 > (document.documentElement.clientWidth || innerWidth) / 2) { pos = { x: r.right - body.offsetWidth, y: pos.y }; store.set("pos", pos); }
+    layout();
+  };
   setMin(minimized);
-  closeBtn.addEventListener("click", e => { e.stopPropagation(); setMin(true); });
+  mobQ.addEventListener?.("change", () => { root.classList.toggle("mob", mob()); setMin(minimized); });
+  closeBtn.addEventListener("click", e => {
+    e.stopPropagation();
+    if (mob()) { stop(); queue = []; clearTimeout(hideT); bubble.dataset.empty = "1"; }
+    setMin(true);
+  });
   // in a room: the Young-Girl lines from a shuffled deck (no repeats until all are used); elsewhere: poke lines
   function roomDeckLine() {
     const all = LINES.roomPoke || []; if (!all.length) return null;
@@ -153,7 +180,7 @@ function boot() {
     const i = deck.shift(); ss.set("ygDeck", deck); return all[i];
   }
   const pokeLine = () => (route && route.kind === "room" && LINES.roomPoke?.length) ? roomDeckLine() : pick(LINES.poke, "poke");
-  body.addEventListener("click", () => { if (dragged) { dragged = false; return; } if (minimized) setMin(false); say(pokeLine()); });
+  body.addEventListener("click", () => { if (dragged) { dragged = false; return; } if (minimized && !mob()) setMin(false); say(pokeLine()); });
 
   addEventListener("pointerdown", () => {
     if (unlocked) return; unlocked = true;
@@ -181,7 +208,7 @@ function boot() {
 
   let hideT;
   function say(line, opt = {}) {
-    if (!line || minimized) return false;
+    if (!line || (minimized && !mob())) return false;
     if (opt.optional && (busy || performance.now() - lastTalk < 6000)) return false;
     stop(); clearTimeout(hideT); busy = true; lastTalk = performance.now();
     bubble.dataset.empty = "0";
