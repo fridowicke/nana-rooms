@@ -231,14 +231,18 @@ function boot() {
   const seen = ss.get("seen", {});
   const markSeen = k => { const f = !seen[k]; seen[k] = 1; ss.set("seen", seen); return f; };
 
-  let route = null, hunt = null, idleT, stuckT;
+  let route = null, hunt = null, idleT, stuckT, welcomed = false;
   function onRoute() {
     const r = routeOf(location.hash); const key = JSON.stringify(r);
     if (route && JSON.stringify(route) === key) return;
     route = r; hunt = null; queue = []; clearTimeout(stuckT);
     setTimeout(() => {
       if (route !== r) return;
-      if (r.kind === "home") say(pick(markSeen("home") ? LINES.home.first : LINES.home.again, "home"));
+      if (r.kind === "home") {
+        const next = markSeen("home") ? LINES.home.first : LINES.home.again;
+        if (!welcomed) { welcomed = true; say(pick(LINES.home.welcome, "welcome")); queueAfter(() => pick(next, "home")); }
+        else say(pick(next, "home"));
+      }
       else if (r.kind === "about") say(pick(markSeen("about") ? LINES.about.first : LINES.about.again, "about"));
       else if (r.kind === "folder") { const l = LINES.folders[r.id]; if (l) say(pick(l, "f" + r.id)); }
       else if (r.kind === "room") {

@@ -13,6 +13,10 @@ export const LINES = {
 
   /* ---------- first page: the house ---------- */
   home: {
+    // always said first when the house opens, on every page load
+    welcome: [
+      { id: "home-welcome", text: "Oh, hii!! Welcome to MY house, I've been building it for so long. Nana rendered me to guide you through her world." },
+    ],
     first: [
       { id: "home-intro", text: "Oh, hi. Welcome to my house. Every door is a *different girl's bedroom*. Move over the house until your cursor turns into a key, then click a door." },
     ],
