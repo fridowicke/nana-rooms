@@ -789,6 +789,40 @@ function writeRoomRenderVariantToUrl(variantId) {
   window.history.replaceState(window.history.state, '', url)
 }
 
+// Visible height without the phone's pinch-zoom: zooming in shrinks visualViewport.height, and laying the page out at
+// that height squashed every block into one pile. The keyboard and browser bars still count (they don't change scale).
+function unzoomedViewportHeight() {
+  const vv = window.visualViewport
+  return vv ? Math.round(vv.height * vv.scale) : window.innerHeight
+}
+
+// Phone pages Nana wants locked: pinch and double-tap zoom do nothing there (the main page, exhibitions, curation, she is so hot).
+const ZOOM_LOCKED_FOLDER_IDS = new Set(['exhibitions', 'filmmaking', 'she-is-so-hot'])
+function usePhoneZoomLock(locked) {
+  useEffect(() => {
+    if (!locked) return undefined
+    const meta = document.querySelector('meta[name="viewport"]')
+    const prevMeta = meta?.getAttribute('content')
+    meta?.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
+    const html = document.documentElement
+    const prevTouchAction = html.style.touchAction
+    html.style.touchAction = 'pan-x pan-y'
+    // iOS Safari ignores user-scalable=no, so cancel its zoom gestures as well
+    const cancel = (e) => e.preventDefault()
+    const cancelPinch = (e) => { if (e.touches.length > 1) e.preventDefault() }
+    document.addEventListener('gesturestart', cancel, { passive: false })
+    document.addEventListener('gesturechange', cancel, { passive: false })
+    document.addEventListener('touchmove', cancelPinch, { passive: false })
+    return () => {
+      if (meta && prevMeta) meta.setAttribute('content', prevMeta)
+      html.style.touchAction = prevTouchAction
+      document.removeEventListener('gesturestart', cancel)
+      document.removeEventListener('gesturechange', cancel)
+      document.removeEventListener('touchmove', cancelPinch)
+    }
+  }, [locked])
+}
+
 function useResponsiveShell() {
   const [responsiveState, setResponsiveState] = useState(readResponsiveState)
 
@@ -3271,7 +3305,7 @@ function AboutPage({
   const draggedFolderRef = useRef(null)
   const [windowSize, setWindowSize] = useState(() => ({
     width: viewportOverride?.width ?? (typeof window !== 'undefined' ? window.innerWidth : 1440),
-    height: viewportOverride?.height ?? (typeof window !== 'undefined' ? Math.round(window.visualViewport?.height ?? window.innerHeight) : 900),
+    height: viewportOverride?.height ?? (typeof window !== 'undefined' ? unzoomedViewportHeight() : 900),
   }))
   // viewport = the size the page is laid out at; on a small or zoomed desktop window that is the minimum stage, scaled down.
   const stageScale = shouldUseMobileLayout({ viewportWidth: windowSize.width, isTouch })
@@ -3555,8 +3589,7 @@ function AboutPage({
     }
 
     const onResize = () => {
-      const vv = window.visualViewport
-      setWindowSize({ width: window.innerWidth, height: vv ? Math.round(vv.height) : window.innerHeight })
+      setWindowSize({ width: window.innerWidth, height: unzoomedViewportHeight() })
       updateEditorScrollbar()
     }
     onResize()
@@ -6333,6 +6366,7 @@ export default function App() {
   const [route, setRoute] = useState(() =>
     parseRouteFromHash(typeof window !== 'undefined' ? window.location.hash : ''),
   )
+  usePhoneZoomLock(isMobileLayout && (route.type === 'about' || (route.type === 'folder' && ZOOM_LOCKED_FOLDER_IDS.has(route.folderId))))
   const [aboutBrowserHistory, setAboutBrowserHistory] = useState(() => {
     const initialRoute = parseRouteFromHash(typeof window !== 'undefined' ? window.location.hash : '')
     const initialEntry = getAboutHistoryEntry(initialRoute)

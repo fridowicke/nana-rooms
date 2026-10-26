@@ -196,10 +196,10 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
       }
       S.alpha *= 0.992
     }
-    // lay the map out before the first frame, so it opens calm instead of flying apart
+    // lay the map out before the first frame, leaving only a soft last bit of settling to watch
     const settle = () => {
       S.alpha = 1
-      for (let t = 0; t < 450; t++) simulate()
+      for (let t = 0; t < 320; t++) simulate()
     }
     S.settle = settle
 
@@ -261,7 +261,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
         if (n.y < minY) minY = n.y; if (n.y > maxY) maxY = n.y
       }
       if (!Number.isFinite(minX)) return
-      const pad = 40
+      const pad = 56
       const scale = Math.max(0.1, Math.min((S.W - pad * 2) / Math.max(1, maxX - minX), (S.H - pad * 2) / Math.max(1, maxY - minY), 2))
       const to = { scale, x: S.W / 2 - ((minX + maxX) / 2) * scale, y: S.H / 2 - ((minY + maxY) / 2) * scale }
       if (animate) S.anim = { from: { ...S.view }, to, t0: performance.now(), dur: 450 }
@@ -365,6 +365,9 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
     canvas.addEventListener('pointerup', onUp)
     canvas.addEventListener('pointercancel', onUp)
     canvas.addEventListener('wheel', onWheel, { passive: false })
+    // swipes on the map move the map only, not the page (or the in-app browser sheet around it)
+    const holdTouch = (e) => e.preventDefault()
+    canvas.addEventListener('touchmove', holdTouch, { passive: false })
     S.raf = requestAnimationFrame(loop)
     return () => {
       cancelAnimationFrame(S.raf)
@@ -374,6 +377,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
       canvas.removeEventListener('pointerup', onUp)
       canvas.removeEventListener('pointercancel', onUp)
       canvas.removeEventListener('wheel', onWheel)
+      canvas.removeEventListener('touchmove', holdTouch)
     }
   }, [nodes, links, neighbors, S])
 
