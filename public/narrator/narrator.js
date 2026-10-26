@@ -375,28 +375,61 @@ function boot() {
       const m = g.scene, b = new THREE.Box3().setFromObject(m), c = b.getCenter(new THREE.Vector3()); size = b.getSize(new THREE.Vector3());
       m.position.sub(c); rig.add(m);
       m.traverse(o => { if (o.isMesh && o.morphTargetDictionary && "jawOpen" in o.morphTargetDictionary) mouths.push(o); if (/wing/.test(o.name)) wings.push({ o, rz: o.rotation.z }); });
-      const t = Math.tan(THREE.MathUtils.degToRad(13));
-      const d = Math.max(size.x / (2 * t * 4 / 3), size.y / (2 * t)) * .92;
-      cam.position.set(0, 0, d); cam.lookAt(0, -size.y * .06, 0); measure();
+      frame();
     }, undefined, () => { canvas.remove(); body.insertAdjacentHTML("afterbegin", '<div class="ass-n__fallback"></div>'); });
     const setM = (o, n, v) => { const i = o.morphTargetDictionary[n]; if (i !== undefined) o.morphTargetInfluences[i] = v; };
-    const fit = () => { const w = body.clientWidth, h = body.clientHeight; if (!w || !h) return; renderer.setPixelRatio(Math.min(2, devicePixelRatio)); renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); measure(); };
-    // project her bounding box (mid-depth plane) to body pixels so the bubble can sit right next to her
+    const fit = () => { const w = body.clientWidth, h = body.clientHeight; if (!w || !h) return; renderer.setPixelRatio(Math.min(2, devicePixelRatio)); renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); frame(); };
+    // every corner of her box at both ends of the idle sway (turn + bob), so wings are never cropped
+    function corners() {
+      const out = [], e = new THREE.Euler(), q = new THREE.Vector3();
+      for (const ry of [-.15, 0, .15]) for (const dy of [-1, 1]) {
+        e.set(0, ry, 0);
+        for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) {
+          q.set(sx * size.x / 2, sy * size.y / 2, sz * size.z / 2).applyEuler(e); q.y += dy * size.y * .02; out.push(q.clone());
+        }
+      }
+      return out;
+    }
+    function bounds() {
+      cam.updateMatrixWorld();
+      let l = 1, t = -1, r = -1, b = 1;
+      for (const c of corners()) { const v = c.project(cam); l = Math.min(l, v.x); r = Math.max(r, v.x); b = Math.min(b, v.y); t = Math.max(t, v.y); }
+      return { l, t, r, b };
+    }
+    // pull the camera back until the whole swaying figure fits with a small margin
+    function frame() {
+      if (!size) return;
+      let d = Math.max(size.x, size.y, size.z) * 3;
+      for (let i = 0; i < 8; i++) {
+        cam.position.set(0, 0, d); cam.lookAt(0, 0, 0); cam.updateProjectionMatrix();
+        const k = bounds(); d *= Math.max(-k.l, k.r, k.t, -k.b) / .94;
+      }
+      cam.position.set(0, 0, d); cam.lookAt(0, 0, 0); measure();
+    }
+    // her visible box in body pixels so the bubble can sit right next to her
     function measure() {
       const w = body.clientWidth, h = body.clientHeight; if (!size || !w || !h) return;
-      cam.updateMatrixWorld();
-      let l = w, t = h, r = 0, b = 0;
-      for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
-        const v = new THREE.Vector3(sx * size.x / 2, sy * size.y / 2, 0).project(cam);
-        const px = (v.x + 1) / 2 * w, py = (1 - v.y) / 2 * h;
-        l = Math.min(l, px); r = Math.max(r, px); t = Math.min(t, py); b = Math.max(b, py);
-      }
-      fig = { l: Math.max(0, l), t: Math.max(0, t), r: Math.min(w, r), b: Math.min(h, b) };
+      const k = bounds();
+      fig = { l: Math.max(0, (k.l + 1) / 2 * w), t: Math.max(0, (1 - k.t) / 2 * h), r: Math.min(w, (k.r + 1) / 2 * w), b: Math.min(h, (1 - k.b) / 2 * h) };
       layout();
     }
     new ResizeObserver(fit).observe(body); fit();
     const still = matchMedia("(prefers-reduced-motion: reduce)").matches, t0 = performance.now();
-    let lastFrame = 0;
+    let lastFrame = 0, lastScan = -1e9, px = null;
+    // her real silhouette (non-transparent pixels, wings included), read right after a render
+    function scan() {
+      const gl = renderer.getContext(), W = gl.drawingBufferWidth, H = gl.drawingBufferHeight, w = body.clientWidth;
+      if (!W || !H || !w) return;
+      if (!px || px.length !== W * H * 4) px = new Uint8Array(W * H * 4);
+      gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      let l = W, r = -1, t = H, b = -1;
+      for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) if (px[(y * W + x) * 4 + 3] > 24) {
+        if (x < l) l = x; if (x > r) r = x; const yy = H - 1 - y; if (yy < t) t = yy; if (yy > b) b = yy;
+      }
+      if (r < 0) return;
+      const k = w / W, pad = 3, f = { l: l * k - pad, t: t * k - pad, r: r * k + pad, b: b * k + pad };
+      if (!fig || Math.abs(f.l - fig.l) + Math.abs(f.r - fig.r) + Math.abs(f.t - fig.t) + Math.abs(f.b - fig.b) > 3) { fig = f; layout(); }
+    }
     const loop = now => {
       requestAnimationFrame(loop);
       if (document.hidden) return;
@@ -410,6 +443,7 @@ function boot() {
         wings.forEach((w, i) => { w.o.rotation.z = w.rz + Math.sin(t * 3.2 + (i % 2) * Math.PI) * .03; });
       }
       renderer.render(scene, cam);
+      if (size && now - lastScan > 400) { lastScan = now; scan(); }
     };
     requestAnimationFrame(loop);
   })();
