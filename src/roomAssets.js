@@ -8,9 +8,9 @@ export const ROOM_FILES = [
   'YUNA WEB.glb', 'SUZUNE WEB.glb', 'AIKO WEB.glb', 'MOENE WEB.glb', 'PARDIS WEB.glb',
   'KAORI WEB.glb', 'REI WEB.glb', 'YURIA WEB.glb', 'MOMOCO WEB.glb', 'KUMO&MUKI WEB.glb', 'MIMI WEB.glb',
 ]
-export const HOME_ASSET_URL = 'assets/home.glb'
+export const HOME_ASSET_URL = 'assets/home.glb?v=3'
 export function getHomeAssetUrl(isMobile = false) {
-  return isMobile ? 'assets/home-mobile.glb?v=2k-1' : HOME_ASSET_URL
+  return isMobile ? 'assets/home-mobile.glb?v=2k-3' : HOME_ASSET_URL
 }
 export function getRoomAssetUrl(index, isMobile = false) {
   const file = ROOM_FILES[index]

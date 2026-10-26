@@ -2176,7 +2176,7 @@ function HomeEditorScene({ corners, activeCornerIndex, onPickPoint }) {
               onPickPoint([event.point.x, event.point.y, event.point.z])
             }}
           >
-            <Model url="assets/home.glb">
+            <Model url={getHomeAssetUrl()}>
               <CornerPreview corners={corners} activeCornerIndex={activeCornerIndex} />
             </Model>
           </group>
