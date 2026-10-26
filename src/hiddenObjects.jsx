@@ -410,15 +410,16 @@ function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp
   const FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif'
 
   // Yellow sticky note (public/sticky-note.png, 619×700); padding keeps text clear of the pin and the curled corner.
-  const noteWidth = isMobileLayout ? 200 : 216
+  // Collapsed: a small note with just the counter, pinned top-left. Tapping opens the big note in the same corner.
+  const noteWidth = expanded ? (isMobileLayout ? 200 : 216) : (isMobileLayout ? 76 : 84)
   const panelStyle = {
     position: 'absolute',
-    // bottom-right, clear of the narrator (top right) and above the door icon
-    bottom: isMobileLayout ? 'calc(92px + env(safe-area-inset-bottom))' : '96px',
-    right: isMobileLayout ? '6px' : '12px',
+    // top-left, clear of the home icon (top right) and the back button (bottom left)
+    top: isMobileLayout ? 'calc(44px + env(safe-area-inset-top))' : '48px',
+    left: isMobileLayout ? '12px' : '20px',
     width: `${noteWidth}px`,
     minHeight: `${Math.round(noteWidth * 700 / 619)}px`,
-    maxHeight: isMobileLayout ? '60dvh' : 'calc(100% - 140px)',
+    maxHeight: expanded ? (isMobileLayout ? '60dvh' : 'calc(100% - 140px)') : undefined,
     background: `url(${import.meta.env.BASE_URL}sticky-note.png) center / 100% 100% no-repeat`,
     zIndex: 50,
     display: 'flex',
@@ -426,16 +427,19 @@ function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp
     alignItems: 'center',
     justifyContent: 'center',
     textAlign: 'center',
-    padding: isMobileLayout ? '42px 20px 38px' : '48px 24px 44px',
+    padding: expanded ? (isMobileLayout ? '42px 20px 38px' : '48px 24px 44px') : '14px 8px 10px',
     gap: isMobileLayout ? '4px' : '2px',
-    overflowY: 'auto',
+    overflowY: expanded ? 'auto' : 'hidden',
     overflowX: 'hidden',
     boxSizing: 'border-box',
     fontFamily: FONT,
     color: '#2b2416',
+    cursor: expanded ? 'default' : 'pointer',
   }
+  // While collapsed the full list stays in the DOM (the narrator in public/narrator/narrator.js reads it), just invisible.
+  const hiddenStyle = { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', clipPath: 'inset(50%)', whiteSpace: 'nowrap', pointerEvents: 'none' }
   const titleStyle = { fontSize: '13px', fontWeight: 400, marginBottom: '2px', whiteSpace: 'nowrap' }
-  const counterStyle = { fontSize: '11px', fontWeight: 300, color: '#5a4a2a', marginBottom: isMobileLayout ? 0 : '6px', whiteSpace: 'nowrap' }
+  const counterStyle = { fontSize: '11px', fontWeight: 300, color: '#5a4a2a', marginBottom: '6px', whiteSpace: 'nowrap' }
   const itemStyle = (isFound) => ({
     padding: '2px 0', fontSize: isMobileLayout ? '12px' : '13px', fontWeight: 300,
     color: isFound ? '#8a7a55' : '#2b2416', textDecoration: isFound ? 'line-through' : 'none',
@@ -444,39 +448,38 @@ function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp
   const buttonStyle = (disabled) => ({
     background: 'transparent', border: '1px solid ' + (disabled ? '#b5a57a' : '#2b2416'), color: disabled ? '#8a7a55' : '#2b2416',
     minHeight: isMobileLayout ? '36px' : undefined, padding: '3px 12px', borderRadius: '999px', cursor: disabled ? 'default' : 'pointer',
-    fontFamily: FONT, fontSize: '11px', fontWeight: 300, textAlign: 'center', whiteSpace: 'nowrap', flexShrink: 0, marginTop: isMobileLayout ? 0 : '8px', alignSelf: 'center',
+    fontFamily: FONT, fontSize: '11px', fontWeight: 300, textAlign: 'center', whiteSpace: 'nowrap', flexShrink: 0, marginTop: '8px', alignSelf: 'center',
   })
   const timerLabel = timeLeft != null ? `${Math.floor(timeLeft / 60)}:${String(timeLeft % 60).padStart(2, '0')}` : null
 
   if (allFound || timeUp) return null
 
   return (
-    <div style={panelStyle}>
-      {isMobileLayout && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-          <button type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)} style={{ background: 'transparent', border: 0, fontFamily: FONT, fontSize: '13px', fontWeight: 400, color: '#2b2416', minHeight: 36, padding: '0 6px' }}>
-            objects · {found.length} / {hotspots.length} {expanded ? '▾' : '▴'}
-          </button>
-          {timerLabel && <span style={counterStyle}>{timerLabel}</span>}
-          <button type="button" onClick={onHint} disabled={hintUsed} style={buttonStyle(hintUsed)}>{hintUsed ? 'hint used' : 'hint'}</button>
-        </div>
+    <div style={panelStyle} onClick={() => setExpanded(value => !value)}>
+      {expanded ? (
+        <button type="button" aria-label="collapse objects list" onClick={(e) => { e.stopPropagation(); setExpanded(false) }} style={{ position: 'absolute', top: isMobileLayout ? 20 : 24, right: isMobileLayout ? 14 : 18, background: 'transparent', border: 0, padding: 4, minWidth: 28, minHeight: 28, fontFamily: FONT, fontSize: '14px', fontWeight: 300, color: '#5a4a2a', cursor: 'pointer' }}>×</button>
+      ) : (
+        <button type="button" aria-expanded={false} aria-label={`objects ${found.length} of ${hotspots.length}, open list`} style={{ background: 'transparent', border: 0, padding: 0, fontFamily: FONT, fontSize: '13px', fontWeight: 400, color: '#2b2416', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          <span style={hiddenStyle}>objects · </span><span>{found.length}/{hotspots.length}</span>
+          {timerLabel && <span style={{ display: 'block', fontSize: '10px', fontWeight: 300, color: timeLeft < 30 ? '#e5524e' : '#5a4a2a' }}>{timerLabel}</span>}
+        </button>
       )}
-      {(!isMobileLayout || expanded) && <>
-      {!isMobileLayout && <div style={titleStyle}>find these objects:</div>}
-      <div style={counterStyle}>
-        {found.length} / {hotspots.length}
-        {timerLabel && <span style={{ color: timeLeft < 30 ? '#e5524e' : '#5a4a2a', marginLeft: '8px' }}>⏱ {timerLabel}</span>}
+      <div aria-hidden={!expanded} style={expanded ? { display: 'contents' } : hiddenStyle}>
+        <div style={titleStyle}>find these objects:</div>
+        <div style={counterStyle}>
+          {found.length} / {hotspots.length}
+          {timerLabel && <span style={{ color: timeLeft < 30 ? '#e5524e' : '#5a4a2a', marginLeft: '8px' }}>⏱ {timerLabel}</span>}
+        </div>
+        {remaining.map((s) => <div key={s.id} style={itemStyle(false)}>{s.name}</div>)}
+        {foundList.length > 0 && (
+          <div style={{ borderTop: '1px solid rgba(60,45,10,0.2)', paddingTop: '6px', marginTop: '4px', alignSelf: 'stretch' }}>
+            {foundList.map((s) => <div key={s.id} style={itemStyle(true)}>{s.name}</div>)}
+          </div>
+        )}
+        <button type="button" tabIndex={expanded ? 0 : -1} onClick={(e) => { e.stopPropagation(); onHint() }} disabled={hintUsed} style={buttonStyle(hintUsed)}>
+          {hintUsed ? 'hint used' : 'hint'}
+        </button>
       </div>
-      {remaining.map((s) => <div key={s.id} style={itemStyle(false)}>{s.name}</div>)}
-      {foundList.length > 0 && !isMobileLayout && (
-        <div style={{ borderTop: '1px solid rgba(60,45,10,0.2)', paddingTop: '6px', marginTop: '4px', alignSelf: 'stretch' }}>
-          {foundList.map((s) => <div key={s.id} style={itemStyle(true)}>{s.name}</div>)}
-        </div>
-      )}
-      {!isMobileLayout && <button type="button" onClick={onHint} disabled={hintUsed} style={buttonStyle(hintUsed)}>
-        {hintUsed ? 'hint used' : 'hint'}
-      </button>}
-      </>}
     </div>
   )
 }
