@@ -1,4 +1,4 @@
-import React, { useState, Suspense, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
+import React, { createContext, useContext, useState, Suspense, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { Canvas, useFrame, useThree, useLoader } from '@react-three/fiber'
 import { OrbitControls, Stage, Html, KeyboardControls, useKeyboardControls } from '@react-three/drei'
@@ -738,6 +738,19 @@ function readResponsiveState() {
     isTouch: coarsePointerQuery.matches,
     prefersReducedMotion: reducedMotionQuery.matches,
   }
+}
+
+// Desktop About page: below this window size (browser zoom shrinks it in CSS px, or a small window) the page is laid out
+// at this size and scaled down uniformly, so it keeps its 100% look instead of overlapping or leaving the screen.
+const DESKTOP_STAGE_MIN_WIDTH = 1280
+const DESKTOP_STAGE_MIN_HEIGHT = 735
+// scale = screen px per layout px; width/height = the layout size. Inside a scaled stage pointer coordinates must be
+// divided by scale, and window.innerWidth/innerHeight replaced by width/height.
+const DesktopStageContext = createContext(null)
+function useDesktopStage() {
+  const stage = useContext(DesktopStageContext)
+  if (stage) return stage
+  return { scale: 1, width: typeof window !== 'undefined' ? window.innerWidth : 1440, height: typeof window !== 'undefined' ? window.innerHeight : 900 }
 }
 
 function shouldUseMobileLayout({ viewportWidth, isTouch }) {
@@ -3251,17 +3264,23 @@ function AboutPage({
   const [editorScrollbar, setEditorScrollbar] = useState({ top: 0, height: 100, enabled: false })
   const rightStageRef = useRef(null)
   const draggedFolderRef = useRef(null)
-  const [viewport, setViewport] = useState(() => ({
+  const [windowSize, setWindowSize] = useState(() => ({
     width: viewportOverride?.width ?? (typeof window !== 'undefined' ? window.innerWidth : 1440),
     height: viewportOverride?.height ?? (typeof window !== 'undefined' ? Math.round(window.visualViewport?.height ?? window.innerHeight) : 900),
   }))
+  // viewport = the size the page is laid out at; on a small or zoomed desktop window that is the minimum stage, scaled down.
+  const stageScale = shouldUseMobileLayout({ viewportWidth: windowSize.width, isTouch })
+    ? 1
+    : Math.min(1, windowSize.width / DESKTOP_STAGE_MIN_WIDTH, windowSize.height / DESKTOP_STAGE_MIN_HEIGHT)
+  const viewport = useMemo(() => ({ width: windowSize.width / stageScale, height: windowSize.height / stageScale }), [windowSize.width, windowSize.height, stageScale])
+  const desktopStage = useMemo(() => ({ scale: stageScale, width: viewport.width, height: viewport.height }), [stageScale, viewport])
   const [activeBrowserTab, setActiveBrowserTab] = useState(getAboutTabId(activeFolderId))
   const [browserAddress, setBrowserAddress] = useState(() => getAboutAddress(activeFolderId, getAboutTabId(activeFolderId), activeFolderDetailId, activeFolderImageIndex))
   const [isMobileAboutWindowOpen, setIsMobileAboutWindowOpen] = useState(true)
   const [layoutTuner] = useState(isLayoutTunerEnabled)
   const [mobileLayoutState, setMobileLayoutState] = useState(loadMobileLayout)
   const [desktopLayoutState, setDesktopLayoutState] = useState(loadDesktopLayout)
-  const isMobileLayoutEarly = shouldUseMobileLayout({ viewportWidth: viewport.width, isTouch })
+  const isMobileLayoutEarly = shouldUseMobileLayout({ viewportWidth: windowSize.width, isTouch })
   const mobileLayout = isMobileLayoutEarly ? mobileLayoutState : desktopLayoutState
   const setMobileLayout = isMobileLayoutEarly ? setMobileLayoutState : setDesktopLayoutState
   useEffect(() => {
@@ -3300,13 +3319,13 @@ function AboutPage({
     return () => { cancelAnimationFrame(frame); ro?.disconnect() }
   }, [measureFrozen, activeFolderId, viewport.width, viewport.height])
   const [isAboutExpanded, setIsAboutExpanded] = useState(false)
-  const isMobileLayout = shouldUseMobileLayout({ viewportWidth: viewport.width, isTouch })
+  const isMobileLayout = shouldUseMobileLayout({ viewportWidth: windowSize.width, isTouch })
   // Phone: the layout lives in Nana's 390×669 iPhone frame (see MOBILE_DESIGN_WIDTH), scaled by the phone's width
   // below the fixed browser bar, so it never follows Safari's toolbar and keeps its proportions on every phone.
   const mobileK = isMobileLayout ? viewport.width / MOBILE_DESIGN_WIDTH : 1
   const mobileRefH = MOBILE_DESIGN_HEIGHT * mobileK
   const mobileRefTop = MOBILE_BROWSER_CHROME_HEIGHT * (1 - mobileK)
-  const tbProps = { layout: mobileLayout, tuner: layoutTuner, onChange: tuneBlock, mobile: true, position: isMobileLayout ? 'absolute' : 'fixed', ...(isMobileLayout ? { refW: viewport.width, refH: mobileRefH, refTop: mobileRefTop, frameScale: mobileK } : {}) }
+  const tbProps = { layout: mobileLayout, tuner: layoutTuner, onChange: tuneBlock, mobile: true, position: isMobileLayout ? 'absolute' : 'fixed', ...(isMobileLayout ? { refW: viewport.width, refH: mobileRefH, refTop: mobileRefTop, frameScale: mobileK } : { refW: viewport.width, refH: viewport.height, pointerScale: stageScale }) }
 
   // Keep the collage, with a wider reading column and a narrow lane of actual folders.
   // On phones blocks are sized for the design frame and scaled by mobileK.
@@ -3412,15 +3431,16 @@ function AboutPage({
       if (!moved && Math.abs(dx) < FOLDER_DRAG_THRESHOLD_PX && Math.abs(dy) < FOLDER_DRAG_THRESHOLD_PX) return
       moved = true
       draggedFolderRef.current = folderId
-      const px = startPx + dx, py = startPy + dy
+      // screen px → stage px
+      const px = (startPx + dx) / stageScale, py = (startPy + dy) / stageScale
       setFolderPositions((prev) => {
         const next = new Map(prev)
         next.set(folderId, { left: px, top: py, isPx: true })
         return next
       })
       if (tunerDrag) {
-        const lp = +((px / containerRect.width) * 100).toFixed(1)
-        const tp = +(isMobileLayout ? ((py - mobileRefTop) / mobileRefH) * 100 : (py / containerRect.height) * 100).toFixed(2)
+        const lp = +(((px * stageScale) / containerRect.width) * 100).toFixed(1)
+        const tp = +(isMobileLayout ? ((py - mobileRefTop) / mobileRefH) * 100 : ((py * stageScale) / containerRect.height) * 100).toFixed(2)
         setMobileLayout((prev) => ({ ...(prev ?? {}), folders: { ...((prev ?? {}).folders ?? {}), [folderId]: { left: `${lp}%`, top: `${tp}%`, s: (prev?.folders?.[folderId]?.s ?? 1) } } }))
       }
     }
@@ -3439,7 +3459,7 @@ function AboutPage({
       window.addEventListener('mousemove', onMove)
       window.addEventListener('mouseup', onUp)
     }
-  }, [isTouch, layoutTuner, isMobileLayout, mobileRefH, mobileRefTop])
+  }, [isTouch, layoutTuner, isMobileLayout, mobileRefH, mobileRefTop, stageScale])
 
   const folderGestureRef = useRef(null)
   const folderTouch = useCallback((folderId, e) => {
@@ -3522,14 +3542,14 @@ function AboutPage({
     if (typeof window === 'undefined') return undefined
 
     if (viewportOverride) {
-      setViewport({ width: viewportOverride.width, height: viewportOverride.height })
+      setWindowSize({ width: viewportOverride.width, height: viewportOverride.height })
       const frame = window.requestAnimationFrame(updateEditorScrollbar)
       return () => window.cancelAnimationFrame(frame)
     }
 
     const onResize = () => {
       const vv = window.visualViewport
-      setViewport({ width: window.innerWidth, height: vv ? Math.round(vv.height) : window.innerHeight })
+      setWindowSize({ width: window.innerWidth, height: vv ? Math.round(vv.height) : window.innerHeight })
       updateEditorScrollbar()
     }
     onResize()
@@ -3619,7 +3639,13 @@ function AboutPage({
   const shouldShowAboutWindow = !isFolderView && (!isMobileLayout || isMobileAboutWindowOpen)
 
   return (
-    <div style={{ width: '100%', height: '100%', overflowY: isMobileLayout && !isFolderView ? 'auto' : 'hidden', overflowX: 'hidden' }}>
+    <DesktopStageContext.Provider value={desktopStage}>
+    <div
+      style={stageScale < 1
+        // transformed, so it is also the frame for the position: fixed windows and blocks inside
+        ? { position: 'fixed', left: 0, top: 0, width: `${viewport.width}px`, height: `${viewport.height}px`, transform: `scale(${stageScale})`, transformOrigin: '0 0', overflow: 'hidden' }
+        : { width: '100%', height: '100%', overflowY: isMobileLayout && !isFolderView ? 'auto' : 'hidden', overflowX: 'hidden' }}
+    >
     <div
       data-mobile-about={isMobileLayout || undefined}
       style={{
@@ -3659,8 +3685,8 @@ function AboutPage({
         >
           <div
             style={{
-              width: 'min(680px, 92vw)',
-              maxHeight: '80vh',
+              width: `${Math.min(680, viewport.width * 0.92)}px`,
+              maxHeight: `${viewport.height * 0.8}px`,
               borderRadius: '12px',
               overflow: 'hidden',
               boxShadow: '0 36px 100px rgba(0,0,0,0.32), 0 12px 40px rgba(0,0,0,0.18)',
@@ -3948,7 +3974,7 @@ function AboutPage({
               <img
                 src="assets/shelestvetrovki-glitter.gif"
                 alt="shelestvetrovki"
-                style={{ width: isMobileLayout ? `${mobileTitleWidth}px` : 'min(172px, 14.4vw)', height: 'auto', objectFit: 'contain' }}
+                style={{ width: isMobileLayout ? `${mobileTitleWidth}px` : `${Math.min(172, viewport.width * 0.144)}px`, height: 'auto', objectFit: 'contain' }}
               />
               <img
                 src="assets/7ADo.gif"
@@ -4137,6 +4163,7 @@ function AboutPage({
       </div>
     </div>
     </div>
+    </DesktopStageContext.Provider>
   )
 }
 
@@ -4453,7 +4480,7 @@ function loadDesktopLayout() {
 // Wraps a positioned block on mobile so it can be dragged / scaled in tuner mode, and applies saved overrides.
 // refW/refH/refTop/frameScale map the phone frame onto the page (see MOBILE_DESIGN_WIDTH); without them the
 // layout is relative to the window, as on desktop.
-function TunableBlock({ id, layout, tuner, onChange, mobile = true, passthrough = false, baseLeft, baseTop, zIndex = 21, children, pointerEvents = 'auto', position = 'fixed', refW, refH, refTop = 0, frameScale = 1 }) {
+function TunableBlock({ id, layout, tuner, onChange, mobile = true, passthrough = false, baseLeft, baseTop, zIndex = 21, children, pointerEvents = 'auto', position = 'fixed', refW, refH, refTop = 0, frameScale = 1, pointerScale = 1 }) {
   const ov = mobile ? layout?.[id] : null
   const active = mobile && tuner && !passthrough
   const onWheel = (e) => {
@@ -4464,8 +4491,9 @@ function TunableBlock({ id, layout, tuner, onChange, mobile = true, passthrough 
     const sNext = Math.max(0.3, Math.min(3, cur.scale * k))
     const kk = sNext / cur.scale
     // scale around the cursor
-    const nx = e.clientX - (e.clientX - cur.left) * kk
-    const ny = e.clientY - (e.clientY - cur.top) * kk
+    const cx = e.clientX / pointerScale, cy = e.clientY / pointerScale
+    const nx = cx - (cx - cur.left) * kk
+    const ny = cy - (cy - cur.top) * kk
     onChange(id, { x: (nx / vw) * 100, y: (ny / vh) * 100, s: sNext })
   }
   const vw = refW ?? (typeof window !== 'undefined' ? window.innerWidth : 390)
@@ -4479,11 +4507,11 @@ function TunableBlock({ id, layout, tuner, onChange, mobile = true, passthrough 
     if (!active) return
     e.preventDefault(); e.stopPropagation()
     const t = e.touches ? e.touches[0] : e
-    dragRef.current = { sx: t.clientX, sy: t.clientY, ox: left, oy: top }
+    dragRef.current = { sx: t.clientX / pointerScale, sy: t.clientY / pointerScale, ox: left, oy: top }
     const move = (ev) => {
       const p = ev.touches ? ev.touches[0] : ev
       const d = dragRef.current; if (!d) return
-      onChange(id, { x: ((d.ox + p.clientX - d.sx) / vw) * 100, y: ((d.oy + p.clientY - d.sy - refTop) / vh) * 100, s: layoutScale })
+      onChange(id, { x: ((d.ox + p.clientX / pointerScale - d.sx) / vw) * 100, y: ((d.oy + p.clientY / pointerScale - d.sy - refTop) / vh) * 100, s: layoutScale })
     }
     const up = () => { dragRef.current = null; window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('touchmove', move); window.removeEventListener('touchend', up) }
     window.addEventListener('pointermove', move); window.addEventListener('pointerup', up)
@@ -4671,6 +4699,7 @@ function MobileLayoutTunerPanel({ layout, setLayout, ids, folderIds = [] }) {
 }
 
 function DraggableFolderIcon({ label, onOpen, initial = { x: 24, y: 24 }, inline = false }) {
+  const stage = useDesktopStage()
   const [pos, setPos] = useState(initial)
   const dragRef = useRef(null)
 
@@ -4683,7 +4712,7 @@ function DraggableFolderIcon({ label, onOpen, initial = { x: 24, y: 24 }, inline
     const dx = clientX - d.startX
     const dy = clientY - d.startY
     if (Math.abs(dx) > 3 || Math.abs(dy) > 3) d.moved = true
-    if (!inline) setPos({ x: Math.max(0, d.originX + dx), y: Math.max(0, d.originY + dy) })
+    if (!inline) setPos({ x: Math.max(0, d.originX + dx / stage.scale), y: Math.max(0, d.originY + dy / stage.scale) })
   }
   const endDrag = () => {
     const d = dragRef.current
@@ -4737,6 +4766,7 @@ function AboutFolderContent({
   onOpenFolderRoute,
   isMobileLayout = false,
 }) {
+  const stage = useDesktopStage()
   const [pressArticle, setPressArticle] = useState(null)
 
   const plainPageStyle = {
@@ -4919,7 +4949,7 @@ function AboutFolderContent({
       draggedWritingRef.current = linkUrl
       setWritingIconPositions((prev) => {
         const next = new Map(prev)
-        next.set(linkUrl, { left: startPx + dx, top: startPy + dy, isPx: true })
+        next.set(linkUrl, { left: (startPx + dx) / stage.scale, top: (startPy + dy) / stage.scale, isPx: true })
         return next
       })
     }
@@ -4929,7 +4959,7 @@ function AboutFolderContent({
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-  }, [isMobileLayout])
+  }, [isMobileLayout, stage.scale])
   const startArchiveImageDrag = useCallback((imageKey, e) => {
     if (isMobileLayout) return
     if (e.button !== 0) return
@@ -4955,7 +4985,7 @@ function AboutFolderContent({
       setArchiveImagePositions((prev) => {
         const current = prev.get(imageKey) ?? {}
         const next = new Map(prev)
-        next.set(imageKey, { ...current, left: startPx + dx, top: startPy + dy, isPx: true })
+        next.set(imageKey, { ...current, left: (startPx + dx) / stage.scale, top: (startPy + dy) / stage.scale, isPx: true })
         return next
       })
     }
@@ -4965,7 +4995,7 @@ function AboutFolderContent({
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-  }, [isMobileLayout])
+  }, [isMobileLayout, stage.scale])
   const getExhibitionDescription = (exhibition) => {
     const descriptionText = exhibition.description?.[0] ?? ''
     const placeText = [exhibition.venue, exhibition.location].filter(Boolean).join(', ')
@@ -5176,7 +5206,7 @@ function AboutFolderContent({
             {videos.map((video) => (
               <figure key={video.src} style={{ margin: 0, width: '100%' }}>
                 <video src={video.src} controls preload="metadata"
-                  style={{ display: 'block', width: '100%', maxHeight: isMobileLayout ? '52vh' : '58vh', background: '#000' }} />
+                  style={{ display: 'block', width: '100%', maxHeight: isMobileLayout ? '52vh' : `${stage.height * 0.58}px`, background: '#000' }} />
                 <figcaption style={{ marginTop: '7px', fontSize: '13px', lineHeight: 1.25, fontStyle: 'normal' }}>
                   {video.title}
                 </figcaption>
@@ -5205,7 +5235,7 @@ function AboutFolderContent({
         position: isMobileLayout ? 'relative' : 'sticky',
         top: 0,
         alignSelf: 'start',
-        maxHeight: isMobileLayout ? 'none' : 'calc(100vh - 44px)',
+        maxHeight: isMobileLayout ? 'none' : `${stage.height - 44}px`,
         overflowX: isMobileLayout ? 'auto' : 'hidden',
         overflowY: isMobileLayout ? 'hidden' : 'auto',
         padding: isMobileLayout ? '0' : '0 0 18px',
@@ -5312,7 +5342,7 @@ function AboutFolderContent({
         position: isMobileLayout ? 'static' : 'sticky',
         top: 0,
         alignSelf: 'start',
-        maxHeight: isMobileLayout ? 'none' : 'calc(100vh - 44px)',
+        maxHeight: isMobileLayout ? 'none' : `${stage.height - 44}px`,
         overflowX: isMobileLayout ? 'auto' : 'hidden',
         overflowY: isMobileLayout ? 'hidden' : 'auto',
         padding: isMobileLayout ? '0 0 2px' : '0 0 18px',
@@ -5421,7 +5451,7 @@ function AboutFolderContent({
                 {videos.map((video) => (
                   <figure key={video.src} style={{ margin: 0, width: '100%' }}>
                     <video src={video.src} controls preload="metadata"
-                      style={{ display: 'block', width: '100%', maxHeight: isMobileLayout ? '52vh' : '58vh', background: '#000' }} />
+                      style={{ display: 'block', width: '100%', maxHeight: isMobileLayout ? '52vh' : `${stage.height * 0.58}px`, background: '#000' }} />
                     <figcaption style={{ marginTop: '7px', fontSize: '13px', lineHeight: 1.25, fontStyle: 'normal' }}>
                       {video.title}
                     </figcaption>
@@ -5634,8 +5664,9 @@ function PressArticleWindow({ url, label, onClose, isMobileLayout = false }) {
   const [iframeBlocked, setIframeBlocked] = useState(false)
   const [dragging, setDragging] = useState(false)
   const dragOffset = useRef({ x: 0, y: 0 })
-  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1440
-  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 900
+  const stage = useDesktopStage()
+  const viewportWidth = stage.width
+  const viewportHeight = stage.height
   const MOBILE_TOP = 118 // below the fake browser chrome (tabs + address bar)
   const winW = isMobileLayout ? viewportWidth - 16 : Math.min(viewportWidth - 80, 900)
   const winH = isMobileLayout ? Math.max(260, viewportHeight - MOBILE_TOP - 40 - 34) : Math.min(viewportHeight - 100, 680)
@@ -5649,13 +5680,13 @@ function PressArticleWindow({ url, label, onClose, isMobileLayout = false }) {
   const startDrag = useCallback((e) => {
     if (e.button !== undefined && e.button !== 0) return
     e.preventDefault()
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+    const clientX = (e.touches ? e.touches[0].clientX : e.clientX) / stage.scale
+    const clientY = (e.touches ? e.touches[0].clientY : e.clientY) / stage.scale
     dragOffset.current = { x: clientX - posRef.current.x, y: clientY - posRef.current.y }
     setDragging(true)
     const onMove = (ev) => {
-      const cx = ev.touches ? ev.touches[0].clientX : ev.clientX
-      const cy = ev.touches ? ev.touches[0].clientY : ev.clientY
+      const cx = (ev.touches ? ev.touches[0].clientX : ev.clientX) / stage.scale
+      const cy = (ev.touches ? ev.touches[0].clientY : ev.clientY) / stage.scale
       const next = { x: cx - dragOffset.current.x, y: cy - dragOffset.current.y }
       posRef.current = next
       setPos(next)
@@ -5671,7 +5702,7 @@ function PressArticleWindow({ url, label, onClose, isMobileLayout = false }) {
     window.addEventListener('mouseup', onUp)
     window.addEventListener('touchmove', onMove, { passive: false })
     window.addEventListener('touchend', onUp)
-  }, [])
+  }, [stage.scale])
 
   // Extract a readable publication name from the label
   const pubName = label.split(':')[0].trim()
