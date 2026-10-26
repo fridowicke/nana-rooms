@@ -4423,15 +4423,27 @@ function ArchiveMapFolder({ isMobileLayout }) {
 // v2: phone positions are relative to the fixed design frame and folders to their top edge; v1 copies are ignored
 const MOBILE_LAYOUT_KEY = 'shelest-mobile-layout-v2'
 const DESKTOP_LAYOUT_KEY = 'shelest-desktop-layout-v1'
-// Nana's desktop layout (from the ?layout=1 tuner). x,y = % of viewport, s = scale.
+// Nana's desktop layout (from the ?layout=1 tuner). x,y = % of viewport, s = scale; folders = centre in % of the stage.
 const DESKTOP_LAYOUT_DEFAULT = {
-  welcome: { x: 5.62, y: 9.88, s: 1.2 },
-  about: { x: 1.01, y: 18.02, s: 1.3 },
-  diary: { x: 4.68, y: 46.01, s: 1 },
-  radio: { x: 1.88, y: 76.3, s: 1 },
-  player: { x: 1.59, y: 81.8, s: 1.1 },
-  knock: { x: 87.2, y: 85.6, s: 1.5 },
-  house: { x: 94.52, y: 7.65, s: 1.4 },
+  welcome: { x: 1.89, y: 9.73, s: 1.2 },
+  about: { x: 1.8, y: 17.97, s: 1.3 },
+  diary: { x: 7.88, y: 47.9, s: 0.8 },
+  radio: { x: 3.66, y: 77.26, s: 1 },
+  player: { x: 3.44, y: 83.03, s: 1.1 },
+  knock: { x: 92.36, y: 90.97, s: 1.1 },
+  house: { x: 94.8, y: 7.64, s: 1.4 },
+  title: { x: 44.66, y: 9.53, s: 1 },
+  pin: { x: 22.18, y: 14.65, s: 1 },
+  folders: {
+    writing: { left: '64.2%', top: '61.93%', s: 1 },
+    exhibitions: { left: '81.9%', top: '55.46%', s: 1 },
+    press: { left: '31.7%', top: '67.86%', s: 1 },
+    'she-is-so-hot': { left: '73.1%', top: '29.72%', s: 1 },
+    filmmaking: { left: '47.5%', top: '63.08%', s: 1 },
+    research: { left: '38.7%', top: '41.75%', s: 1 },
+    'local-group': { left: '92.6%', top: '32.53%', s: 1 },
+    cv: { left: '92%', top: '75.77%', s: 1 },
+  },
 }
 // Phone layouts are placed in the frame of Nana's iPhone: 390 px wide, 669 px of visible page with Safari's bars
 // shown. On other phones the frame scales with the screen width below the fixed browser bar.
