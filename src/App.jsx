@@ -3387,14 +3387,14 @@ function AboutPage({
         top: `${mobileFolderTop + index * mobileFolderGap + (id === 'she-is-so-hot' ? 20 : 0)}px`,
       }))
     : [
-        { id: 'press', left: '25%', top: '36%' },
+        { id: 'press', left: '29%', top: '36%' },
         { id: 'writing', left: '37%', top: '34%' },
         { id: 'exhibitions', left: '50%', top: '38%' },
         { id: 'filmmaking', left: '63%', top: '42%' },
         { id: 'research', left: '73%', top: '34%' },
         { id: 'local-group', left: '84%', top: '48%' },
         { id: 'cv', left: '84%', top: '65%' },
-        { id: 'she-is-so-hot', left: '25%', top: '60%' },
+        { id: 'she-is-so-hot', left: '29%', top: '60%' },
       ]
   const [folderPositions, setFolderPositions] = useState(
     () => new Map(folderArcLayout.map((p) => [p.id, { left: p.left, top: p.top }]))
@@ -4426,9 +4426,9 @@ const DESKTOP_LAYOUT_DEFAULT = {
   welcome: { x: 5.62, y: 9.88, s: 1.2 },
   about: { x: 1.01, y: 18.02, s: 1.3 },
   diary: { x: 4.68, y: 46.01, s: 1 },
-  radio: { x: 1.88, y: 78.4, s: 1 },
-  player: { x: 1.59, y: 83.88, s: 1.1 },
-  knock: { x: 90.39, y: 89.21, s: 1.5 },
+  radio: { x: 1.88, y: 76.3, s: 1 },
+  player: { x: 1.59, y: 81.8, s: 1.1 },
+  knock: { x: 87.2, y: 85.6, s: 1.5 },
   house: { x: 94.52, y: 7.65, s: 1.4 },
 }
 // Phone layouts are placed in the frame of Nana's iPhone: 390 px wide, 669 px of visible page with Safari's bars
