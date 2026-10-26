@@ -212,7 +212,6 @@ const EXHIBITIONS = [
     ],
     links: [],
     imageFolder: 'Tama Art University 2023',
-    videoFolder: 'Tama Art University 2023',
   },
 ]
 const EXHIBITION_IMAGES_BY_FOLDER = Object.entries(EXHIBITION_IMAGE_MODULES).reduce((collection, [path, src], index) => {
