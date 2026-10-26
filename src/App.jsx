@@ -6,6 +6,7 @@ import * as THREE from 'three'
 import { HiddenObjectGame, HiddenObjectScene } from './hiddenObjects.jsx'
 import ArchiveMap from './ArchiveMap.jsx'
 import { AboutLayoutCanvas, useAboutLayout, isAboutEditMode } from './aboutLayout.jsx'
+import { ExhibitionLayoutMain, useExhibitionLayouts } from './exhibitionLayout.jsx'
 import { ROOM_FILES, getHomeAssetUrl, getRoomAssetUrl, roomPreloadPlan, modelPreloader, RoomAssetLoader, canPrepareRooms, releaseModelGpu } from './roomAssets.js'
 import { createGpuRoomCache } from './gpuRoomCache.js'
 import { perspectiveFitDistance } from './cameraFit.js'
@@ -4790,6 +4791,8 @@ function AboutFolderContent({
 }) {
   const stage = useDesktopStage()
   const [pressArticle, setPressArticle] = useState(null)
+  const exhibitionEditMode = useMemo(() => isAboutEditMode(), [])
+  const [exhibitionLayouts, setExhibitionLayouts] = useExhibitionLayouts(exhibitionEditMode)
 
   const plainPageStyle = {
     width: '100%',
@@ -5407,7 +5410,7 @@ function AboutFolderContent({
       return (
         <div style={exhibitionShellStyle}>
           {renderExhibitionNav()}
-          <main style={{ minWidth: 0, padding: '0 0 80px' }}>
+          <ExhibitionLayoutMain disabled={isMobileLayout} pages={exhibitionLayouts} setPages={setExhibitionLayouts} editable={exhibitionEditMode} key={selectedExhibition.id} pageId={selectedExhibition.id} style={{ minWidth: 0, padding: '0 0 80px' }}>
             {/* Title block */}
             {/* One vertical rhythm: 18px between every block; title+venue are a tight pair. */}
             <div style={{ margin: '18px 0 18px' }}>
@@ -5435,11 +5438,11 @@ function AboutFolderContent({
             {/* Images section */}
             {images.length > 0 && (
               <div style={{ margin: '18px 0' }}>
-                <button type="button" onClick={() => openLightbox(0)}
+                <button type="button" onClick={() => openLightbox(0)} data-ex-href={`#${FOLDER_HASH_PREFIX}${folder.id}/${selectedExhibition.id}/${FOLDER_LIGHTBOX_HASH_SEGMENT}/0`}
                   style={{ border: 'none', background: 'transparent', padding: '0 0 10px', cursor: 'pointer', fontSize: isMobileLayout ? '16px' : '18px', textDecoration: 'underline', color: 'inherit', fontFamily: 'inherit', fontStyle: 'normal', display: 'block' }}>
                   {`Installation Images (${images.length}) →`}
                 </button>
-                <button type="button" onClick={() => openLightbox(0)}
+                <button type="button" onClick={() => openLightbox(0)} data-ex-href={`#${FOLDER_HASH_PREFIX}${folder.id}/${selectedExhibition.id}/${FOLDER_LIGHTBOX_HASH_SEGMENT}/0`}
                   style={{ border: 'none', background: 'transparent', padding: 0, display: 'block', width: '100%', lineHeight: 0, cursor: 'pointer' }}>
                   <img src={images[0].src} alt="" loading="lazy" decoding="async"
                     style={{ display: 'block', width: '100%', height: 'auto', objectFit: 'cover' }} />
@@ -5481,7 +5484,7 @@ function AboutFolderContent({
                 ))}
               </div>
             )}
-          </main>
+          </ExhibitionLayoutMain>
 
           {activeLightboxImage && createPortal(
             <ExhibitionLightbox image={activeLightboxImage} onNext={showNextLightboxImage} onClose={() => onOpenFolderRoute?.(folder.id, selectedExhibition.id)} />,
@@ -5495,7 +5498,7 @@ function AboutFolderContent({
     return (
       <div style={exhibitionShellStyle}>
         {renderExhibitionNav()}
-        <main style={{ minWidth: 0, textAlign: 'center' }}>
+        <ExhibitionLayoutMain disabled={isMobileLayout} pages={exhibitionLayouts} setPages={setExhibitionLayouts} editable={exhibitionEditMode} key="overview" pageId="overview" style={{ minWidth: 0, textAlign: 'center' }}>
           {EXHIBITIONS.map((exhibition, exhibitionIndex) => {
             const images = EXHIBITION_IMAGES_BY_FOLDER.get(exhibition.imageFolder) ?? []
             const videos = EXHIBITION_VIDEOS_BY_FOLDER.get(exhibition.videoFolder ?? exhibition.imageFolder) ?? []
@@ -5516,7 +5519,7 @@ function AboutFolderContent({
                 </p>
 
                 {previewImage && (
-                  <button type="button" onClick={() => onOpenFolderRoute?.(folder.id, exhibition.id)}
+                  <button type="button" onClick={() => onOpenFolderRoute?.(folder.id, exhibition.id)} data-ex-href={`#${FOLDER_HASH_PREFIX}${folder.id}/${exhibition.id}`}
                     style={{ border: 'none', background: 'transparent', padding: 0, display: 'block', margin: '0 auto 18px', textAlign: 'center' }}>
                     <figure style={{ margin: 0 }}>
                       <img src={previewImage.src} alt={previewImage.alt} loading="lazy" decoding="async"
@@ -5525,13 +5528,13 @@ function AboutFolderContent({
                   </button>
                 )}
                 {!previewImage && videos.length > 0 && (
-                  <button type="button" onClick={() => onOpenFolderRoute?.(folder.id, exhibition.id)}
+                  <button type="button" onClick={() => onOpenFolderRoute?.(folder.id, exhibition.id)} data-ex-href={`#${FOLDER_HASH_PREFIX}${folder.id}/${exhibition.id}`}
                     style={{ border: '1px solid #111', background: '#fff', padding: '12px 18px', margin: '0 auto 18px', display: 'inline-block', font: 'inherit', fontSize: '13px', color: '#000' }}>
                     video documentation
                   </button>
                 )}
                 <div>
-                  <button type="button" onClick={() => onOpenFolderRoute?.(folder.id, exhibition.id)}
+                  <button type="button" onClick={() => onOpenFolderRoute?.(folder.id, exhibition.id)} data-ex-href={`#${FOLDER_HASH_PREFIX}${folder.id}/${exhibition.id}`}
                     style={{ border: 'none', background: 'transparent', padding: 0, font: 'inherit', color: '#000', textDecoration: 'underline', fontStyle: 'normal' }}>
                     more photos / more info
                   </button>
@@ -5547,7 +5550,7 @@ function AboutFolderContent({
               </section>
             )
           })}
-        </main>
+        </ExhibitionLayoutMain>
       </div>
     )
   }
