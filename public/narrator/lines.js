@@ -48,7 +48,7 @@ export const LINES = {
     "filmmaking":              [{ id: "folder-curation", text: "Shows she curated. Film nights and fundraisers from Tokyo to Bucharest." }],
     "exhibitions":             [{ id: "folder-exhibitions", text: "Exhibitions. Marseille, Athens, Tokyo. I wasn't invited to any of them." }],
     "submit-room":             [{ id: "folder-submit", text: "Want *your* bedroom in my house? Submit it here." }],
-    "diary":                   [{ id: "folder-diary", text: "Her diary. Photos only, so you don't have to read her handwriting." }],
+    "diary":                   [{ id: "folder-diary", text: "Journaling with images and thoughts. This is Nana's visual archive." }],
     "open-collective-archive": [{ id: "folder-archive", text: "The 3D bedrooms wikipedia. Girls' rooms from all over the world. *Messy is the point.*" }],
     "research":                [{ id: "folder-research", text: "Research. Memes as folklore, cyberfeminism, the internet's matriarchy. Very serious. I'm a butt." }],
     "local-group":             [{ id: "folder-localgroup", text: "Local Group. The Ukrainian collective she started. They make prints, shows and noise." }],
