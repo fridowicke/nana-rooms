@@ -6123,6 +6123,8 @@ function PreviewLauncher({ onOpen, isTouch = false, isMobileLayout = false }) {
   )
 }
 
+const GRAPH_FOLDER_IDS = new Set(['research', 'open-collective-archive'])
+
 function CursorSparkles() {
   const [sparkles, setSparkles] = useState([])
   const nextSparkleId = useRef(0)
@@ -6744,7 +6746,8 @@ export default function App() {
           isTouch={isTouch}
         />
         {sceneTransitionLayer}
-        {!isMobileLayout && !isTouch && !prefersReducedMotion && <CursorSparkles />}
+        {/* no sparkle trail over the two diagrams: it competes with the nodes */}
+        {!isMobileLayout && !isTouch && !prefersReducedMotion && !GRAPH_FOLDER_IDS.has(route.folderId) && <CursorSparkles />}
       </>
     )
   }

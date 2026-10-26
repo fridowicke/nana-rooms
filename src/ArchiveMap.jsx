@@ -13,6 +13,26 @@ const SCREENSHOT_TAG = 'screen time screenshot'
 const FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif'
 const NODE_R = 16
 
+const scatter = (n, i) => {
+  n.x = Math.cos(i * 2.399) * 420 + (i % 4) * 25
+  n.y = Math.sin(i * 2.399) * 330 + (i % 5) * 18
+  n.vx = 0; n.vy = 0
+}
+
+// eases the view from where it is to `to`: the centre glides, the zoom changes evenly
+function stepViewAnimation(S) {
+  const an = S.anim
+  if (!an) return
+  const t = Math.min(1, (performance.now() - an.t0) / an.dur)
+  const e = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2
+  const centre = (v) => ({ x: (S.W / 2 - v.x) / v.scale, y: (S.H / 2 - v.y) / v.scale })
+  const a = centre(an.from), b = centre(an.to)
+  const scale = an.from.scale * (an.to.scale / an.from.scale) ** e
+  const cx = a.x + (b.x - a.x) * e, cy = a.y + (b.y - a.y) * e
+  S.view = { scale, x: S.W / 2 - cx * scale, y: S.H / 2 - cy * scale }
+  if (t === 1) S.anim = null
+}
+
 function buildLinks(nodes, k = 3) {
   const links = []
   const seen = new Set()
@@ -73,11 +93,9 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
       index, key, src: img.src, thumbSrc: img.thumbSrc, img: im,
       color, isShot, caption: t.caption ?? '', date: t.date ?? null,
       tags: tagList, tagSet: new Set(tagList),
-      x: Math.cos(index * 2.399) * 420 + (index % 4) * 25,
-      y: Math.sin(index * 2.399) * 330 + (index % 5) * 18,
-      vx: 0, vy: 0, fixed: false,
+      x: 0, y: 0, vx: 0, vy: 0, fixed: false,
     }
-  }), [images, tags])
+  }).map((n, i) => { scatter(n, i); return n }), [images, tags])
 
   const links = useMemo(() => buildLinks(nodes), [nodes])
   const neighbors = useMemo(() => {
@@ -106,7 +124,6 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
   useEffect(() => {
     S.visible = visibleList
     S.visibleSet = new Set(visibleList)
-    S.alpha = Math.max(S.alpha, 0.5)
   }, [visibleList, S])
   useEffect(() => { S.selected = selected }, [selected, S])
   useEffect(() => { S.hovered = hovered }, [hovered, S])
@@ -142,9 +159,10 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
       return s
     }
 
+    // every room takes part in the layout, filtered out or not, so filtering never rearranges the map
     const simulate = () => {
       if (S.alpha < 0.002 && !S.drag) return
-      const vis = S.visible.map((i) => nodes[i])
+      const vis = nodes
       const a = S.alpha
       for (let i = 0; i < vis.length; i++) {
         const p = vis[i]
@@ -162,7 +180,6 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
         if (!p.fixed) { p.vx += -p.x * 0.0005 * a; p.vy += -p.y * 0.0005 * a }
       }
       for (const l of links) {
-        if (!S.visibleSet.has(l.a) || !S.visibleSet.has(l.b)) continue
         const A = nodes[l.a], B = nodes[l.b]
         const dx = B.x - A.x, dy = B.y - A.y
         const d = Math.max(1, Math.sqrt(dx * dx + dy * dy))
@@ -179,6 +196,12 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
       }
       S.alpha *= 0.992
     }
+    // lay the map out before the first frame, so it opens calm instead of flying apart
+    const settle = () => {
+      S.alpha = 1
+      for (let t = 0; t < 450; t++) simulate()
+    }
+    S.settle = settle
 
     const draw = () => {
       const { W, H, dpr, view } = S
@@ -197,6 +220,14 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
         ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke()
       }
       const showImg = false
+      const rr0 = Math.max(NODE_R, 9 / view.scale)
+      ctx.fillStyle = '#e6e6e6'
+      ctx.strokeStyle = 'rgba(0,0,0,0.12)'
+      ctx.lineWidth = 1 / view.scale
+      for (const n of nodes) {
+        if (S.visibleSet.has(n.index)) continue
+        ctx.beginPath(); ctx.arc(n.x, n.y, rr0, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+      }
       for (const i of S.visible) {
         const n = nodes[i]
         const dim = rels && !rels.has(i)
@@ -222,9 +253,9 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
       ctx.restore()
     }
 
-    const fitView = () => {
+    const fitView = (animate = true, all = false) => {
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-      for (const i of S.visible.length ? S.visible : nodes.map((n) => n.index)) {
+      for (const i of S.visible.length && !all ? S.visible : nodes.map((n) => n.index)) {
         const n = nodes[i]
         if (n.x < minX) minX = n.x; if (n.x > maxX) maxX = n.x
         if (n.y < minY) minY = n.y; if (n.y > maxY) maxY = n.y
@@ -232,14 +263,13 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
       if (!Number.isFinite(minX)) return
       const pad = 40
       const scale = Math.max(0.1, Math.min((S.W - pad * 2) / Math.max(1, maxX - minX), (S.H - pad * 2) / Math.max(1, maxY - minY), 2))
-      S.view = { scale, x: S.W / 2 - ((minX + maxX) / 2) * scale, y: S.H / 2 - ((minY + maxY) / 2) * scale }
+      const to = { scale, x: S.W / 2 - ((minX + maxX) / 2) * scale, y: S.H / 2 - ((minY + maxY) / 2) * scale }
+      if (animate) S.anim = { from: { ...S.view }, to, t0: performance.now(), dur: 450 }
+      else { S.anim = null; S.view = to }
     }
     S.fitView = fitView
-    let settleFrames = 0
     const loop = () => {
-      simulate(); draw()
-      // re-fit while the initial layout is still settling so nothing starts cut off
-      if (!S.userTouched && settleFrames < 240) { settleFrames++; if (settleFrames % 12 === 0) fitView() }
+      simulate(); stepViewAnimation(S); draw()
       S.raf = requestAnimationFrame(loop)
     }
 
@@ -248,10 +278,12 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
       S.W = stage.clientWidth; S.H = stage.clientHeight
       canvas.width = S.W * S.dpr; canvas.height = S.H * S.dpr
       canvas.style.width = S.W + 'px'; canvas.style.height = S.H + 'px'
-      if (!S.viewInit) { fitView(); S.viewInit = true }
+      // the folder window may still be opening: keep the whole map in view until the user moves it
+      if (!S.userTouched) fitView(false)
     }
     const ro = new ResizeObserver(resize)
     ro.observe(stage)
+    settle()
     resize()
 
     const touches = new Map()
@@ -264,6 +296,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
     const onDown = (e) => {
       if (e.button !== undefined && e.button !== 0) return
       canvas.setPointerCapture(e.pointerId)
+      S.anim = null; S.userTouched = true
       const { x, y } = local(e)
       touches.set(e.pointerId, { x, y })
       if (touches.size === 2) {
@@ -274,7 +307,6 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
         S.moved = true
         return
       }
-      S.userTouched = true
       const n = hit(x, y)
       S.moved = false
       if (n) { S.drag = n; n.fixed = true } else S.pan = { x, y, vx: S.view.x, vy: S.view.y }
@@ -310,7 +342,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
       if (touches.size > 0) { canvas.classList.remove('grabbing'); return }
       if (S.drag) {
         const n = S.drag; S.drag = null; n.fixed = false
-        if (!S.moved) { setSelected(n.index); S.alpha = Math.max(S.alpha, 0.3) }
+        if (!S.moved) setSelected(n.index)
       } else if (!S.moved && !hit(x, y)) {
         setSelected(null)
       }
@@ -319,7 +351,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
     }
     const onWheel = (e) => {
       e.preventDefault()
-      S.userTouched = true
+      S.anim = null; S.userTouched = true
       const { x, y } = local(e)
       const old = S.view.scale
       const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY
@@ -351,8 +383,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
     if (!n) return
     setSelected(index)
     const scale = Math.max(S.view.scale, 1.2)
-    S.view = { scale, x: S.W / 2 - n.x * scale, y: S.H / 2 - n.y * scale }
-    S.alpha = Math.max(S.alpha, 0.3)
+    S.anim = { from: { ...S.view }, to: { scale, x: S.W / 2 - n.x * scale, y: S.H / 2 - n.y * scale }, t0: performance.now(), dur: 450 }
   }, [nodes, S])
   const goRelative = (delta) => {
     if (visibleList.length === 0) return
@@ -366,13 +397,14 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
     const old = S.view.scale, f = Math.max(0.1, Math.min(6, old * k))
     const cx = S.W / 2, cy = S.H / 2
     const wx = (cx - S.view.x) / old, wy = (cy - S.view.y) / old
-    S.view = { x: cx - wx * f, y: cy - wy * f, scale: f }
+    S.anim = { from: { ...S.view }, to: { x: cx - wx * f, y: cy - wy * f, scale: f }, t0: performance.now(), dur: 250 }
   }
   const reset = () => {
     setActiveColors(new Set(COLOR_ORDER)); setActiveTags(new Set()); setQuery(''); setSelected(null)
-    nodes.forEach((n, i) => { n.x = Math.cos(i * 2.399) * 420 + (i % 4) * 25; n.y = Math.sin(i * 2.399) * 330 + (i % 5) * 18; n.vx = n.vy = 0 })
-    S.userTouched = false; S.alpha = 1; fit()
+    nodes.forEach(scatter)
+    S.settle?.(); S.fitView?.(true, true)
   }
+  const sharedTags = (a, b) => nodes[a].tags.filter((t) => nodes[b].tagSet.has(t))
   const toggleColor = (c) => setActiveColors((prev) => {
     const next = new Set(prev)
     if (next.has(c) && next.size === COLOR_ORDER.length) return new Set([c])
@@ -422,7 +454,8 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
           {isMobileLayout && <button type="button" onClick={() => setPanelOpen((p) => !p)} style={{ border: 'none', background: 'none', fontSize: '14px', cursor: 'pointer' }}>{panelOpen ? '−' : '+'}</button>}
         </div>
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="search tags…" style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #ddd', padding: '5px 8px', fontFamily: FONT, fontSize: '12px', fontWeight: 300, marginBottom: '10px', outline: 'none' }} />
-        <div style={{ color: '#666', marginBottom: '10px' }}>{visibleList.length} / {nodes.length} rooms · {links.filter((l) => visibleList.includes(l.a) && visibleList.includes(l.b)).length} links</div>
+        <div style={{ color: '#666', marginBottom: '4px' }}>{visibleList.length} / {nodes.length} rooms · {links.filter((l) => visibleList.includes(l.a) && visibleList.includes(l.b)).length} links</div>
+        <div style={{ color: '#666', marginBottom: '10px' }}>a line joins two rooms that have many of the same objects in them</div>
         <div style={{ display: 'flex', gap: '4px', marginBottom: '12px', flexWrap: 'wrap' }}>
           {navBtn('← prev', () => goRelative(-1), visibleList.length === 0)}
           {navBtn('next →', () => goRelative(1), visibleList.length === 0)}
@@ -472,10 +505,10 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
             </div>
             {neighbors.get(sel.index)?.size > 0 && (
               <div style={{ borderTop: '1px solid rgba(0,0,0,0.16)', paddingTop: '9px', fontSize: '11px' }}>
-                <div style={{ marginBottom: '6px' }}>direct relations</div>
+                <div style={{ marginBottom: '6px' }}>rooms with the most objects in common</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
                   {[...neighbors.get(sel.index)].map((ni) => (
-                    <button key={ni} type="button" onClick={() => focusNode(ni)} title={`room ${ni + 1}`} style={{ border: '1px solid #eee', background: 'none', padding: 0, cursor: 'pointer', lineHeight: 0, borderRadius: '4px', overflow: 'hidden' }}>
+                    <button key={ni} type="button" onClick={() => focusNode(ni)} title={`room ${ni + 1} · both have: ${sharedTags(sel.index, ni).join(', ') || 'similar mood'}`} style={{ border: '1px solid #eee', background: 'none', padding: 0, cursor: 'pointer', lineHeight: 0, borderRadius: '4px', overflow: 'hidden' }}>
                       <img src={nodes[ni].thumbSrc} alt="" style={{ width: '52px', height: '52px', objectFit: 'cover', display: 'block' }} />
                     </button>
                   ))}
@@ -490,7 +523,16 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
           </section>
         )}
 
-        <div style={{ position: 'absolute', left: '50%', bottom: '10px', transform: 'translateX(-50%)', fontSize: '10px', color: '#777', fontWeight: 300, pointerEvents: 'none', background: 'rgba(255,255,255,0.85)', padding: '3px 8px', borderRadius: '8px', display: hov || sel ? 'none' : 'block' }}>
+        {visibleList.length === 0 && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 7 }}>
+            <div style={{ background: 'rgba(255,255,255,0.94)', border: '1px solid rgba(0,0,0,0.12)', borderRadius: '12px', padding: '12px 16px', textAlign: 'center', fontSize: '13px', fontWeight: 300, pointerEvents: 'auto' }}>
+              <div style={{ marginBottom: '8px' }}>no rooms match {q ? `“${query.trim()}”` : 'these filters'}</div>
+              {navBtn('show all rooms', reset, false)}
+            </div>
+          </div>
+        )}
+
+        <div style={{ position: 'absolute', left: '50%', bottom: '10px', transform: 'translateX(-50%)', fontSize: '10px', color: '#777', fontWeight: 300, pointerEvents: 'none', background: 'rgba(255,255,255,0.85)', padding: '3px 8px', borderRadius: '8px', display: hov || sel || visibleList.length === 0 ? 'none' : 'block' }}>
           drag to move · scroll to zoom · click a room to open it
         </div>
       </div>
