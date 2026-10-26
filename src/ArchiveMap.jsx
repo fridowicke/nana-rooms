@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import ForceGraph from './ForceGraph.jsx'
 
 const COLOR_HEX = {
   pink: '#ff2fd6',
@@ -18,20 +19,29 @@ const scatter = (n, i) => {
   n.y = Math.sin(i * 2.399) * 330 + (i % 5) * 18
   n.vx = 0; n.vy = 0
 }
-
-// eases the view from where it is to `to`: the centre glides, the zoom changes evenly
-function stepViewAnimation(S) {
-  const an = S.anim
-  if (!an) return
-  const t = Math.min(1, (performance.now() - an.t0) / an.dur)
-  const e = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2
-  const centre = (v) => ({ x: (S.W / 2 - v.x) / v.scale, y: (S.H / 2 - v.y) / v.scale })
-  const a = centre(an.from), b = centre(an.to)
-  const scale = an.from.scale * (an.to.scale / an.from.scale) ** e
-  const cx = a.x + (b.x - a.x) * e, cy = a.y + (b.y - a.y) * e
-  S.view = { scale, x: S.W / 2 - cx * scale, y: S.H / 2 - cy * scale }
-  if (t === 1) S.anim = null
+const drawNode = (ctx, n, st) => {
+  const rr = Math.max(NODE_R, 9 / st.scale)
+  ctx.globalAlpha = st.dim ? 0.15 : 1
+  ctx.beginPath(); ctx.arc(n.x, n.y, rr, 0, Math.PI * 2)
+  ctx.fillStyle = st.grey ? '#e6e6e6' : COLOR_HEX[n.color]; ctx.fill()
+  ctx.lineWidth = 1 / st.scale; ctx.strokeStyle = st.grey ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.35)'; ctx.stroke()
+  if (st.selected || st.hovered) {
+    ctx.lineWidth = (st.selected ? 3.5 : 2) / st.scale
+    ctx.strokeStyle = '#111'
+    ctx.beginPath(); ctx.arc(n.x, n.y, rr + 1, 0, Math.PI * 2); ctx.stroke()
+  }
+  ctx.globalAlpha = 1
 }
+// dots are small: hit them in screen space with a generous minimum radius
+const hitNode = (n, w, sp, view) => {
+  const r = Math.max(Math.max(NODE_R * view.scale, 9) + 4, 22)
+  const dx = sp.x - (view.x + n.x * view.scale), dy = sp.y - (view.y + n.y * view.scale)
+  const d2 = dx * dx + dy * dy
+  return d2 <= r * r ? d2 : null
+}
+const extent = () => ({ w: NODE_R, h: NODE_R })
+const padding = () => ({ l: 56, r: 56, t: 56, b: 56 })
+const PHYSICS = { repulsion: 14000, cutoff: 360000, centering: 0.0005, linkLength: () => 120, linkStrength: (l) => 0.0018 * Math.min(2, l.weight) }
 
 function buildLinks(nodes, k = 3) {
   const links = []
@@ -60,25 +70,13 @@ function buildLinks(nodes, k = 3) {
 }
 
 export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
-  const stageRef = useRef(null)
-  const canvasRef = useRef(null)
+  const graphRef = useRef(null)
   const [selected, setSelected] = useState(null)
   const [hovered, setHovered] = useState(null)
   const [activeColors, setActiveColors] = useState(() => new Set(COLOR_ORDER))
   const [activeTags, setActiveTags] = useState(() => new Set())
   const [query, setQuery] = useState('')
   const [panelOpen, setPanelOpen] = useState(!isMobileLayout)
-  const [, force] = useState(0)
-
-  // mutable engine state (patchy-studies style)
-  const S = useRef({
-    W: 800, H: 600, dpr: 1,
-    view: { x: 400, y: 300, scale: 0.9 },
-    alpha: 1, drag: null, pan: null, moved: false,
-    hovered: null, selected: null,
-    visible: [], visibleSet: new Set(),
-    raf: 0,
-  }).current
 
   const nodes = useMemo(() => images.map((img, index) => {
     const key = `${img.page}/${img.filename}`
@@ -86,16 +84,13 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
     const objects = Array.isArray(t.objects) ? t.objects : []
     const isShot = objects.includes(SCREENSHOT_TAG) || t.cat === 'screenshot'
     const color = isShot ? 'screenshot' : (COLOR_HEX[t.cat] ? t.cat : 'cluttered')
-    const tagList = [...objects]
-    const im = new Image()
-    im.src = img.thumbSrc
     return {
-      index, key, src: img.src, thumbSrc: img.thumbSrc, img: im,
+      index, key, src: img.src, thumbSrc: img.thumbSrc,
       color, isShot, caption: t.caption ?? '', date: t.date ?? null,
-      tags: tagList, tagSet: new Set(tagList),
+      tags: objects, tagSet: new Set(objects),
       x: 0, y: 0, vx: 0, vy: 0, fixed: false,
     }
-  }).map((n, i) => { scatter(n, i); return n }), [images, tags])
+  }), [images, tags])
 
   const links = useMemo(() => buildLinks(nodes), [nodes])
   const neighbors = useMemo(() => {
@@ -120,275 +115,13 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
     if (q && !(n.caption.toLowerCase().includes(q) || n.tags.some((t) => t.includes(q)) || CAT_LABEL[n.color].includes(q))) return false
     return true
   }).map((n) => n.index), [nodes, activeColors, activeTags, q])
-
-  useEffect(() => {
-    S.visible = visibleList
-    S.visibleSet = new Set(visibleList)
-  }, [visibleList, S])
-  useEffect(() => { S.selected = selected }, [selected, S])
-  useEffect(() => { S.hovered = hovered }, [hovered, S])
-
-  // ---------- engine ----------
-  useEffect(() => {
-    const canvas = canvasRef.current
-    const stage = stageRef.current
-    if (!canvas || !stage) return
-    const ctx = canvas.getContext('2d')
-
-    const world = (sx, sy) => ({ x: (sx - S.view.x) / S.view.scale, y: (sy - S.view.y) / S.view.scale })
-    const local = (e) => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top } }
-    const nodeScreenRadius = () => Math.max(NODE_R * S.view.scale, 9)
-    const hit = (sx, sy) => {
-      const rPx = Math.max(nodeScreenRadius() + 4, 22)
-      const r2 = rPx * rPx
-      let best = null, bestD = Infinity
-      for (let i = S.visible.length - 1; i >= 0; i--) {
-        const n = nodes[S.visible[i]]
-        const nx = S.view.x + n.x * S.view.scale, ny = S.view.y + n.y * S.view.scale
-        const dx = sx - nx, dy = sy - ny
-        const d2 = dx * dx + dy * dy
-        if (d2 <= r2 && d2 < bestD) { best = n; bestD = d2 }
-      }
-      return best
-    }
-    const relationSet = () => {
-      const idx = S.selected ?? S.hovered
-      if (idx == null) return null
-      const s = new Set([idx])
-      neighbors.get(idx)?.forEach((k) => s.add(k))
-      return s
-    }
-
-    // every room takes part in the layout, filtered out or not, so filtering never rearranges the map
-    const simulate = () => {
-      if (S.alpha < 0.002 && !S.drag) return
-      const vis = nodes
-      const a = S.alpha
-      for (let i = 0; i < vis.length; i++) {
-        const p = vis[i]
-        for (let j = i + 1; j < vis.length; j++) {
-          const o = vis[j]
-          const dx = p.x - o.x, dy = p.y - o.y
-          const d2 = dx * dx + dy * dy + 50
-          if (d2 > 360000) continue
-          const f = 14000 / d2 * a
-          const dist = Math.sqrt(d2)
-          const fx = dx / dist * f, fy = dy / dist * f
-          if (!p.fixed) { p.vx += fx; p.vy += fy }
-          if (!o.fixed) { o.vx -= fx; o.vy -= fy }
-        }
-        if (!p.fixed) { p.vx += -p.x * 0.0005 * a; p.vy += -p.y * 0.0005 * a }
-      }
-      for (const l of links) {
-        const A = nodes[l.a], B = nodes[l.b]
-        const dx = B.x - A.x, dy = B.y - A.y
-        const d = Math.max(1, Math.sqrt(dx * dx + dy * dy))
-        const ideal = 120
-        const f = (d - ideal) * 0.0018 * a * Math.min(2, l.weight)
-        const fx = dx / d * f, fy = dy / d * f
-        if (!A.fixed) { A.vx += fx; A.vy += fy }
-        if (!B.fixed) { B.vx -= fx; B.vy -= fy }
-      }
-      for (const n of vis) {
-        if (n.fixed) continue
-        n.vx *= 0.86; n.vy *= 0.86
-        n.x += n.vx; n.y += n.vy
-      }
-      S.alpha *= 0.992
-    }
-    // lay the map out before the first frame, leaving only a soft last bit of settling to watch
-    const settle = () => {
-      S.alpha = 1
-      for (let t = 0; t < 320; t++) simulate()
-    }
-    S.settle = settle
-
-    const draw = () => {
-      const { W, H, dpr, view } = S
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      ctx.clearRect(0, 0, W, H)
-      const rels = relationSet()
-      ctx.save()
-      ctx.translate(view.x, view.y)
-      ctx.scale(view.scale, view.scale)
-      for (const l of links) {
-        if (!S.visibleSet.has(l.a) || !S.visibleSet.has(l.b)) continue
-        const A = nodes[l.a], B = nodes[l.b]
-        const hot = rels && rels.has(l.a) && rels.has(l.b) && (l.a === (S.selected ?? S.hovered) || l.b === (S.selected ?? S.hovered))
-        ctx.strokeStyle = hot ? 'rgba(20,20,20,.8)' : 'rgba(25,25,25,.16)'
-        ctx.lineWidth = (hot ? 1.6 : 0.7) / view.scale
-        ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke()
-      }
-      const showImg = false
-      const rr0 = Math.max(NODE_R, 9 / view.scale)
-      ctx.fillStyle = '#e6e6e6'
-      ctx.strokeStyle = 'rgba(0,0,0,0.12)'
-      ctx.lineWidth = 1 / view.scale
-      for (const n of nodes) {
-        if (S.visibleSet.has(n.index)) continue
-        ctx.beginPath(); ctx.arc(n.x, n.y, rr0, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
-      }
-      for (const i of S.visible) {
-        const n = nodes[i]
-        const dim = rels && !rels.has(i)
-        const sel = i === S.selected, hov = i === S.hovered
-        ctx.globalAlpha = dim ? 0.15 : 1
-        const rr = Math.max(NODE_R, 9 / view.scale)
-        ctx.beginPath(); ctx.arc(n.x, n.y, rr, 0, Math.PI * 2)
-        ctx.fillStyle = COLOR_HEX[n.color]; ctx.fill()
-        ctx.lineWidth = 1 / view.scale; ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.stroke()
-        if (showImg && n.img.complete && n.img.naturalWidth > 0) {
-          ctx.save(); ctx.beginPath(); ctx.arc(n.x, n.y, NODE_R - 2.5, 0, Math.PI * 2); ctx.clip()
-          const iw = n.img.naturalWidth, ih = n.img.naturalHeight, s = Math.max((NODE_R * 2) / iw, (NODE_R * 2) / ih)
-          ctx.drawImage(n.img, n.x - iw * s / 2, n.y - ih * s / 2, iw * s, ih * s)
-          ctx.restore()
-        }
-        if (sel || hov) {
-          ctx.lineWidth = (sel ? 3.5 : 2) / view.scale
-          ctx.strokeStyle = '#111'
-          ctx.beginPath(); ctx.arc(n.x, n.y, rr + 1, 0, Math.PI * 2); ctx.stroke()
-        }
-        ctx.globalAlpha = 1
-      }
-      ctx.restore()
-    }
-
-    const fitView = (animate = true, all = false) => {
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-      for (const i of S.visible.length && !all ? S.visible : nodes.map((n) => n.index)) {
-        const n = nodes[i]
-        if (n.x < minX) minX = n.x; if (n.x > maxX) maxX = n.x
-        if (n.y < minY) minY = n.y; if (n.y > maxY) maxY = n.y
-      }
-      if (!Number.isFinite(minX)) return
-      const pad = 56
-      const scale = Math.max(0.1, Math.min((S.W - pad * 2) / Math.max(1, maxX - minX), (S.H - pad * 2) / Math.max(1, maxY - minY), 2))
-      const to = { scale, x: S.W / 2 - ((minX + maxX) / 2) * scale, y: S.H / 2 - ((minY + maxY) / 2) * scale }
-      if (animate) S.anim = { from: { ...S.view }, to, t0: performance.now(), dur: 450 }
-      else { S.anim = null; S.view = to }
-    }
-    S.fitView = fitView
-    const loop = () => {
-      simulate(); stepViewAnimation(S); draw()
-      S.raf = requestAnimationFrame(loop)
-    }
-
-    const resize = () => {
-      S.dpr = Math.min(window.devicePixelRatio || 1, 2)
-      S.W = stage.clientWidth; S.H = stage.clientHeight
-      canvas.width = S.W * S.dpr; canvas.height = S.H * S.dpr
-      canvas.style.width = S.W + 'px'; canvas.style.height = S.H + 'px'
-      // the folder window may still be opening: keep the whole map in view until the user moves it
-      if (!S.userTouched) fitView(false)
-    }
-    const ro = new ResizeObserver(resize)
-    ro.observe(stage)
-    settle()
-    resize()
-
-    const touches = new Map()
-    let pinch = null
-    const pinchState = () => {
-      const t = [...touches.values()]
-      if (t.length < 2) return null
-      return { d: Math.hypot(t[1].x - t[0].x, t[1].y - t[0].y), cx: (t[0].x + t[1].x) / 2, cy: (t[0].y + t[1].y) / 2 }
-    }
-    const onDown = (e) => {
-      if (e.button !== undefined && e.button !== 0) return
-      canvas.setPointerCapture(e.pointerId)
-      S.anim = null; S.userTouched = true
-      const { x, y } = local(e)
-      touches.set(e.pointerId, { x, y })
-      if (touches.size === 2) {
-        if (S.drag) { S.drag.fixed = false; S.drag = null }
-        S.pan = null
-        const ps = pinchState()
-        pinch = { d0: ps.d, s0: S.view.scale, cx: ps.cx, cy: ps.cy, vx: S.view.x, vy: S.view.y }
-        S.moved = true
-        return
-      }
-      const n = hit(x, y)
-      S.moved = false
-      if (n) { S.drag = n; n.fixed = true } else S.pan = { x, y, vx: S.view.x, vy: S.view.y }
-      canvas.classList.add('grabbing')
-    }
-    const onMove = (e) => {
-      const { x, y } = local(e)
-      if (touches.has(e.pointerId)) touches.set(e.pointerId, { x, y })
-      if (pinch && touches.size >= 2) {
-        const ps = pinchState()
-        if (!ps) return
-        const f = Math.max(0.1, Math.min(8, pinch.s0 * ps.d / pinch.d0))
-        const wx = (pinch.cx - pinch.vx) / pinch.s0, wy = (pinch.cy - pinch.vy) / pinch.s0
-        S.view = { scale: f, x: ps.cx - wx * f, y: ps.cy - wy * f }
-        S.moved = true
-        return
-      }
-      if (S.drag) {
-        const p = world(x, y); S.drag.x = p.x; S.drag.y = p.y; S.moved = true; S.alpha = Math.max(S.alpha, 0.2)
-      } else if (S.pan) {
-        S.view.x = S.pan.vx + x - S.pan.x; S.view.y = S.pan.vy + y - S.pan.y; S.moved = true
-      } else {
-        const h = hit(x, y)
-        const idx = h ? h.index : null
-        if (idx !== S.hovered) { S.hovered = idx; setHovered(idx) }
-        canvas.style.cursor = h ? 'pointer' : 'default'
-      }
-    }
-    const onUp = (e) => {
-      const { x, y } = local(e)
-      touches.delete(e.pointerId)
-      if (touches.size < 2) pinch = null
-      if (touches.size > 0) { canvas.classList.remove('grabbing'); return }
-      if (S.drag) {
-        const n = S.drag; S.drag = null; n.fixed = false
-        if (!S.moved) setSelected(n.index)
-      } else if (!S.moved && !hit(x, y)) {
-        setSelected(null)
-      }
-      S.pan = null
-      canvas.classList.remove('grabbing')
-    }
-    const onWheel = (e) => {
-      e.preventDefault()
-      S.anim = null; S.userTouched = true
-      const { x, y } = local(e)
-      const old = S.view.scale
-      const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY
-      const mag = Math.max(Math.abs(dy) * 0.004, 0.08)
-      const f = Math.max(0.1, Math.min(8, old * Math.exp(dy < 0 ? mag : -mag)))
-      const wx = (x - S.view.x) / old, wy = (y - S.view.y) / old
-      S.view.x = x - wx * f; S.view.y = y - wy * f; S.view.scale = f
-    }
-    canvas.addEventListener('pointerdown', onDown)
-    canvas.addEventListener('pointermove', onMove)
-    canvas.addEventListener('pointerup', onUp)
-    canvas.addEventListener('pointercancel', onUp)
-    canvas.addEventListener('wheel', onWheel, { passive: false })
-    // swipes on the map move the map only, not the page (or the in-app browser sheet around it)
-    const holdTouch = (e) => e.preventDefault()
-    canvas.addEventListener('touchmove', holdTouch, { passive: false })
-    S.raf = requestAnimationFrame(loop)
-    return () => {
-      cancelAnimationFrame(S.raf)
-      ro.disconnect()
-      canvas.removeEventListener('pointerdown', onDown)
-      canvas.removeEventListener('pointermove', onMove)
-      canvas.removeEventListener('pointerup', onUp)
-      canvas.removeEventListener('pointercancel', onUp)
-      canvas.removeEventListener('wheel', onWheel)
-      canvas.removeEventListener('touchmove', holdTouch)
-    }
-  }, [nodes, links, neighbors, S])
+  const visible = useMemo(() => new Set(visibleList), [visibleList])
 
   // ---------- controls ----------
-  const focusNode = useCallback((index) => {
-    const n = nodes[index]
-    if (!n) return
+  const focusNode = (index) => {
     setSelected(index)
-    const scale = Math.max(S.view.scale, 1.2)
-    S.anim = { from: { ...S.view }, to: { scale, x: S.W / 2 - n.x * scale, y: S.H / 2 - n.y * scale }, t0: performance.now(), dur: 450 }
-  }, [nodes, S])
+    graphRef.current?.focus(index, 1.2)
+  }
   const goRelative = (delta) => {
     if (visibleList.length === 0) return
     const cur = selected != null ? visibleList.indexOf(selected) : -1
@@ -396,17 +129,9 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
     focusNode(visibleList[next])
   }
   const goRandom = () => { if (visibleList.length) focusNode(visibleList[Math.floor(Math.random() * visibleList.length)]) }
-  const fit = () => { S.fitView?.() }
-  const zoomBy = (k) => {
-    const old = S.view.scale, f = Math.max(0.1, Math.min(6, old * k))
-    const cx = S.W / 2, cy = S.H / 2
-    const wx = (cx - S.view.x) / old, wy = (cy - S.view.y) / old
-    S.anim = { from: { ...S.view }, to: { x: cx - wx * f, y: cy - wy * f, scale: f }, t0: performance.now(), dur: 250 }
-  }
   const reset = () => {
     setActiveColors(new Set(COLOR_ORDER)); setActiveTags(new Set()); setQuery(''); setSelected(null)
-    nodes.forEach(scatter)
-    S.settle?.(); S.fitView?.(true, true)
+    graphRef.current?.reset()
   }
   const sharedTags = (a, b) => nodes[a].tags.filter((t) => nodes[b].tagSet.has(t))
   const toggleColor = (c) => setActiveColors((prev) => {
@@ -443,9 +168,6 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
   const navBtn = (label, onClick, disabled) => (
     <button type="button" onClick={onClick} disabled={disabled} style={{ border: '1px solid #000', background: '#fff', color: '#000', padding: '3px 9px', fontFamily: FONT, fontSize: '12px', fontWeight: 300, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1, borderRadius: '3px' }}>{label}</button>
   )
-  const roundBtn = (label, onClick, title) => (
-    <button type="button" onClick={onClick} title={title} style={{ width: '32px', height: '32px', borderRadius: '50%', border: '1px solid rgba(0,0,0,0.2)', background: 'rgba(255,255,255,0.9)', fontSize: '17px', lineHeight: '30px', padding: 0, cursor: 'pointer', fontFamily: FONT }}>{label}</button>
-  )
 
   const cardW = isMobileLayout ? 'calc(100% - 18px)' : '320px'
 
@@ -475,14 +197,13 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
       </div>
 
       {/* Stage */}
-      <div ref={stageRef} style={{ flex: 1, position: 'relative', minHeight: 0 }}>
-        <canvas ref={canvasRef} className="am-canvas" style={{ display: 'block', touchAction: 'none' }} />
-
-        <div style={{ position: 'absolute', right: '12px', top: '12px', display: 'flex', gap: '6px', zIndex: 8 }}>
-          {roundBtn('+', () => zoomBy(1.6), 'zoom in')}
-          {roundBtn('−', () => zoomBy(1 / 1.6), 'zoom out')}
-          {roundBtn('⌂', fit, 'fit')}
-        </div>
+      <ForceGraph
+        ref={graphRef}
+        style={{ flex: 1 }}
+        nodes={nodes} links={links} visible={visible} selected={selected}
+        onSelect={setSelected} onHover={setHovered}
+        drawNode={drawNode} hitNode={hitNode} extent={extent} scatter={scatter} physics={PHYSICS} padding={padding}
+      >
 
         {/* hover tooltip: small, near cursor-free corner so it never covers neighbours */}
         {hov && !sel && !isMobileLayout && (
@@ -539,7 +260,7 @@ export default function ArchiveMap({ images, tags, isMobileLayout = false }) {
         <div style={{ position: 'absolute', left: '50%', bottom: '10px', transform: 'translateX(-50%)', fontSize: '10px', color: '#777', fontWeight: 300, pointerEvents: 'none', background: 'rgba(255,255,255,0.85)', padding: '3px 8px', borderRadius: '8px', display: hov || sel || visibleList.length === 0 ? 'none' : 'block' }}>
           drag to move · scroll to zoom · click a room to open it
         </div>
-      </div>
+      </ForceGraph>
     </div>
   )
 }

@@ -34,6 +34,10 @@ Requests come from Nana through a Telegram bot; Claude Code is invoked by that b
 - `DEFAULT_ABOUT_HTML` — bio text. `SONGS`, `ROOM_FILES` — music and room lists.
 - Press items: year groups with `{ title, url }`; articles open in a Mac-style iframe window with a fallback link.
 - Routing is hash based: `#room-3`, `#folder-<id>`, `#folder-<id>/<projectId>`. Query params must come before `#`.
+- The two diagrams, research (`#folder-research`) and the 3D bedrooms archive (`#folder-open-collective-archive`),
+  share one engine, `src/ForceGraph.jsx` (layout, drawing, drag/zoom, grey-out filtering, fit). Each folder adds its
+  own panel and card: `src/ResearchMap.jsx` and `src/ArchiveMap.jsx`. Research entries and their links live in
+  `src/researchItems.js` (`public/patchy-studies.html` is only a redirect now). Archive tags come from `public/archive-tags.json`.
 
 ## Known pitfalls
 

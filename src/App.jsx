@@ -5,6 +5,7 @@ import { OrbitControls, Stage, Html, KeyboardControls, useKeyboardControls } fro
 import * as THREE from 'three'
 import { HiddenObjectGame, HiddenObjectScene } from './hiddenObjects.jsx'
 import ArchiveMap from './ArchiveMap.jsx'
+import ResearchMap from './ResearchMap.jsx'
 import { AboutLayoutCanvas, useAboutLayout, isAboutEditMode } from './aboutLayout.jsx'
 import { ExhibitionLayoutMain, useExhibitionLayouts } from './exhibitionLayout.jsx'
 import { ROOM_FILES, getHomeAssetUrl, getRoomAssetUrl, roomPreloadPlan, modelPreloader, RoomAssetLoader, canPrepareRooms, releaseModelGpu } from './roomAssets.js'
@@ -4093,10 +4094,7 @@ function AboutPage({
 
         {/* site credit, bottom centre of the hub */}
         {!isFolderView && !layoutTuner && (
-          <a
-            href="https://frido.ai"
-            target="_blank"
-            rel="noopener noreferrer"
+          <div
             style={{
               position: 'absolute',
               left: '50%',
@@ -4106,13 +4104,12 @@ function AboutPage({
               fontSize: '10px',
               fontWeight: 300,
               color: '#9a9a9a',
-              textDecoration: 'none',
               whiteSpace: 'nowrap',
               letterSpacing: '0.02em',
             }}
           >
-            coded by friedrich wicke
-          </a>
+            coded by <a href="https://frido.ai" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: '2px' }}>Friedrich</a>
+          </div>
         )}
 
         {isFolderView && activeFolderId === 'she-is-so-hot' && (
@@ -5085,16 +5082,11 @@ function AboutFolderContent({
 
 
   if (folder.id === 'research') {
-      return (
-        <div style={{ ...plainPageStyle, padding: 0, overflow: 'hidden' }}>
-          <iframe
-            src="/patchy-studies.html"
-            title="Patchy Studies"
-            style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-            sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-top-navigation-by-user-activation"
-          />
-        </div>
-      )
+    return (
+      <div style={{ ...plainPageStyle, padding: 0, overflow: 'hidden' }}>
+        <ResearchMap isMobileLayout={isMobileLayout} />
+      </div>
+    )
   }
 
   if (folder.id === 'local-group') {
