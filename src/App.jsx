@@ -3327,7 +3327,7 @@ function AboutPage({
   const mobileRefTop = MOBILE_BROWSER_CHROME_HEIGHT * (1 - mobileK)
   // Blocks are part of the page, never pinned to the screen: with pinch-zoom (trackpad) pinned blocks stay put
   // while the folders zoom, and everything slides into one corner. The desktop page doesn't scroll, so this is the same spot.
-  const tbProps = { layout: mobileLayout, tuner: layoutTuner, onChange: tuneBlock, mobile: true, position: 'absolute', ...(isMobileLayout ? { refW: viewport.width, refH: mobileRefH, refTop: mobileRefTop, frameScale: mobileK } : { refW: viewport.width, refH: viewport.height, pointerScale: stageScale }) }
+  const tbProps = { layout: mobileLayout, tuner: layoutTuner, onChange: tuneBlock, mobile: true, position: 'absolute', ...(isMobileLayout ? { refW: viewport.width, refH: mobileRefH, refTop: mobileRefTop, frameScale: mobileK } : { refW: viewport.width, refH: viewport.height, pointerScale: stageScale, cssZoom: true }) }
 
   // Keep the collage, with a wider reading column and a narrow lane of actual folders.
   // On phones blocks are sized for the design frame and scaled by mobileK.
@@ -3644,8 +3644,9 @@ function AboutPage({
     <DesktopStageContext.Provider value={desktopStage}>
     <div
       style={stageScale < 1
-        // part of the page (not pinned), so pinch-zoom magnifies it like everything else
-        ? { position: 'absolute', left: 0, top: 0, width: `${viewport.width}px`, height: `${viewport.height}px`, transform: `scale(${stageScale})`, transformOrigin: '0 0', overflow: 'hidden' }
+        // part of the page (not pinned), so pinch-zoom magnifies it like everything else. CSS zoom, not transform:
+        // text is laid out and rasterised at its final size, so it stays crisp on retina and when browser-zoomed.
+        ? { position: 'absolute', left: 0, top: 0, width: `${viewport.width}px`, height: `${viewport.height}px`, zoom: stageScale, overflow: 'hidden' }
         : { width: '100%', height: '100%', overflowY: isMobileLayout && !isFolderView ? 'auto' : 'hidden', overflowX: 'hidden' }}
     >
     <div
@@ -4494,7 +4495,7 @@ function loadDesktopLayout() {
 // Wraps a positioned block on mobile so it can be dragged / scaled in tuner mode, and applies saved overrides.
 // refW/refH/refTop/frameScale map the phone frame onto the page (see MOBILE_DESIGN_WIDTH); without them the
 // layout is relative to the window, as on desktop.
-function TunableBlock({ id, layout, tuner, onChange, mobile = true, passthrough = false, baseLeft, baseTop, zIndex = 21, children, pointerEvents = 'auto', position = 'fixed', refW, refH, refTop = 0, frameScale = 1, pointerScale = 1 }) {
+function TunableBlock({ id, layout, tuner, onChange, mobile = true, passthrough = false, baseLeft, baseTop, zIndex = 21, children, pointerEvents = 'auto', position = 'fixed', refW, refH, refTop = 0, frameScale = 1, pointerScale = 1, cssZoom = false }) {
   const ov = mobile ? layout?.[id] : null
   const active = mobile && tuner && !passthrough
   const onWheel = (e) => {
@@ -4532,10 +4533,13 @@ function TunableBlock({ id, layout, tuner, onChange, mobile = true, passthrough 
     window.addEventListener('touchmove', move, { passive: false }); window.addEventListener('touchend', up)
   }
   if (passthrough) return children
+  // Desktop scales with CSS zoom: transform: scale() is drawn as a bitmap stretched afterwards, which blurs the text
+  // (Safari, composited scroll areas). zoom also multiplies the block's own left/top, hence the division.
+  const zoomed = cssZoom && scale !== 1
   return (
     <div
       onPointerDown={active ? startDrag : undefined}
-      style={{ position, left, top, zIndex: active ? 500 : zIndex, transform: scale !== 1 ? `scale(${scale})` : undefined, transformOrigin: 'top left', pointerEvents: active ? 'auto' : pointerEvents, outline: active ? '1px dashed #ff2fd6' : 'none', touchAction: active ? 'none' : 'auto' }}
+      style={{ position, left: zoomed ? left / scale : left, top: zoomed ? top / scale : top, zIndex: active ? 500 : zIndex, zoom: zoomed ? scale : undefined, transform: !cssZoom && scale !== 1 ? `scale(${scale})` : undefined, transformOrigin: 'top left', pointerEvents: active ? 'auto' : pointerEvents, outline: active ? '1px dashed #ff2fd6' : 'none', touchAction: active ? 'none' : 'auto' }}
     >
       {children}
       {active && (
