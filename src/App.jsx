@@ -756,9 +756,9 @@ function useDesktopStage() {
 function shouldUseMobileLayout({ viewportWidth, isTouch }) {
   // Development preview uses the real mobile layout without changing desktop zoom behavior.
   if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('mobilePreview') === '1') return true
-  // Browser zoom on a desktop shrinks the CSS viewport; judge by the physical screen instead so that
-  // zooming in never flips a laptop into the phone layout.
-  if (!isTouch && typeof window !== 'undefined' && window.screen && window.screen.width >= TOUCH_MOBILE_VIEWPORT_WIDTH) return false
+  // A mouse or trackpad means a computer: always the desktop layout, which scales itself down when browser zoom
+  // shrinks the window. (Chrome also shrinks window.screen when zoomed, so the screen size can't decide this.)
+  if (!isTouch) return false
   return viewportWidth <= MOBILE_VIEWPORT_WIDTH || (isTouch && viewportWidth < TOUCH_MOBILE_VIEWPORT_WIDTH)
 }
 
