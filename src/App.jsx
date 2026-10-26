@@ -4892,34 +4892,29 @@ function AboutFolderContent({
     lineHeight: 1.25,
   }
   const writingDesktopRef = useRef(null)
-  const draggedWritingRef = useRef(null)
   const archiveDesktopRef = useRef(null)
   const draggedArchiveRef = useRef(null)
-  const writingScatterLayout = useMemo(() => {
-    const count = 20
-    const positions = []
-    for (let i = 0; i < count; i++) {
-      positions.push({
-        left: `${5 + Math.random() * 68}%`,
-        top: `${5 + Math.random() * 70}%`,
-      })
-    }
-    return positions
-  }, [])
+  // Fixed desktop positions from Nana's 1280x720 screenshot, in % of the writing area (anchor = top centre of the item).
+  const WRITING_FIXED_LAYOUT = {
+    'https://becoming.press/dialogues-on-corecore': { left: '54.84%', top: '0%' },
+    'https://readellion.com/product/lexiconofnature/': { left: '12.81%', top: '30.59%' },
+    'https://substack.com/@shelestvetrovki/p-151684169': { left: '33.55%', top: '40.79%' },
+    'https://substack.com/@shelestvetrovki/note/p-194245632?utm_source=notes-share-action&r=33oaqu': { left: '72.46%', top: '45.39%' },
+  }
   const writingIconLinkStyle = {
     display: 'grid',
     gap: '6px',
     color: '#000',
     textDecoration: 'none',
     position: isMobileLayout ? 'relative' : 'absolute',
-    width: isMobileLayout ? 'min(100%, 210px)' : '220px',
+    width: isMobileLayout ? 'min(100%, 210px)' : '194px',
     justifyItems: 'center',
     padding: '4px',
     userSelect: 'none',
   }
   const writingIconMediaStyle = {
-    width: isMobileLayout ? '180px' : '200px',
-    height: isMobileLayout ? '216px' : '240px',
+    width: isMobileLayout ? '180px' : '174px',
+    height: isMobileLayout ? '216px' : '208px',
     border: 'none',
     background: 'transparent',
     objectFit: 'contain',
@@ -4939,7 +4934,7 @@ function AboutFolderContent({
   const writingIconFilenameStyle = {
     display: 'block',
     fontFamily: ARIAL_FONT_STACK,
-    fontSize: '11px',
+    fontSize: isMobileLayout ? '11px' : '9.4px',
     lineHeight: 1.12,
     color: '#000',
     textAlign: 'center',
@@ -4973,9 +4968,6 @@ function AboutFolderContent({
   const [archiveImagePositions, setArchiveImagePositions] = useState(
     () => new Map(OPEN_ARCHIVE_IMAGES.map((image, index) => [getArchiveImageKey(image), archiveBaseLayout[index]]))
   )
-  const [writingIconPositions, setWritingIconPositions] = useState(
-    () => new Map(writingLinks.map((link, index) => [link.url, writingScatterLayout[index] ?? { left: `${8 + index * 14}%`, top: `${18 + (index % 2) * 14}%` }]))
-  )
   useEffect(() => {
     if (folder.id !== 'open-collective-archive') return
     setArchiveImagePositions((prev) => {
@@ -4990,54 +4982,6 @@ function AboutFolderContent({
       return changed ? next : prev
     })
   }, [archiveBaseLayout, folder.id, getArchiveImageKey])
-  useEffect(() => {
-    if (folder.id !== 'writing') return
-    setWritingIconPositions((prev) => {
-      let changed = false
-      const next = new Map(prev)
-      writingLinks.forEach((link, index) => {
-        if (next.has(link.url)) return
-        changed = true
-        next.set(link.url, writingScatterLayout[index] ?? { left: `${8 + index * 14}%`, top: `${18 + (index % 2) * 14}%` })
-      })
-      return changed ? next : prev
-    })
-  }, [folder.id, writingLinks, writingScatterLayout])
-  const startWritingIconDrag = useCallback((linkUrl, e) => {
-    if (isMobileLayout) return
-    if (e.button !== 0) return
-    e.preventDefault()
-    const container = writingDesktopRef.current
-    if (!container) return
-    const containerRect = container.getBoundingClientRect()
-    const el = e.currentTarget
-    const elRect = el.getBoundingClientRect()
-    const startPx = elRect.left + elRect.width / 2 - containerRect.left
-    const startPy = elRect.top + elRect.height / 2 - containerRect.top
-    const startMx = e.clientX
-    const startMy = e.clientY
-    let moved = false
-    draggedWritingRef.current = null
-
-    const onMove = (me) => {
-      const dx = me.clientX - startMx
-      const dy = me.clientY - startMy
-      if (!moved && Math.abs(dx) < FOLDER_DRAG_THRESHOLD_PX && Math.abs(dy) < FOLDER_DRAG_THRESHOLD_PX) return
-      moved = true
-      draggedWritingRef.current = linkUrl
-      setWritingIconPositions((prev) => {
-        const next = new Map(prev)
-        next.set(linkUrl, { left: (startPx + dx) / stage.scale, top: (startPy + dy) / stage.scale, isPx: true })
-        return next
-      })
-    }
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-  }, [isMobileLayout, stage.scale])
   const startArchiveImageDrag = useCallback((imageKey, e) => {
     if (isMobileLayout) return
     if (e.button !== 0) return
@@ -5623,7 +5567,7 @@ function AboutFolderContent({
           ref={writingDesktopRef}
           style={{
             position: 'relative',
-            minHeight: '440px',
+            minHeight: isMobileLayout ? '440px' : '620px',
             width: '100%',
             display: isMobileLayout ? 'grid' : 'block',
             gridTemplateColumns: isMobileLayout ? 'repeat(auto-fit, minmax(160px, 1fr))' : undefined,
@@ -5632,26 +5576,19 @@ function AboutFolderContent({
           }}
         >
           {writingLinks.map((link, index) => {
-            const pos = writingIconPositions.get(link.url) ?? writingScatterLayout[index] ?? { left: '10%', top: '20%' }
+            const pos = WRITING_FIXED_LAYOUT[link.url] ?? { left: `${10 + index * 20}%`, top: '75%' }
             return (
               <a
                 key={link.url}
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="about-folder-link cursor-grab"
-                onMouseDown={(e) => startWritingIconDrag(link.url, e)}
-                onClick={(e) => {
-                  if (draggedWritingRef.current === link.url) {
-                    e.preventDefault()
-                    draggedWritingRef.current = null
-                  }
-                }}
+                className="about-folder-link"
                 style={{
                   ...writingIconLinkStyle,
-                  left: isMobileLayout ? undefined : (pos.isPx ? `${pos.left}px` : pos.left),
-                  top: isMobileLayout ? undefined : (pos.isPx ? `${pos.top}px` : pos.top),
-                  transform: isMobileLayout ? 'none' : 'translate(-50%, -50%)',
+                  left: isMobileLayout ? undefined : pos.left,
+                  top: isMobileLayout ? undefined : pos.top,
+                  transform: isMobileLayout ? 'none' : 'translate(-50%, 0)',
                 }}
                 title={link.label}
               >
