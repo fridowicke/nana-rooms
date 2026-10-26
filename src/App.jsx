@@ -484,8 +484,8 @@ const FOLDER_DEFINITIONS = [
   },
   {
     id: 'exhibitions',
-    label: 'exhibitions',
-    title: 'Exhibitions',
+    label: 'selected exhibitions',
+    title: 'Selected Exhibitions',
     sections: [],
   },
   {
@@ -5411,7 +5411,7 @@ function AboutFolderContent({
       lineHeight: 1.45,
     }
     const renderExhibitionNav = () => (
-      <nav aria-label="Exhibitions" style={{
+      <nav aria-label="Selected Exhibitions" style={{
         position: isMobileLayout ? 'static' : 'sticky',
         top: 0,
         alignSelf: 'start',
