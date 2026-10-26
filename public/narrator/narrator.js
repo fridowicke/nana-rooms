@@ -32,6 +32,10 @@ function boot() {
     border-top:1px solid rgba(0,0,0,.14);transform:rotate(45deg);-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(255,255,255,.86)}
   .ass-n__bubble.up{transform-origin:50% 100%}
   .ass-n__bubble.up::after{top:auto;bottom:-7px;transform:rotate(225deg)}
+  .ass-n__bubble.left{transform-origin:100% 30%}
+  .ass-n__bubble.left::after{left:auto;right:-7px;top:var(--ay,50%);transform:rotate(135deg)}
+  .ass-n__bubble.right{transform-origin:0 30%}
+  .ass-n__bubble.right::after{left:-7px;top:var(--ay,50%);transform:rotate(-45deg)}
   .ass-n__bubble[data-empty="1"]{opacity:0;transform:scale(.92);pointer-events:none}
   .ass-n__w{opacity:0;transition:opacity .08s}
   .ass-n__w.on{opacity:1}
@@ -80,6 +84,8 @@ function boot() {
   /* ---------------- position: top right by default, draggable, remembered ---------------- */
   const M = 14;
   let pos = store.get("pos", null);
+  // her visible silhouette inside the body box (px), measured from the 3D model once it loads
+  let fig = null;
   function layout() {
     const vw = document.documentElement.clientWidth || innerWidth, vh = innerHeight;
     const bw = body.offsetWidth, bh = body.offsetHeight;
@@ -87,14 +93,28 @@ function boot() {
     x = Math.max(M, Math.min(x, vw - bw - M)); y = Math.max(M, Math.min(y, vh - bh - M));
     if (vw - bw - M < M) x = Math.max(0, (vw - bw) / 2);
     root.style.transform = `translate(${Math.round(x)}px,${Math.round(y)}px)`;
-    // bubble below her if it fits, otherwise above; kept inside the screen horizontally
-    const pw = bubble.offsetWidth, ph = bubble.offsetHeight, gap = 4;
-    const below = y + bh + gap + ph <= vh - M || y - gap - ph < M;
-    let bx = bw - pw; bx = Math.max(M - x, Math.min(bx, vw - M - x - pw));
-    const by = below ? bh + gap : -gap - ph;
-    bubble.classList.toggle("up", !below);
+    // bubble a few px from her silhouette, tail pointing at her: beside her (left, then right), else below/above;
+    // always kept inside the screen
+    const pw = bubble.offsetWidth, ph = bubble.offsetHeight, gap = 4, tail = 7, off = gap + tail;
+    const f = fig || { l: bw * .2, t: bh * .12, r: bw * .8, b: bh * .88 };
+    const cx = (f.l + f.r) / 2, cy = f.t + (f.b - f.t) * .3;
+    const side = x + f.l - off - pw >= M ? "left" : x + f.r + off + pw <= vw - M ? "right"
+      : y + f.b + off + ph <= vh - M || y + f.t - off - ph < M ? "down" : "up";
+    const clamp = (v, a, b) => Math.max(a, Math.min(v, b));
+    let bx, by;
+    if (side === "left" || side === "right") {
+      bx = side === "left" ? f.l - off - pw : f.r + off;
+      by = clamp(cy - ph / 2, M - y, vh - M - y - ph);
+      bubble.style.setProperty("--ay", Math.round(clamp(cy - by - 6, 8, ph - 20)) + "px");
+    } else {
+      by = side === "down" ? f.b + off : f.t - off - ph;
+      bx = clamp(cx - pw / 2, M - x, vw - M - x - pw);
+      bubble.style.setProperty("--ax", Math.round(clamp(cx - bx - 6, 10, pw - 22)) + "px");
+    }
+    bubble.classList.toggle("up", side === "up");
+    bubble.classList.toggle("left", side === "left");
+    bubble.classList.toggle("right", side === "right");
     bubble.style.left = Math.round(bx) + "px"; bubble.style.top = Math.round(by) + "px";
-    bubble.style.setProperty("--ax", Math.round(Math.max(14, Math.min(pw - 26, bw / 2 - bx - 6))) + "px");
   }
   new ResizeObserver(layout).observe(body); new ResizeObserver(layout).observe(bubble);
   addEventListener("resize", layout);
@@ -357,10 +377,23 @@ function boot() {
       m.traverse(o => { if (o.isMesh && o.morphTargetDictionary && "jawOpen" in o.morphTargetDictionary) mouths.push(o); if (/wing/.test(o.name)) wings.push({ o, rz: o.rotation.z }); });
       const t = Math.tan(THREE.MathUtils.degToRad(13));
       const d = Math.max(size.x / (2 * t * 4 / 3), size.y / (2 * t)) * .92;
-      cam.position.set(0, 0, d); cam.lookAt(0, -size.y * .06, 0);
+      cam.position.set(0, 0, d); cam.lookAt(0, -size.y * .06, 0); measure();
     }, undefined, () => { canvas.remove(); body.insertAdjacentHTML("afterbegin", '<div class="ass-n__fallback"></div>'); });
     const setM = (o, n, v) => { const i = o.morphTargetDictionary[n]; if (i !== undefined) o.morphTargetInfluences[i] = v; };
-    const fit = () => { const w = body.clientWidth, h = body.clientHeight; if (!w || !h) return; renderer.setPixelRatio(Math.min(2, devicePixelRatio)); renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); };
+    const fit = () => { const w = body.clientWidth, h = body.clientHeight; if (!w || !h) return; renderer.setPixelRatio(Math.min(2, devicePixelRatio)); renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); measure(); };
+    // project her bounding box (mid-depth plane) to body pixels so the bubble can sit right next to her
+    function measure() {
+      const w = body.clientWidth, h = body.clientHeight; if (!size || !w || !h) return;
+      cam.updateMatrixWorld();
+      let l = w, t = h, r = 0, b = 0;
+      for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+        const v = new THREE.Vector3(sx * size.x / 2, sy * size.y / 2, 0).project(cam);
+        const px = (v.x + 1) / 2 * w, py = (1 - v.y) / 2 * h;
+        l = Math.min(l, px); r = Math.max(r, px); t = Math.min(t, py); b = Math.max(b, py);
+      }
+      fig = { l: Math.max(0, l), t: Math.max(0, t), r: Math.min(w, r), b: Math.min(h, b) };
+      layout();
+    }
     new ResizeObserver(fit).observe(body); fit();
     const still = matchMedia("(prefers-reduced-motion: reduce)").matches, t0 = performance.now();
     let lastFrame = 0;
