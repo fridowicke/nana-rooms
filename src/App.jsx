@@ -4091,6 +4091,30 @@ function AboutPage({
           </TunableBlock>
         )}
 
+        {/* site credit, bottom centre of the hub */}
+        {!isFolderView && !layoutTuner && (
+          <a
+            href="https://frido.ai"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: `${(isMobileLayout ? mobileContentHeight : viewport.height) - 24}px`,
+              transform: 'translateX(-50%)',
+              zIndex: 22,
+              fontSize: '10px',
+              fontWeight: 300,
+              color: '#9a9a9a',
+              textDecoration: 'none',
+              whiteSpace: 'nowrap',
+              letterSpacing: '0.02em',
+            }}
+          >
+            coded by friedrich wicke
+          </a>
+        )}
+
         {isFolderView && activeFolderId === 'she-is-so-hot' && (
           <div style={{ position: 'absolute', top: isMobileLayout ? '98px' : '62px', left: 0, right: 0, height: '30px', zIndex: 10 }}>
             <RoomTickerBar onOpenSubmit={() => handleFolderRouteOpen('submit-room')} embedded />
