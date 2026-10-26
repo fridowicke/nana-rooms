@@ -843,6 +843,7 @@ const DOOR_LINKS = [
     id: 'door4-inner',
     label: 'Door 4 Inner',
     roomIndex: 3,
+    ignoreOcclusion: true,
     cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[3], 'pointer'),
     corners: [
       [0.053, 0.121, -0.081],
@@ -855,6 +856,7 @@ const DOOR_LINKS = [
     id: 'door4-door',
     label: 'Door 4 Door',
     roomIndex: 3,
+    ignoreOcclusion: true,
     cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[3], 'pointer'),
     corners: [
       [0.033, 0.126, -0.133],
@@ -867,6 +869,7 @@ const DOOR_LINKS = [
     id: 'door3-inner',
     label: 'Door 3 Inner',
     roomIndex: 2,
+    ignoreOcclusion: true,
     cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[2], 'pointer'),
     corners: [
       [0.099, 0.131, 0.056],
@@ -879,6 +882,7 @@ const DOOR_LINKS = [
     id: 'door3-door',
     label: 'Door 3 Door',
     roomIndex: 2,
+    ignoreOcclusion: true,
     cursor: buildCursorValue(ROOM_KEY_CURSOR_URLS[2], 'pointer'),
     corners: [
       [0.15, 0.131, 0.031],
@@ -2287,7 +2291,7 @@ function DoorLinkArea({ door, onOpenRoom, occluderMeshes, isHovered = false, onH
   useEffect(() => () => geometry?.dispose(), [geometry])
 
   const isDoorClearlyOccluded = useCallback((raycaster, doorDistance) => {
-    if (!occluderMeshes?.length) return false
+    if (door.ignoreOcclusion || !occluderMeshes?.length) return false
 
     const maxVisibleDistance = doorDistance - DOOR_OCCLUSION_CLEARANCE
     if (maxVisibleDistance <= raycaster.near) return false
@@ -2298,7 +2302,7 @@ function DoorLinkArea({ door, onOpenRoom, occluderMeshes, isHovered = false, onH
     occlusionRaycaster.layers.mask = raycaster.layers.mask
 
     return occlusionRaycaster.intersectObjects(occluderMeshes, false).length > 0
-  }, [occluderMeshes, occlusionRaycaster])
+  }, [door.ignoreOcclusion, occluderMeshes, occlusionRaycaster])
 
   const raycast = useCallback((raycaster, intersects) => {
     if (!meshRef.current) return
