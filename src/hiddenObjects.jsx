@@ -409,42 +409,42 @@ function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp
   const foundList = hotspots.filter((s) => found.includes(s.id))
   const FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif'
 
+  // Yellow sticky note (public/sticky-note.png, 619×700); padding keeps text clear of the pin and the curled corner.
+  const noteWidth = isMobileLayout ? 200 : 216
   const panelStyle = {
     position: 'absolute',
-    top: isMobileLayout ? 'auto' : '96px',
-    bottom: isMobileLayout ? 'calc(78px + env(safe-area-inset-bottom))' : 'auto',
-    right: isMobileLayout ? 0 : '12px',
-    width: isMobileLayout ? '100%' : '160px',
-    maxHeight: isMobileLayout ? '45dvh' : 'calc(100% - 220px)',
-    borderRadius: '10px',
-    border: isMobileLayout ? 'none' : '1px solid rgba(0,0,0,0.12)',
-    background: 'rgba(255,255,255,0.72)',
-    backdropFilter: 'blur(10px)',
-    WebkitBackdropFilter: 'blur(10px)',
-    borderTop: isMobileLayout ? '1px solid rgba(0,0,0,0.12)' : undefined,
+    // bottom-right, clear of the narrator (top right) and above the door icon
+    bottom: isMobileLayout ? 'calc(92px + env(safe-area-inset-bottom))' : '96px',
+    right: isMobileLayout ? '6px' : '12px',
+    width: `${noteWidth}px`,
+    minHeight: `${Math.round(noteWidth * 700 / 619)}px`,
+    maxHeight: isMobileLayout ? '60dvh' : 'calc(100% - 140px)',
+    background: `url(${import.meta.env.BASE_URL}sticky-note.png) center / 100% 100% no-repeat`,
     zIndex: 50,
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'stretch',
-    padding: isMobileLayout ? '8px 12px' : '12px 12px',
-    gap: isMobileLayout ? '10px' : '6px',
+    alignItems: 'center',
+    justifyContent: 'center',
+    textAlign: 'center',
+    padding: isMobileLayout ? '42px 20px 38px' : '48px 24px 44px',
+    gap: isMobileLayout ? '4px' : '2px',
     overflowY: 'auto',
     overflowX: 'hidden',
     boxSizing: 'border-box',
     fontFamily: FONT,
-    color: '#111',
+    color: '#2b2416',
   }
-  const titleStyle = { fontSize: isMobileLayout ? '12px' : '13px', fontWeight: 400, marginBottom: isMobileLayout ? 0 : '2px', whiteSpace: 'nowrap' }
-  const counterStyle = { fontSize: '11px', fontWeight: 300, color: '#666', marginBottom: isMobileLayout ? 0 : '8px', whiteSpace: 'nowrap' }
+  const titleStyle = { fontSize: '13px', fontWeight: 400, marginBottom: '2px', whiteSpace: 'nowrap' }
+  const counterStyle = { fontSize: '11px', fontWeight: 300, color: '#5a4a2a', marginBottom: isMobileLayout ? 0 : '6px', whiteSpace: 'nowrap' }
   const itemStyle = (isFound) => ({
-    padding: '3px 0', fontSize: isMobileLayout ? '11px' : '13px', fontWeight: 300,
-    color: isFound ? '#999' : '#111', textDecoration: isFound ? 'line-through' : 'none',
-    whiteSpace: 'nowrap', flexShrink: 0,
+    padding: '2px 0', fontSize: isMobileLayout ? '12px' : '13px', fontWeight: 300,
+    color: isFound ? '#8a7a55' : '#2b2416', textDecoration: isFound ? 'line-through' : 'none',
+    whiteSpace: 'normal', overflowWrap: 'anywhere', flexShrink: 0,
   })
   const buttonStyle = (disabled) => ({
-    background: 'transparent', border: '1px solid ' + (disabled ? '#ccc' : '#111'), color: disabled ? '#aaa' : '#111',
-    minHeight: isMobileLayout ? '44px' : undefined, padding: '3px 10px', borderRadius: '999px', cursor: disabled ? 'default' : 'pointer',
-    fontFamily: FONT, fontSize: '11px', fontWeight: 300, textAlign: 'center', whiteSpace: 'nowrap', flexShrink: 0, marginTop: isMobileLayout ? 0 : '8px', alignSelf: isMobileLayout ? 'center' : 'flex-start',
+    background: 'transparent', border: '1px solid ' + (disabled ? '#b5a57a' : '#2b2416'), color: disabled ? '#8a7a55' : '#2b2416',
+    minHeight: isMobileLayout ? '36px' : undefined, padding: '3px 12px', borderRadius: '999px', cursor: disabled ? 'default' : 'pointer',
+    fontFamily: FONT, fontSize: '11px', fontWeight: 300, textAlign: 'center', whiteSpace: 'nowrap', flexShrink: 0, marginTop: isMobileLayout ? 0 : '8px', alignSelf: 'center',
   })
   const timerLabel = timeLeft != null ? `${Math.floor(timeLeft / 60)}:${String(timeLeft % 60).padStart(2, '0')}` : null
 
@@ -453,8 +453,8 @@ function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp
   return (
     <div style={panelStyle}>
       {isMobileLayout && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <button type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)} style={{ background: 'transparent', border: 0, font: '13px Helvetica, Arial, sans-serif', color: '#111', minHeight: 44, padding: '0 6px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+          <button type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)} style={{ background: 'transparent', border: 0, fontFamily: FONT, fontSize: '13px', fontWeight: 400, color: '#2b2416', minHeight: 36, padding: '0 6px' }}>
             objects · {found.length} / {hotspots.length} {expanded ? '▾' : '▴'}
           </button>
           {timerLabel && <span style={counterStyle}>{timerLabel}</span>}
@@ -465,11 +465,11 @@ function HiddenObjectPanel({ hotspots, found, onHint, hintUsed, timeLeft, timeUp
       {!isMobileLayout && <div style={titleStyle}>find these objects:</div>}
       <div style={counterStyle}>
         {found.length} / {hotspots.length}
-        {timerLabel && <span style={{ color: timeLeft < 30 ? '#e5524e' : '#666', marginLeft: '8px' }}>⏱ {timerLabel}</span>}
+        {timerLabel && <span style={{ color: timeLeft < 30 ? '#e5524e' : '#5a4a2a', marginLeft: '8px' }}>⏱ {timerLabel}</span>}
       </div>
       {remaining.map((s) => <div key={s.id} style={itemStyle(false)}>{s.name}</div>)}
       {foundList.length > 0 && !isMobileLayout && (
-        <div style={{ borderTop: '1px solid rgba(0,0,0,0.1)', paddingTop: '6px', marginTop: '4px' }}>
+        <div style={{ borderTop: '1px solid rgba(60,45,10,0.2)', paddingTop: '6px', marginTop: '4px', alignSelf: 'stretch' }}>
           {foundList.map((s) => <div key={s.id} style={itemStyle(true)}>{s.name}</div>)}
         </div>
       )}
@@ -1102,7 +1102,6 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
     onEngineReady: () => setEngineVersion((v) => v + 1),
   }), [])
 
-  const panelWidth = isMobileLayout ? 0 : 200
   const [spaceHeld, setSpaceHeld] = useState(false)
   useEffect(() => {
     if (!editMode) { setSpaceHeld(false); return undefined }
@@ -1119,7 +1118,7 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex' }}>
-      <div style={{ flex: 1, position: 'relative', marginRight: gameMode ? `${panelWidth}px` : 0 }}>
+      <div style={{ flex: 1, position: 'relative' }}>
         {children({ sceneProps, editMode, cameraLocked: !cameraFree })}
         {lassoActive && <LassoOverlay tool={tool} onStroke={applyStroke} isMobileLayout={isMobileLayout} passThrough={spaceHeld} />}
       </div>
