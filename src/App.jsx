@@ -5,6 +5,7 @@ import { OrbitControls, Stage, Html, KeyboardControls, useKeyboardControls } fro
 import * as THREE from 'three'
 import { HiddenObjectGame, HiddenObjectScene } from './hiddenObjects.jsx'
 import ArchiveMap from './ArchiveMap.jsx'
+import { AboutLayoutCanvas, useAboutLayout, isAboutEditMode } from './aboutLayout.jsx'
 import { ROOM_FILES, getHomeAssetUrl, getRoomAssetUrl, roomPreloadPlan, modelPreloader, RoomAssetLoader, canPrepareRooms, releaseModelGpu } from './roomAssets.js'
 import { createGpuRoomCache } from './gpuRoomCache.js'
 import { perspectiveFitDistance } from './cameraFit.js'
@@ -3245,6 +3246,8 @@ function AboutPage({
   viewportOverride = null,
 }) {
   const editorContentRef = useRef(null)
+  const [aboutEditMode] = useState(isAboutEditMode)
+  const [aboutLayout, setAboutLayout] = useAboutLayout(aboutEditMode)
   const [editorScrollbar, setEditorScrollbar] = useState({ top: 0, height: 100, enabled: false })
   const rightStageRef = useRef(null)
   const draggedFolderRef = useRef(null)
@@ -3698,7 +3701,9 @@ function AboutPage({
                 event.preventDefault()
                 window.open(anchor.href, '_blank', 'noopener,noreferrer')
               }}
-              dangerouslySetInnerHTML={{ __html: DEFAULT_ABOUT_HTML.replace(/\n\n/g, '<br /><br />') }}
+              {...(aboutLayout
+                ? { children: <AboutLayoutCanvas layout={aboutLayout} setLayout={setAboutLayout} fontSize={aboutLayout.fontSize} scale={13 / aboutLayout.fontSize} /> }
+                : { dangerouslySetInnerHTML: { __html: DEFAULT_ABOUT_HTML.replace(/\n\n/g, '<br /><br />') } })}
             />
           </div>
         </div>
@@ -3788,7 +3793,9 @@ function AboutPage({
                   padding: isMobileLayout ? '10px 12px 12px' : '8px 32px 8px 9px',
                   boxSizing: 'border-box',
                 }}
-                dangerouslySetInnerHTML={{ __html: DEFAULT_ABOUT_HTML }}
+                {...(aboutLayout || aboutEditMode
+                  ? { children: <AboutLayoutCanvas layout={aboutLayout} setLayout={setAboutLayout} editable={aboutEditMode} defaultHtml={DEFAULT_ABOUT_HTML} fontSize={isMobileLayout ? 13.5 : 9.25} onResize={updateEditorScrollbar} /> }
+                  : { dangerouslySetInnerHTML: { __html: DEFAULT_ABOUT_HTML } })}
               />
 
               <div
