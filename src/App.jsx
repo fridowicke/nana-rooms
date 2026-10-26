@@ -6188,12 +6188,12 @@ function CursorSparkles() {
       })
     }
 
-    window.addEventListener('pointermove', onPointerMove, { passive: true })
-    window.addEventListener('click', onClick, { passive: true })
+    window.addEventListener('pointermove', onPointerMove, { passive: true, capture: true })
+    window.addEventListener('click', onClick, { passive: true, capture: true })
 
     return () => {
-      window.removeEventListener('pointermove', onPointerMove)
-      window.removeEventListener('click', onClick)
+      window.removeEventListener('pointermove', onPointerMove, { capture: true })
+      window.removeEventListener('click', onClick, { capture: true })
       sparkleTimeouts.current.forEach((timeoutId) => window.clearTimeout(timeoutId))
       sparkleTimeouts.current = []
     }
@@ -6702,6 +6702,7 @@ export default function App() {
           isMobileLayout={isMobileLayout}
         />
         {sceneTransitionLayer}
+        {!isMobileLayout && !isTouch && !prefersReducedMotion && <CursorSparkles />}
       </>
     )
   }
@@ -7093,6 +7094,7 @@ export default function App() {
       )}
       {/* Video preview launcher removed */}
       {sceneTransitionLayer}
+          {!isMobileLayout && !isTouch && !prefersReducedMotion && <CursorSparkles />}
     </div>
   )
 }
