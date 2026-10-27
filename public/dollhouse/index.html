@@ -26,12 +26,13 @@
 }
 html,body{height:100%;overflow:hidden;overscroll-behavior:none}
 body{margin:0;height:100vh;height:100dvh;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;box-sizing:border-box;
-  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-top:6px;padding-bottom:max(4px,env(safe-area-inset-bottom,0px));-webkit-user-select:none;user-select:none}
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-top:0;padding-bottom:max(4px,env(safe-area-inset-bottom,0px));-webkit-user-select:none;user-select:none}
 *{border-radius:0}
-.app{margin:0 auto;height:100%;display:flex;flex-direction:column;gap:4px;min-height:0}
-header{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:nowrap}
+.app{position:relative;margin:0 auto;height:100%;display:flex;flex-direction:column;gap:4px;min-height:0}
+/* the header floats over the top of the wall so the scene can start at the top edge of the window */
+header{position:absolute;top:6px;left:0;right:0;z-index:2;pointer-events:none;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:nowrap}
 .how{margin:0;max-width:70ch;font-size:12px;line-height:1.3;color:var(--muted)}
-.hud{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;line-height:1.3}
+.hud{pointer-events:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;line-height:1.3}
 #progress{font-variant-numeric:tabular-nums;color:var(--muted);margin-right:4px}
 button{font:inherit;cursor:pointer;color:var(--ink)}
 .btn{background:var(--bg);border:1px solid var(--ink);padding:3px 8px;font-size:12px;line-height:1.3}
@@ -42,15 +43,16 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 
 /* house */
 .stageWrap{position:relative;width:100%;flex:1 1 0;min-height:0;container-type:size;display:flex;align-items:center;justify-content:center}
-/* the scene (backdrop.svg, 3500 × 2473) is contain-fitted between the top line and the sheet, centred, never cut;
-   the house sits in its hole at left 17.857%, top 14.153%, width 66.43% (height by its own aspect), so everything scales with it */
-.scene{position:relative;z-index:0;flex:none;width:min(100%,calc((100dvh - 200px) * 3500 / 2473));width:min(100cqw,100cqh * 3500 / 2473);aspect-ratio:3500/2473}
-.backdrop{position:absolute;inset:0;width:100%;height:100%;max-width:none;display:block;pointer-events:none;-webkit-user-drag:none}
+/* the scene = backdrop.svg (3500 × 2473) cropped to its drawn part, 3500 × 1990 (the bottom of the file is empty floor);
+   contain-fitted from the top of the window to the sheet, centred, never cut: both legs, heels and the outlet stay whole.
+   The house sits in its hole at left 17.857%, top 350/1990, width 66.43% (height by its own aspect), so everything scales with it */
+.scene{position:relative;z-index:0;flex:none;width:min(100%,calc((100dvh - 120px) * 3500 / 1990));width:min(100cqw,100cqh * 3500 / 1990);aspect-ratio:3500/1990}
+.backdrop{position:absolute;left:0;top:0;width:100%;height:124.271%;max-width:none;display:block;pointer-events:none;-webkit-user-drag:none}
 /* wider screen than the scene: the wall stripes and the two baseboard lines continue to the page edges (scene units, drawn
    outside the scene box only; body clips them at the viewport). Floor stays white. */
-.wallFill{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
-.stage{position:absolute;left:17.857%;top:14.153%;width:66.43%;aspect-ratio:2400/1677}
-header,.sheet{position:relative;z-index:1}
+.wallFill{position:absolute;left:0;top:0;width:100%;height:124.271%;overflow:visible;pointer-events:none}
+.stage{position:absolute;left:17.857%;top:17.588%;width:66.43%;aspect-ratio:2400/1677}
+.sheet{position:relative;z-index:1}
 .layer{position:absolute;inset:0;width:100%;height:100%}
 .screens{position:absolute;inset:0;pointer-events:none;z-index:1}
 .screens video{position:absolute;display:block;object-fit:cover;opacity:0;transition:opacity .7s ease;background:var(--ink)}
@@ -98,7 +100,7 @@ header,.sheet{position:relative;z-index:1}
 .ghost{position:fixed;left:0;top:0;pointer-events:none;z-index:50;transform:translate(-50%,-50%)}
 .ghost.back{transition:all .25s ease-in}
 
-@media (max-width:860px){ header{flex-wrap:wrap;row-gap:4px} }
+@media (max-width:860px){ header{flex-wrap:wrap;row-gap:4px} .stageWrap{padding-top:40px;box-sizing:border-box} }
 /* phones: same scene, same aspect (width-limited), centred above the sheet */
 @media (max-width:700px){
   body{padding-left:max(4px,env(safe-area-inset-left,0px));padding-right:max(4px,env(safe-area-inset-right,0px))}
