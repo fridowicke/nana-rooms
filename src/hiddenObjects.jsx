@@ -294,7 +294,8 @@ function ReactionPopup({ reaction, onClose, isMobileLayout }) {
 
   const body = (() => {
     if (reaction.type === 'text') {
-      return <div style={{ whiteSpace: 'pre-wrap', fontSize: '14px', lineHeight: 1.5, padding: '18px 20px', fontWeight: 300 }}>{reaction.value}</div>
+      // Sticky-note text: padding keeps the words clear of the pin (top) and the curled corner (bottom left).
+      return <div style={{ whiteSpace: 'pre-wrap', fontSize: '14px', lineHeight: 1.5, fontWeight: 300, color: '#2a2412', textAlign: 'center', minHeight: isMobileLayout ? '200px' : '230px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobileLayout ? '54px 30px 50px 34px' : '62px 38px 56px 42px' }}><div>{reaction.value}</div></div>
     }
     if (reaction.type === 'image') {
       return <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '12px', padding: '16px' }}>
@@ -324,7 +325,7 @@ function ReactionPopup({ reaction, onClose, isMobileLayout }) {
 
   const a = reaction.anchor
   const objW = a?.w ? Math.round(Math.max(220, Math.min(640, a.w * 1.15))) : null
-  const winW = isMobileLayout ? 'calc(100vw - 48px)' : reaction.type === 'link' ? 'min(420px, calc(100vw - 80px))' : (objW ? `min(${objW}px, calc(100vw - 40px))` : 'min(560px, calc(100vw - 80px))')
+  const winW = reaction.type === 'text' ? (isMobileLayout ? 'min(300px, calc(100vw - 48px))' : 'min(340px, calc(100vw - 80px))') : isMobileLayout ? 'calc(100vw - 48px)' : reaction.type === 'link' ? 'min(420px, calc(100vw - 80px))' : (objW ? `min(${objW}px, calc(100vw - 40px))` : 'min(560px, calc(100vw - 80px))')
   const startDrag = (e) => {
     if (isMobileLayout) return
     if (e.button != null && e.button !== 0) return
@@ -377,7 +378,7 @@ function ReactionPopup({ reaction, onClose, isMobileLayout }) {
         aria-modal="true"
         aria-label={reaction.title || 'Object reaction'}
         onPointerDown={(e) => e.stopPropagation()}
-        style={{ ...winStyle, width: winW, background: reaction.type === 'text' ? '#fff' : 'transparent', color: '#111', borderRadius: '6px', boxShadow: reaction.type === 'text' ? '0 24px 70px rgba(0,0,0,0.35)' : '0 30px 80px rgba(0,0,0,0.45)', overflow: 'visible', fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}
+        style={{ ...winStyle, width: winW, background: reaction.type === 'text' ? `url(${import.meta.env.BASE_URL}sticky-note.png) center / 100% 100% no-repeat` : 'transparent', color: '#111', borderRadius: reaction.type === 'text' ? 0 : '6px', boxShadow: reaction.type === 'text' ? 'none' : '0 30px 80px rgba(0,0,0,0.45)', filter: reaction.type === 'text' ? 'drop-shadow(0 4px 8px rgba(0,0,0,0.18))' : undefined, overflow: 'visible', fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}
       >
         <button
           type="button"
@@ -1190,9 +1191,10 @@ export function HiddenObjectGame({ roomNumber, children, isMobileLayout }) {
         if (!media && !text) return null
         const W = media ? 220 : 'auto'
         const left = Math.min(x + 16, (typeof window !== 'undefined' ? window.innerWidth : 9999) - (media ? 240 : 200))
-        const top = Math.max(8, y - (media ? 190 : 40))
+        const top = Math.max(8, y - (media ? 210 : 60))
+        // Small yellow sticky note (public/sticky-note.png); padding keeps content clear of the pin and the curl.
         return (
-          <div style={{ position: 'fixed', left, top, width: W, zIndex: 9400, pointerEvents: 'none', background: '#fff', border: '1px solid #111', padding: media ? '6px' : '4px 9px', fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif', fontSize: '12px', fontWeight: 300, color: '#111', boxShadow: '0 6px 20px rgba(0,0,0,0.18)' }}>
+          <div style={{ position: 'fixed', left, top, width: W, minWidth: media ? undefined : '110px', maxWidth: media ? undefined : '180px', minHeight: media ? undefined : '78px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', zIndex: 9400, pointerEvents: 'none', background: `url(${import.meta.env.BASE_URL}sticky-note.png) center / 100% 100% no-repeat`, padding: media ? '30px 18px 26px 20px' : '24px 18px 20px 20px', fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif', fontSize: '12px', lineHeight: 1.35, fontWeight: 300, color: '#2a2412', filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.15))' }}>
             {media && <div style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'center', marginBottom: text ? '5px' : 0 }}>
               {[media, ...(hv.images ?? [])].map((src) => <img key={src} src={src} alt="" style={{ display: 'block', maxWidth: hv.images?.length ? '48%' : '100%', maxHeight: '150px', objectFit: 'contain' }} />)}
             </div>}
