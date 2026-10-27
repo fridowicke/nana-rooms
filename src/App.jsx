@@ -7000,7 +7000,10 @@ export default function App() {
         overflow: 'hidden',
       }}
     >
+      {/* phone intro (public/narrator/narrator.js): house, hint and doors stay hidden while she says hi */}
+      <style>{'@media (max-width:640px){.hub-house,.hub-hint{transition:opacity .6s ease!important}[data-ass-intro="1"] .hub-house,[data-ass-intro="1"] .hub-hint{opacity:0!important;pointer-events:none!important}}'}</style>
       <div
+        className="hub-house"
         style={{
           position: 'absolute',
           inset: isMobileLayout ? `${viewportHeight < 500 ? 'calc(76px + env(safe-area-inset-top))' : 'calc(126px + env(safe-area-inset-top))'} 0 calc(56px + env(safe-area-inset-bottom))` : 0,
@@ -7077,7 +7080,7 @@ export default function App() {
       )}
 
       {isMobileLayout && (
-        <p style={{ position: 'absolute', bottom: 'max(16px, env(safe-area-inset-bottom))', left: 12, right: 12, margin: 0, textAlign: 'center', font: '13px Arial, sans-serif', color: '#555', pointerEvents: 'none' }}>
+        <p className="hub-hint" style={{ position: 'absolute', bottom: 'max(16px, env(safe-area-inset-bottom))', left: 12, right: 12, margin: 0, textAlign: 'center', font: '13px Arial, sans-serif', color: '#555', pointerEvents: 'none' }}>
           drag to turn the house · tap a door to enter
         </p>
       )}

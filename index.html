@@ -12,6 +12,11 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
-  <script>(function(){var s=document.createElement("script");s.type="module";s.src="/narrator/narrator.js";document.body.appendChild(s);})();</script>
+  <script>(function(){
+    // phone intro on #home: narrator.js ends it; these failsafes only make sure the house never stays hidden
+    var d=document.documentElement,h=location.hash.replace(/^#\/?/,"");
+    function end(){if(d.dataset.assIntro){delete d.dataset.assIntro;dispatchEvent(new Event("ass-intro-done"));}}
+    if(matchMedia("(max-width:640px)").matches&&(!h||h==="home"||h==="house")){d.dataset.assIntro="1";setTimeout(function(){if(!window.__assNarrator)end();},8000);setTimeout(end,90000);}
+    var s=document.createElement("script");s.type="module";s.src="/narrator/narrator.js";s.onerror=end;document.body.appendChild(s);})();</script>
   </body>
 </html>

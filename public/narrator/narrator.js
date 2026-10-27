@@ -62,6 +62,11 @@ function boot() {
   .ass-n.mob.min .ass-n__bubble{display:block;max-width:min(200px,calc(100vw - 24px));padding:7px 9px 8px;font-size:11.5px}
   .ass-n.mob.min .ass-n__body{width:60px}
   .ass-n.mob.min .ass-n__hit{inset:0!important;width:auto!important;height:auto!important}
+  /* phone intro on the house page: she alone, big and centred; then she flies to her corner */
+  .ass-n.intro .ass-n__body{width:90vw;pointer-events:auto}
+  .ass-n.intro .ass-n__close{display:none}
+  .ass-n.intro-out{transition:transform .9s cubic-bezier(.5,0,.2,1)}
+  .ass-n.intro-out .ass-n__body{transition:width .9s cubic-bezier(.5,0,.2,1)}
   @media (prefers-reduced-motion:reduce){.ass-n *{transition:none!important}}`;
   const style = document.createElement("style"); style.textContent = css; document.head.appendChild(style);
 
@@ -76,6 +81,10 @@ function boot() {
   // phones and touch screens: she shrinks to a small avatar instead of going silent
   const mobQ = matchMedia("(max-width:640px), (pointer:coarse)"), mob = () => mobQ.matches;
   root.classList.toggle("mob", mob());
+  // phone intro: only on a fresh load that opens on the house (index.html already set the flag)
+  const INTRO_TAPS = 3;
+  let intro = document.documentElement.dataset.assIntro === "1", introTaps = 0;
+  if (intro) root.classList.add("intro");
 
   const store = {
     get(k, d) { try { const v = localStorage.getItem("assN:" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -106,6 +115,7 @@ function boot() {
     let x = pos ? pos.x : vw - bw - M, y = pos ? pos.y : T;
     x = Math.max(M, Math.min(x, vw - bw - M)); y = Math.max(T, Math.min(y, vh - bh - M));
     if (vw - bw - M < M) x = Math.max(0, (vw - bw) / 2);
+    if (intro) { x = (vw - bw) / 2; y = Math.max(T, (vh - bh) / 2 - 60); }
     root.style.transform = `translate(${Math.round(x)}px,${Math.round(y)}px)`;
     // bubble a few px from her silhouette, tail pointing at her: beside her (left, then right), else below/above;
     // always kept inside the screen
@@ -162,7 +172,7 @@ function boot() {
     if (mob() && pos && r.width && r.left + r.width / 2 > (document.documentElement.clientWidth || innerWidth) / 2) { pos = { x: r.right - body.offsetWidth, y: pos.y }; store.set("pos", pos); }
     layout();
   };
-  setMin(minimized);
+  setMin(intro ? false : minimized);
   mobQ.addEventListener?.("change", () => { root.classList.toggle("mob", mob()); setMin(minimized); });
   closeBtn.addEventListener("click", e => {
     e.stopPropagation();
@@ -180,7 +190,23 @@ function boot() {
     const i = deck.shift(); ss.set("ygDeck", deck); return all[i];
   }
   const pokeLine = () => (route && route.kind === "room" && LINES.roomPoke?.length) ? roomDeckLine() : pick(LINES.poke, "poke");
-  body.addEventListener("click", () => { if (dragged) { dragged = false; return; } if (minimized && !mob()) setMin(false); say(pokeLine()); });
+  body.addEventListener("click", () => { if (dragged) { dragged = false; return; } if (intro) return introTap(); if (minimized && !mob()) setMin(false); say(pokeLine()); });
+  bubble.addEventListener("click", () => { if (intro) introTap(); });
+  function introTap() {
+    introTaps++;
+    say(introTaps === 1 ? pick(LINES.home.first, "home") : pick(LINES.poke, "poke"));
+    if (introTaps >= INTRO_TAPS) endIntro();
+  }
+  // ends the intro (taps, or a failsafe): she shrinks to the small corner avatar and the house fades in
+  function endIntro() {
+    if (!intro) return; intro = false;
+    root.classList.remove("intro"); root.classList.add("intro-out");
+    setMin(true);
+    setTimeout(() => root.classList.remove("intro-out"), 1000);
+    delete document.documentElement.dataset.assIntro;
+    dispatchEvent(new Event("ass-intro-done"));
+  }
+  if (intro) setTimeout(endIntro, 90000);
 
   addEventListener("pointerdown", () => {
     if (unlocked) return; unlocked = true;
@@ -285,7 +311,8 @@ function boot() {
     route = r; hunt = null; queue = []; clearTimeout(stuckT);
     setTimeout(() => {
       if (route !== r) return;
-      if (r.kind === "home") {
+      if (r.kind === "home" && intro) { welcomed = true; say(pick(LINES.home.welcome, "welcome")); }
+      else if (r.kind === "home") {
         const next = markSeen("home") ? LINES.home.first : LINES.home.again;
         if (!welcomed) { welcomed = true; say(pick(LINES.home.welcome, "welcome")); queueAfter(() => pick(next, "home")); }
         else say(pick(next, "home"));
@@ -371,7 +398,7 @@ function boot() {
     idleT = setTimeout(() => {
       const r = route; if (!r || document.hidden) return nudge();
       const list = r.kind === "home" ? LINES.home.idle : r.kind === "about" ? LINES.about.idle : r.kind === "room" ? G.idle : null;
-      if (list) say(pick(list, "idle" + r.kind), { optional: true });
+      if (list && !intro) say(pick(list, "idle" + r.kind), { optional: true });
       nudge();
     }, SETTINGS.idleSeconds * 1000);
   }
@@ -383,13 +410,15 @@ function boot() {
 
   /* ---------------- her body (three.js) ---------------- */
   (async () => {
-    let THREE, GLTFLoader;
+    let THREE, GLTFLoader, loaded = false;
+    // no model within 8 s: don't keep the house hidden behind an intro that can't play
+    setTimeout(() => { if (!loaded) endIntro(); }, 8000);
     try { THREE = await import(THREE_URL); ({ GLTFLoader } = await import(LOADER_URL)); }
-    catch (e) { body.insertAdjacentHTML("afterbegin", '<div class="ass-n__fallback"></div>'); return; }
+    catch (e) { endIntro(); body.insertAdjacentHTML("afterbegin", '<div class="ass-n__fallback"></div>'); return; }
     const canvas = document.createElement("canvas"); body.prepend(canvas);
     let renderer;
     try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "low-power" }); }
-    catch (e) { canvas.remove(); body.insertAdjacentHTML("afterbegin", '<div class="ass-n__fallback"></div>'); return; }
+    catch (e) { endIntro(); canvas.remove(); body.insertAdjacentHTML("afterbegin", '<div class="ass-n__fallback"></div>'); return; }
     renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.setClearColor(0x000000, 0);
     const scene = new THREE.Scene();
     scene.add(new THREE.HemisphereLight(0xffffff, 0xb08aa0, 2.2));
@@ -399,11 +428,12 @@ function boot() {
     const rig = new THREE.Group(); scene.add(rig);
     let mouths = [], wings = [], size = null;
     new GLTFLoader().load(BASE + "ass.glb", g => {
+      loaded = true;
       const m = g.scene, b = new THREE.Box3().setFromObject(m), c = b.getCenter(new THREE.Vector3()); size = b.getSize(new THREE.Vector3());
       m.position.sub(c); rig.add(m);
       m.traverse(o => { if (o.isMesh && o.morphTargetDictionary && "jawOpen" in o.morphTargetDictionary) mouths.push(o); if (/wing/.test(o.name)) wings.push({ o, rz: o.rotation.z }); });
       frame();
-    }, undefined, () => { canvas.remove(); body.insertAdjacentHTML("afterbegin", '<div class="ass-n__fallback"></div>'); });
+    }, undefined, () => { endIntro(); canvas.remove(); body.insertAdjacentHTML("afterbegin", '<div class="ass-n__fallback"></div>'); });
     const setM = (o, n, v) => { const i = o.morphTargetDictionary[n]; if (i !== undefined) o.morphTargetInfluences[i] = v; };
     const fit = () => { const w = body.clientWidth, h = body.clientHeight; if (!w || !h) return; renderer.setPixelRatio(Math.min(2, devicePixelRatio)); renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); frame(); };
     // every corner of her box at both ends of the idle sway (turn + bob), so wings are never cropped
