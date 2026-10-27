@@ -100,6 +100,26 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .ghost{position:fixed;left:0;top:0;pointer-events:none;z-index:50;transform:translate(-50%,-50%)}
 .ghost.back{transition:all .25s ease-in}
 
+/* split scene: the backdrop as separate pieces (wall, outlet, legs, figure; vector, each the original picture clipped to its
+   outline) placed by a layout (dollhouse-layout.json or the ?edit=1 editor); the whole scene can be zoomed */
+.scene{transform-origin:50% 50%}
+.pieces{position:absolute;inset:0;pointer-events:none;display:none}
+.split .pieces{display:block}
+.split .backdrop,.split .wallFill{display:none}
+.piece{position:absolute;display:block;overflow:visible}
+.houseBack{display:none;position:absolute;left:1.667%;top:26.24%;width:71.67%;height:66.79%;background:var(--bg)}
+.split .houseBack{display:block}
+.editing .stageWrap{cursor:default}
+.editing .stage *{pointer-events:none!important}
+#selLayer{position:absolute;inset:0;pointer-events:none;z-index:4}
+#selLayer .ol{position:absolute;outline:1px dashed rgba(0,0,0,.45)}
+#selLayer .box{position:absolute;outline:1px solid var(--ink)}
+#selLayer .h{position:absolute;width:calc(10px / var(--z,1));height:calc(10px / var(--z,1));background:var(--bg);border:calc(1px / var(--z,1)) solid var(--ink);box-sizing:border-box;transform:translate(-50%,-50%);pointer-events:auto}
+#selLayer .h[data-h=nw],#selLayer .h[data-h=se]{cursor:nwse-resize}
+#selLayer .h[data-h=ne],#selLayer .h[data-h=sw]{cursor:nesw-resize}
+.etools{position:fixed;left:50%;top:6px;transform:translateX(-50%);z-index:20;display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--ink);padding:3px 6px;font-size:12px;line-height:1.3;white-space:nowrap}
+.etools input[type=range]{width:120px}
+.etools .st{color:var(--muted)}
 @media (max-width:860px){ header{flex-wrap:wrap;row-gap:4px} .stageWrap{padding-top:40px;box-sizing:border-box} }
 /* phones: same scene, same aspect (width-limited), centred above the sheet */
 @media (max-width:700px){
@@ -133,7 +153,9 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
       <rect x="-14000" y="1669.15" width="14000" height="2.7" fill="#a0a0a0"/><rect x="3500" y="1669.15" width="14000" height="2.7" fill="#a0a0a0"/>
     </svg>
     <img class="backdrop" src="backdrop.svg" alt="" draggable="false">
+    <div class="pieces" id="pieces"></div>
     <div class="stage" id="stage">
+      <div class="houseBack"></div>
       <svg class="layer" id="zones" viewBox="0 0 2400 1677" preserveAspectRatio="none" aria-hidden="true"></svg>
       <svg class="layer walls" id="walls" viewBox="0 0 2400 1677" preserveAspectRatio="none" aria-hidden="true"></svg>
       <div class="screens" id="screens"></div>
@@ -141,6 +163,7 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
       <div class="placed" id="placed" aria-label="House"></div>
       <div class="banner"><button class="btn primary" id="again" type="button">Play again</button></div>
     </div>
+    <div id="selLayer"></div>
     </div>
   </div>
 
@@ -495,7 +518,7 @@ function measure(it){const im=new Image(); im.onload=()=>{it.ratio=im.naturalWid
 let uploadsDone=!ALLOW_UPLOAD;
 function hideLoader(){ const l=$("#loader"); if(!l||l.classList.contains("out"))return; l.classList.add("out"); setTimeout(()=>l.remove(),200) }
 let houseDone=false; // blueprint + backdrop loaded and decoded (or failed)
-Promise.all([...document.querySelectorAll("#lines,.backdrop")].map(i=>i.decode().catch(()=>{}))).then(()=>{houseDone=true; checkLoaded()});
+const houseImgs=Promise.all([...document.querySelectorAll("#lines,.backdrop")].map(i=>i.decode().catch(()=>{})));
 function checkLoaded(){ if(houseDone&&uploadsDone&&items.every(it=>it.ready)) hideLoader() }
 setTimeout(hideLoader,8000); // failsafe
 
@@ -549,6 +572,138 @@ $("#random").addEventListener("click",()=>{ if(alive)return; items.filter(it=>!p
 let rt; addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(renderSheet,120)});
 // the phone stretch follows the stage size (sheet height, rotation, Safari toolbar): re-place stickers when it changes
 if(window.ResizeObserver) new ResizeObserver(()=>{ if(measureStretch()!==SY) renderPlaced() }).observe(stage);
+
+/* ---------------- scene layout + editor (?edit=1) ----------------
+   Scene units: 3500 × 1990 (the cropped backdrop). Each piece = {x, y, w} (top-left, width; height by its own aspect).
+   Polygons = outline of each piece in backdrop.svg pixels. No layout file and no editor → the plain backdrop.svg. */
+const SW=3500, SH=1990, LAYOUT_FILE="dollhouse-layout.json", DRAFT_KEY="dollhouse-layout-draft";
+const EDIT=new URLSearchParams(location.search).get("edit")==="1";
+const dbl=a=>a.map(([x,y])=>[x*2,y*2]);
+const PIECES=[ // bottom → top
+  {id:"wall"},
+  {id:"outlet",poly:dbl([[1482,181],[1668,181],[1668,477],[1482,477]])},
+  {id:"leg-left",poly:dbl([[222,0],[442,0],[439,100],[402,230],[354,330],[302,520],[314,560],[342,640],[340,760],[292,800],[287,947],[0,947],[0,838],[148,560],[193,505],[219,240]])},
+  {id:"leg-right",poly:dbl([[1038,0],[1327,0],[1432,110],[1562,258],[1652,478],[1751,518],[1751,952],[1478,952],[1478,880],[1558,760],[1568,620],[1513,540],[1488,482],[1258,237]])},
+  {id:"figure",poly:dbl([[1153,858],[1248,700],[1288,420],[1328,338],[1402,338],[1442,560],[1452,820],[1457,962],[1457,985],[1153,985]])},
+  {id:"house"},
+];
+PIECES.forEach(pc=>{
+  if(pc.poly){const xs=pc.poly.map(p=>p[0]),ys=pc.poly.map(p=>p[1]); pc.b={x:Math.min(...xs),y:Math.min(...ys)}; pc.b.w=Math.max(...xs)-pc.b.x; pc.b.h=Math.max(...ys)-pc.b.y}
+  else pc.b=pc.id==="wall"?{x:0,y:0,w:SW,h:SH}:{x:625,y:350,w:2325,h:2325*1677/2400};
+  pc.r=pc.b.h/pc.b.w;
+});
+const pieceOf=id=>PIECES.find(p=>p.id===id);
+const sceneEl=$("#scene"), piecesEl=$("#pieces"), selLayer=$("#selLayer");
+const defaultLayout=()=>({zoom:1,pieces:Object.fromEntries(PIECES.map(p=>[p.id,{x:p.b.x,y:p.b.y,w:p.b.w}]))});
+function cleanLayout(j){ // anything missing or broken → default values
+  const d=defaultLayout(); if(!j||typeof j!=="object")return null; const ok=v=>typeof v==="number"&&isFinite(v);
+  if(ok(j.zoom)&&j.zoom>0)d.zoom=j.zoom;
+  PIECES.forEach(p=>{const q=j.pieces&&j.pieces[p.id]; if(q&&ok(q.x)&&ok(q.y)&&ok(q.w)&&q.w>0)d.pieces[p.id]={x:q.x,y:q.y,w:q.w}});
+  return d;
+}
+let L=null; // current layout or null (= plain backdrop)
+function buildPieces(){
+  piecesEl.innerHTML=PIECES.filter(p=>p.id!=="house").map(p=>p.id==="wall"
+    ? `<svg class="piece" data-id="wall" viewBox="0 0 ${SW} ${SH}" preserveAspectRatio="none" aria-hidden="true">
+        <defs><pattern id="wallStripes" patternUnits="userSpaceOnUse" x="0" y="0" width="492" height="4478">
+        <rect x="65.45" y="0" width="1.1" height="4478" fill="#a0a0a0"/><rect x="295.45" y="0" width="1.1" height="4478" fill="#a0a0a0"/></pattern></defs>
+        <rect x="-14000" y="-3000" width="31500" height="4478" fill="url(#wallStripes)"/>
+        <rect x="-14000" y="1477.15" width="31500" height="2.7" fill="#a0a0a0"/><rect x="-14000" y="1669.15" width="31500" height="2.7" fill="#a0a0a0"/></svg>`
+    : `<svg class="piece" data-id="${p.id}" viewBox="${p.b.x} ${p.b.y} ${p.b.w} ${p.b.h}" preserveAspectRatio="none" aria-hidden="true">
+        <defs><clipPath id="clip-p-${p.id}"><polygon points="${p.poly.map(q=>q.join(",")).join(" ")}"/></clipPath></defs>
+        <image href="backdrop.svg" x="0" y="0" width="3500" height="2473" clip-path="url(#clip-p-${p.id})"/></svg>`).join("");
+}
+const pct=(v,t)=>v/t*100+"%";
+function applyLayout(){
+  if(!L){ sceneEl.classList.remove("split"); sceneEl.style.transform=""; ["left","top","width"].forEach(k=>stage.style[k]=""); return }
+  if(!piecesEl.firstChild) buildPieces();
+  sceneEl.classList.add("split"); sceneEl.style.transform=L.zoom===1?"":`scale(${L.zoom})`; sceneEl.style.setProperty("--z",L.zoom);
+  PIECES.forEach(p=>{const q=L.pieces[p.id], el=p.id==="house"?stage:piecesEl.querySelector(`[data-id="${p.id}"]`);
+    el.style.left=pct(q.x,SW); el.style.top=pct(q.y,SH); el.style.width=pct(q.w,SW); if(p.id!=="house")el.style.height=pct(q.w*p.r,SH)});
+  if(EDIT) drawSel();
+}
+
+let sel=new Set();
+const box=id=>{const q=L.pieces[id];return {x:q.x,y:q.y,w:q.w,h:q.w*pieceOf(id).r}};
+function selBox(){ let x0=1/0,y0=1/0,x1=-1/0,y1=-1/0; sel.forEach(id=>{const b=box(id); x0=Math.min(x0,b.x);y0=Math.min(y0,b.y);x1=Math.max(x1,b.x+b.w);y1=Math.max(y1,b.y+b.h)}); return {x:x0,y:y0,w:x1-x0,h:y1-y0} }
+const rectStyle=b=>`left:${pct(b.x,SW)};top:${pct(b.y,SH)};width:${pct(b.w,SW)};height:${pct(b.h,SH)}`;
+function drawSel(){
+  if(!sel.size){selLayer.innerHTML="";return}
+  const b=selBox();
+  selLayer.innerHTML=[...sel].map(id=>`<div class="ol" style="${rectStyle(box(id))}"></div>`).join("")+`<div class="box" style="${rectStyle(b)}"></div>`+
+    [["nw",b.x,b.y],["ne",b.x+b.w,b.y],["sw",b.x,b.y+b.h],["se",b.x+b.w,b.y+b.h]].map(([h,x,y])=>`<div class="h" data-h="${h}" style="left:${pct(x,SW)};top:${pct(y,SH)}"></div>`).join("");
+}
+function toScene(cx,cy){const r=sceneEl.getBoundingClientRect(); return [(cx-r.left)/r.width*SW,(cy-r.top)/r.height*SH]}
+function inPoly(x,y,poly){let c=false; for(let i=0,j=poly.length-1;i<poly.length;j=i++){const [xi,yi]=poly[i],[xj,yj]=poly[j];
+  if((yi>y)!==(yj>y)&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)c=!c} return c}
+function hitTest(x,y){ // topmost piece under the point
+  for(const p of [...PIECES].reverse()){ const b=box(p.id); if(x<b.x||y<b.y||x>b.x+b.w||y>b.y+b.h)continue;
+    const ax=p.b.x+(x-b.x)/b.w*p.b.w, ay=p.b.y+(y-b.y)/b.h*p.b.h;
+    if(p.poly?inPoly(ax,ay,p.poly):p.id==="house"?ax-p.b.x<p.b.w*1780/2400&&ay-p.b.y>p.b.h*200/1677:true) return p.id }
+  return null;
+}
+function setZoom(z){ L.zoom=Math.min(3,Math.max(.3,z)); const sl=$("#ezoom"); if(sl)sl.value=Math.round(L.zoom*100); applyLayout() }
+function saveDraft(){ try{localStorage.setItem(DRAFT_KEY,JSON.stringify(L))}catch(e){} }
+const layoutJson=()=>JSON.stringify({version:1,zoom:+L.zoom.toFixed(3),pieces:Object.fromEntries(PIECES.map(p=>{const q=L.pieces[p.id];return [p.id,{x:+q.x.toFixed(1),y:+q.y.toFixed(1),w:+q.w.toFixed(1)}]}))},null,2);
+function saveLayout(){
+  const json=layoutJson(); saveDraft();
+  navigator.clipboard?.writeText(json).catch(()=>{});
+  const url=URL.createObjectURL(new Blob([json],{type:"application/json"})), a=document.createElement("a");
+  a.href=url; a.download=LAYOUT_FILE; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),2000);
+  $("#estatus").textContent=`saved — send ${LAYOUT_FILE} to the bot to publish`;
+}
+function startEditor(){
+  document.body.classList.add("editing");
+  const bar=document.createElement("div"); bar.className="etools";
+  bar.innerHTML=`<b style="font-weight:400">edit</b><button class="btn" id="eall" type="button">Select all</button>
+    <label>zoom <input type="range" id="ezoom" min="30" max="300" step="1" value="${Math.round(L.zoom*100)}"></label>
+    <button class="btn" id="ereset" type="button">Reset</button><button class="btn primary" id="esave" type="button">Save</button><span class="st" id="estatus">drag pieces · corners resize · shift-click adds</span>`;
+  document.body.appendChild(bar);
+  $("#eall").onclick=()=>{sel=new Set(PIECES.map(p=>p.id)); drawSel()};
+  $("#ezoom").oninput=e=>setZoom(e.target.value/100);
+  $("#ereset").onclick=()=>{ try{localStorage.removeItem(DRAFT_KEY)}catch(e){} L=defaultLayout(); sel.clear(); setZoom(1); $("#estatus").textContent="reset to the default" };
+  $("#esave").onclick=saveLayout;
+  addEventListener("keydown",e=>{ if(e.target.closest&&e.target.closest("input,textarea"))return;
+    if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="a"){e.preventDefault(); sel=new Set(PIECES.map(p=>p.id)); drawSel()}
+    else if(e.key==="Escape"){sel.clear(); drawSel()} });
+  // drag / resize / two-finger pinch, all in scene units
+  const pts=new Map(); let op=null;
+  wrap.addEventListener("pointerdown",e=>{
+    e.preventDefault(); e.stopPropagation(); wrap.setPointerCapture(e.pointerId);
+    pts.set(e.pointerId,[e.clientX,e.clientY]);
+    if(pts.size===2){ const [a,b]=[...pts.values()]; op={type:"pinch",d0:Math.hypot(a[0]-b[0],a[1]-b[1])||1,z0:L.zoom}; return }
+    if(pts.size>2)return;
+    const [x,y]=toScene(e.clientX,e.clientY), h=e.target.dataset&&e.target.dataset.h;
+    const orig=()=>Object.fromEntries([...sel].map(id=>[id,{...L.pieces[id]}]));
+    if(h&&sel.size){ const b=selBox(), c=[b.x+(h.includes("e")?b.w:0),b.y+(h.includes("s")?b.h:0)], a=[b.x+(h.includes("e")?0:b.w),b.y+(h.includes("s")?0:b.h)];
+      op={type:"size",a,c,o:orig()}; return }
+    const hit=hitTest(x,y);
+    if(!hit){ if(!e.shiftKey)sel.clear(); drawSel(); op=null; return }
+    if(e.shiftKey){ sel.has(hit)?sel.delete(hit):sel.add(hit) } else if(!sel.has(hit)) sel=new Set([hit]);
+    drawSel(); op=sel.size?{type:"move",x,y,o:orig()}:null;
+  },true);
+  wrap.addEventListener("pointermove",e=>{
+    if(!pts.has(e.pointerId))return; pts.set(e.pointerId,[e.clientX,e.clientY]); if(!op)return;
+    if(op.type==="pinch"){ if(pts.size<2)return; const [a,b]=[...pts.values()]; setZoom(op.z0*Math.hypot(a[0]-b[0],a[1]-b[1])/op.d0); return }
+    const [x,y]=toScene(e.clientX,e.clientY);
+    if(op.type==="move"){ for(const id in op.o){const q=op.o[id]; L.pieces[id]={x:q.x+x-op.x,y:q.y+y-op.y,w:q.w}} }
+    else { const {a,c}=op, vx=c[0]-a[0], vy=c[1]-a[1], s=Math.max(.05,((x-a[0])*vx+(y-a[1])*vy)/(vx*vx+vy*vy||1));
+      for(const id in op.o){const q=op.o[id]; L.pieces[id]={x:a[0]+(q.x-a[0])*s,y:a[1]+(q.y-a[1])*s,w:q.w*s}} }
+    applyLayout();
+  },true);
+  const up=e=>{ if(!pts.delete(e.pointerId))return; if(op&&op.type!=="pinch"||!pts.size){ if(op)saveDraft(); op=null } };
+  wrap.addEventListener("pointerup",up,true); wrap.addEventListener("pointercancel",up,true);
+  wrap.addEventListener("click",e=>e.stopPropagation(),true);
+  // wheel / trackpad pinch (ctrl+wheel) / Safari gesture zoom
+  wrap.addEventListener("wheel",e=>{e.preventDefault(); setZoom(L.zoom*Math.exp(-e.deltaY*(e.ctrlKey?.01:.0015))); saveDraft()},{passive:false});
+  let g0=1; wrap.addEventListener("gesturestart",e=>{e.preventDefault(); g0=L.zoom});
+  wrap.addEventListener("gesturechange",e=>{e.preventDefault(); setZoom(g0*e.scale)}); wrap.addEventListener("gestureend",saveDraft);
+  wrap.style.touchAction="none";
+}
+const layoutReady=(EDIT?Promise.resolve(lsGet(DRAFT_KEY,null)):Promise.resolve(null))
+  .then(d=>d||fetch(LAYOUT_FILE,{cache:"no-cache"}).then(r=>r.ok?r.json():null).catch(()=>null))
+  .then(j=>{ L=cleanLayout(j)||(EDIT?defaultLayout():null); applyLayout(); if(EDIT)startEditor() });
+Promise.all([houseImgs,layoutReady.catch(()=>{})]).then(()=>{houseDone=true; checkLoaded()});
 
 drawHouse(); builtins.forEach(measure); render();
 if(ALLOW_UPLOAD) loadUploads().finally(()=>{uploadsDone=true; checkLoaded()}); else checkLoaded();
