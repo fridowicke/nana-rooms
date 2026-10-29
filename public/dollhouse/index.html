@@ -489,7 +489,7 @@ function reset(){
 $("#again").addEventListener("click",reset);
 $("#reset").addEventListener("click",reset);
 $("#random").addEventListener("click",()=>{ if(alive)return; items.filter(it=>!pos[it.id]).forEach((it,i)=>setTimeout(()=>autoPlace(it.id),i*60)) });
-let rt; addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(renderSheet,120)});
+let rt; addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(()=>{renderSheet(); if(EDIT)drawSel()},120)});
 // the phone stretch follows the stage size (sheet height, rotation, Safari toolbar): re-place stickers when it changes
 if(window.ResizeObserver) new ResizeObserver(()=>{ if(measureStretch()!==SY) renderPlaced() }).observe(stage);
 
@@ -504,6 +504,7 @@ const pct=(v,t)=>v/t*100+"%";
 const shown=l=>!HIDDEN.includes(l.name)&&(EDIT||!isItem(l.name));
 let fileLayers=DEFAULT_LAYERS; // what Reset goes back to (the published file, or the built-in defaults)
 let sel=new Set(), zoom=1, panX=0, panY=0; // editor: selected layer names, view zoom and pan
+const LEGS=["leg-left","leg-right"]; let linkLegs=!!lsGet("dollhouse-link-legs",false); // editor: "link both legs" selects them together
 let traySel=null, lift=new Set(), hiddenEd=new Set(), liftOn=true; // editor: selected tray item, layers raised while dragging, layers hidden in the editor
 // HOUSE GROUP (dollhouse-layout.json houseGroup {x,y,scale}): the house, outside-stairs and the item layers are drawn at
 // x + layer*scale, y + layer*scale (size × scale). The stage (rooms, door, windows, dropped stickers in house units) follows the house,
@@ -574,10 +575,16 @@ const opNames=()=>sel.has(HG)?[...sel].filter(n=>!inGroup(n)):[...sel]; // with 
 function selBox(){ let x0=1/0,y0=1/0,x1=-1/0,y1=-1/0; sel.forEach(n=>{const b=box(n); x0=Math.min(x0,b.x);y0=Math.min(y0,b.y);x1=Math.max(x1,b.x+b.w);y1=Math.max(y1,b.y+b.h)}); return {x:x0,y:y0,w:x1-x0,h:y1-y0} }
 const rectStyle=b=>`left:${pct(b.x,ART.w)};top:${pct(b.y,ART.h)};width:${pct(b.w,ART.w)};height:${pct(b.h,ART.h)}`;
 function drawSel(){
+  if(linkLegs&&LEGS.some(n=>sel.has(n))) LEGS.forEach(n=>sel.add(n));
   if(!sel.size){selLayer.innerHTML="";return}
   const b=selBox();
   selLayer.innerHTML=[...sel].map(n=>`<div class="ol" style="${rectStyle(box(n))}"></div>`).join("")+`<div class="box" style="${rectStyle(b)}"></div>`+
-    [["nw",b.x,b.y],["ne",b.x+b.w,b.y],["sw",b.x,b.y+b.h],["se",b.x+b.w,b.y+b.h]].map(([h,x,y])=>`<div class="h" data-h="${h}" style="left:${pct(x,ART.w)};top:${pct(y,ART.h)}"></div>`).join("");
+    [["nw",b.x,b.y],["ne",b.x+b.w,b.y],["sw",b.x,b.y+b.h],["se",b.x+b.w,b.y+b.h]].map(([h,x,y])=>{[x,y]=onScreen(x,y); return `<div class="h" data-h="${h}" style="left:${pct(x,ART.w)};top:${pct(y,ART.h)}"></div>`}).join("");
+}
+function onScreen(x,y){ // corners outside the window (a leg's top, a corner under the panel) are drawn at the nearest visible spot
+  const w=wrap.getBoundingClientRect(), p=$("#epanel"), pr=p?p.getBoundingClientRect().left:innerWidth;
+  const [x0,y0]=toArt(Math.max(w.left,0)+8,Math.max(w.top,0)+48), [x1,y1]=toArt(Math.min(w.right,pr)-8,Math.min(w.bottom,innerHeight)-8);
+  return x1>x0&&y1>y0?[Math.min(x1,Math.max(x0,x)),Math.min(y1,Math.max(y0,y))]:[x,y];
 }
 function toArt(cx,cy){const r=sceneEl.getBoundingClientRect(); return [(cx-r.left)/r.width*ART.w,(cy-r.top)/r.height*ART.h]}
 const alphaMaps={}; // layer name → small canvas of its picture, for picking by the visible pixels
@@ -598,7 +605,7 @@ function setZoom(z,cx,cy){ // zoom about a screen point (default: the window cen
   panX=ox-(ox-panX)*nz/zoom; panY=oy-(oy-panY)*nz/zoom; zoom=nz; applyView();
 }
 function applyView(){ sceneEl.style.setProperty("--zoom",zoom); sceneEl.style.left=panX+"px"; sceneEl.style.top=panY+"px";
-  const sl=$("#ezoom"); if(sl)sl.value=Math.round(zoom*100) }
+  const sl=$("#ezoom"); if(sl)sl.value=Math.round(zoom*100); drawSel() }
 function saveDraft(){ lsSet(DRAFT_KEY,JSON.parse(layoutJson())) }
 const layoutJson=()=>JSON.stringify({canvas:{w:ART.w,h:ART.h},
   note:"x,y = top-left in the 8800x4946 artboard; z = stacking order (higher is in front). outlet-left is hidden behind the wall in the original artwork. houseGroup: house, outside-stairs and item-* layers are drawn at houseGroup.x + x*scale, houseGroup.y + y*scale, size*scale.",
@@ -629,13 +636,14 @@ function startEditor(){
   const bar=document.createElement("div"); bar.className="etools";
   bar.innerHTML=`<b style="font-weight:400">edit</b><button class="btn" id="eall" type="button">Select all</button><button class="btn" id="ehouse" type="button">House group</button>
     <label>zoom <input type="range" id="ezoom" min="30" max="400" step="1" value="100"></label>
-    <button class="btn" id="ereset" type="button">Reset</button><button class="btn primary" id="esave" type="button">Save</button><span class="st" id="estatus">drag layers · corners scale · shift-click adds · space-drag pans</span>`;
+    <button class="btn" id="ereset" type="button">Reset</button><button class="btn primary" id="esave" type="button">Save</button><span class="st" id="estatus">drag layers · corners scale (shift = free) · shift-click adds · space-drag pans</span>`;
   document.body.appendChild(bar);
   const panel=document.createElement("div"); panel.className="epanel"; panel.id="epanel";
   const rng=(id,min,max,step)=>`<div class="row"><input type="range" id="${id}" min="${min}" max="${max}" step="${step}"><input type="number" id="${id}n" min="${min}" max="${max}" step="${step}"></div>`;
   panel.innerHTML=`<h4>layers (click selects, shift adds; box = visible in editor)</h4>
     <div class="ll"><label data-name="${HG}"><input type="checkbox" checked>HOUSE GROUP (house, stairs, items)</label>${LAYERS.filter(shown).slice().sort((a,b)=>b.z-a.z).map(l=>`<label data-name="${l.name}"><input type="checkbox" checked>${l.name}</label>`).join("")}</div>
     <label class="row"><input type="checkbox" id="elift" checked>bring to front while dragging</label>
+    <label class="row"><input type="checkbox" id="elinklegs">link both legs (move and scale together)</label>
     <h4>selected: <span id="eselname">none</span> · arrows nudge, shift = 10×</h4>
     <div class="nums">${["x","y","w","h"].map(k=>`<label>${k}<input type="number" id="en${k}" step="1"></label>`).join("")}</div>
     <h4>house group scale % (house, stairs, rooms and everything dropped inside)</h4>${rng("ehg",10,300,1)}
@@ -648,6 +656,7 @@ function startEditor(){
     cb.addEventListener("change",()=>{ cb.checked?hiddenEd.delete(n):hiddenEd.add(n); applyLayers() });
     lb.addEventListener("click",e=>{ if(e.target===cb)return; e.preventDefault(); if(e.shiftKey){sel.has(n)?sel.delete(n):sel.add(n)} else sel=new Set([n]); drawSel(); syncPanel(); $("#estatus").textContent=[...sel].join(", ") }) });
   $("#elift").onchange=e=>{liftOn=e.target.checked};
+  $("#elinklegs").checked=linkLegs; $("#elinklegs").onchange=e=>{linkLegs=e.target.checked; lsSet("dollhouse-link-legs",linkLegs); drawSel(); syncPanel()};
   ["x","y","w","h"].forEach(k=>$("#en"+k).addEventListener("input",e=>{ const v=parseFloat(e.target.value); if(sel.size!==1||!isFinite(v)||(k==="w"||k==="h")&&v<=0)return;
     const n=[...sel][0], b={...box(n)}; if(n===HG&&k==="h")b.w=b.w*v/b.h; else b[k]=v; setBox(n,b); applyLayers(); saveDraft(); useLayers(LAYERS); renderPlaced() }));
   ["ehg","ehgn"].forEach(i=>$("#"+i).addEventListener("input",e=>{const v=parseFloat(e.target.value); if(!isFinite(v)||v<10||v>500)return;
@@ -686,7 +695,7 @@ function startEditor(){
     const [x,y]=toArt(e.clientX,e.clientY), h=e.target.dataset&&e.target.dataset.h;
     const orig=()=>Object.fromEntries(opNames().map(n=>[n,{...box(n)}]));
     if(h&&sel.size){ const b=selBox(), c=[b.x+(h.includes("e")?b.w:0),b.y+(h.includes("s")?b.h:0)], a=[b.x+(h.includes("e")?0:b.w),b.y+(h.includes("s")?0:b.h)];
-      op={type:"size",a,c,o:orig()}; return }
+      op={type:"size",a,c,x,y,o:orig()}; return }
     const inSel=!e.shiftKey&&[...sel].some(n=>{const l=box(n); if(n===HG)return x>=l.x&&y>=l.y&&x<=l.x+l.w&&y<=l.y+l.h; return !edHidden(n)&&x>=l.x&&y>=l.y&&x<=l.x+l.w&&y<=l.y+l.h&&alphaAt(n,(x-l.x)/l.w,(y-l.y)/l.h)>16});
     if(inSel){ op={type:"move",x,y,o:orig()}; if(liftOn)lift=new Set(sel); applyLayers(); return }
     const hit=hitTest(x,y);
@@ -701,8 +710,11 @@ function startEditor(){
     if(op.type==="pan"){ panX=op.px+e.clientX-op.x; panY=op.py+e.clientY-op.y; applyView(); return }
     const [x,y]=toArt(e.clientX,e.clientY);
     if(op.type==="move"){ for(const n in op.o){const q=op.o[n]; setBox(n,{...q,x:q.x+x-op.x,y:q.y+y-op.y})} }
-    else { const {a,c}=op, vx=c[0]-a[0], vy=c[1]-a[1], s=Math.max(.05,((x-a[0])*vx+(y-a[1])*vy)/(vx*vx+vy*vy||1));
-      for(const n in op.o){const q=op.o[n]; setBox(n,{x:a[0]+(q.x-a[0])*s,y:a[1]+(q.y-a[1])*s,w:q.w*s,h:q.h*s})} }
+    else { // relative to where the handle was grabbed (it may be drawn inside the window rather than at the real corner)
+      const {a,c}=op, vx=c[0]-a[0], vy=c[1]-a[1], pr=(px,py)=>(px-a[0])*vx+(py-a[1])*vy, s=Math.max(.05,pr(x,y)/(pr(op.x,op.y)||1));
+      // shift = free resize (width and height separately); the house group always keeps its aspect
+      const free=e.shiftKey&&!sel.has(HG), sx=free?Math.max(.05,(x-a[0])/((op.x-a[0])||1)):s, sy=free?Math.max(.05,(y-a[1])/((op.y-a[1])||1)):s;
+      for(const n in op.o){const q=op.o[n]; setBox(n,{x:a[0]+(q.x-a[0])*sx,y:a[1]+(q.y-a[1])*sy,w:q.w*sx,h:q.h*sy})} }
     applyLayers();
   },true);
   const up=e=>{ if(!pts.delete(e.pointerId))return; if(op&&op.type!=="pinch"||!pts.size){ if(op&&op.type!=="pan"&&op.type!=="pinch"){saveDraft(); useLayers(LAYERS)} op=null; if(lift.size){lift.clear(); applyLayers()} } };
