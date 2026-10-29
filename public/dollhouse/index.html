@@ -112,19 +112,34 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .etools input[type=range]{width:120px}
 .etools .st{color:var(--muted)}
 .sheet .sticker.tsel{outline:1px solid var(--ink);outline-offset:1px}
-.epanel{position:fixed;right:6px;top:40px;bottom:calc(17dvh + 10px);z-index:20;width:210px;display:flex;flex-direction:column;gap:6px;background:var(--bg);border:1px solid var(--ink);padding:6px;font-size:11px;line-height:1.3;overflow:auto;box-sizing:border-box}
-.epanel h4{margin:4px 0 0;font-size:11px;font-weight:400;color:var(--muted)}
-.epanel .ll{display:flex;flex-direction:column;max-height:40vh;overflow:auto;border:1px solid var(--faint)}
-.epanel .ll label{display:flex;align-items:center;gap:4px;padding:1px 3px;cursor:pointer;white-space:nowrap}
+.epanel{position:fixed;right:6px;top:40px;z-index:20;width:240px;max-width:calc(100vw - 12px);max-height:min(70vh,calc(100vh - 48px));display:flex;flex-direction:column;background:rgba(255,255,255,.85);border:1px solid var(--ink);font-size:10px;line-height:1.25;box-sizing:border-box;transition:opacity .15s,background .15s}
+.epanel:hover{background:var(--bg)}
+.epanel.left{right:auto;left:6px}
+.epanel.collapsed{display:none}
+body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
+.epanel .ehead{display:flex;align-items:center;gap:4px;padding:3px 4px 3px 6px;border-bottom:1px solid var(--ink);cursor:move;user-select:none;touch-action:none;flex:none}
+.epanel .ehead b{flex:1;font-weight:400}
+.epanel .ehead .btn{font-size:10px;padding:0 5px;cursor:pointer}
+.epanel .ebody{overflow:auto;padding:4px 6px 6px;display:flex;flex-direction:column;gap:3px;min-height:0}
+.epanel details{border-top:1px solid var(--faint)}
+.epanel details>div{display:flex;flex-direction:column;gap:4px;padding:2px 0 4px}
+.epanel summary{cursor:pointer;padding:2px 0;color:var(--ink)}
+.epanel h4{margin:2px 0 0;font-size:10px;font-weight:400;color:var(--muted)}
+.epanel .ll{display:flex;flex-direction:column;max-height:28vh;overflow:auto;border:1px solid var(--faint)}
+.epanel .ll label{display:flex;align-items:center;gap:4px;padding:0 3px;cursor:pointer;white-space:nowrap}
 .epanel .ll label.on{background:var(--ink);color:var(--bg)}
 .epanel .ll input{margin:0}
 .epanel .nums{display:grid;grid-template-columns:repeat(4,1fr);gap:3px}
-.epanel .nums input,.epanel input[type=number]{width:100%;box-sizing:border-box;font:inherit;font-size:11px;padding:1px 2px;border:1px solid var(--dim)}
+.epanel .nums input,.epanel input[type=number]{width:100%;box-sizing:border-box;font:inherit;font-size:10px;padding:1px 2px;border:1px solid var(--dim)}
 .epanel .row{display:flex;align-items:center;gap:4px}
 .epanel .row input[type=range]{flex:1;min-width:0}
-.epanel .row input[type=number]{width:52px;flex:none}
-.epanel .btn.big{font-size:16px;padding:0 10px;line-height:1.3;flex:none}
+.epanel .row input[type=number]{width:48px;flex:none}
+.epanel .btn{font-size:10px;padding:1px 5px}
+.epanel .btn.big{font-size:14px;padding:0 8px;line-height:1.2;flex:none}
 .epanel .wrapRow{flex-wrap:wrap}
+.epanelBtn{position:fixed;right:6px;top:40px;z-index:20;width:28px;height:28px;border-radius:50%;border:1px solid var(--ink);background:var(--bg);font-size:12px;line-height:1;padding:0;cursor:pointer;display:none}
+.epanelBtn.left{right:auto;left:6px}
+.epanelBtn.on{display:block}
 .editing .placed img{transition:opacity .7s ease}
 @media (max-width:860px){ header{flex-wrap:wrap;row-gap:4px} }
 /* phones: same cover-fitted scene above the sheet */
@@ -610,7 +625,7 @@ function drawSel(){
     [["nw",b.x,b.y],["ne",b.x+b.w,b.y],["sw",b.x,b.y+b.h],["se",b.x+b.w,b.y+b.h]].map(([h,x,y])=>{[x,y]=onScreen(x,y); return `<div class="h" data-h="${h}" style="left:${pct(x,ART.w)};top:${pct(y,ART.h)}"></div>`}).join("");
 }
 function onScreen(x,y){ // corners outside the window (a leg's top, a corner under the panel) are drawn at the nearest visible spot
-  const w=wrap.getBoundingClientRect(), p=$("#epanel"), pr=p?p.getBoundingClientRect().left:innerWidth;
+  const w=wrap.getBoundingClientRect(), p=$("#epanel"), q=p&&!p.classList.contains("collapsed")?p.getBoundingClientRect():null, pr=q&&q.left>innerWidth/2?q.left:innerWidth;
   const [x0,y0]=toArt(Math.max(w.left,0)+8,Math.max(w.top,0)+48), [x1,y1]=toArt(Math.min(w.right,pr)-8,Math.min(w.bottom,innerHeight)-8);
   return x1>x0&&y1>y0?[Math.min(x1,Math.max(x0,x)),Math.min(y1,Math.max(y0,y))]:[x,y];
 }
@@ -669,22 +684,49 @@ function startEditor(){
     <button class="btn" id="ereset" type="button">Reset</button><button class="btn primary" id="esave" type="button">Save</button><span class="st" id="estatus">drag layers · corners scale (shift = free) · alt/cmd-wheel sizes · drag tray items in, click one to pick it</span>`;
   document.body.appendChild(bar);
   const panel=document.createElement("div"); panel.className="epanel"; panel.id="epanel";
+  const secOpen=lsGet("dollhouse-epanel-secs",{});
   const rng=(id,min,max,step)=>`<div class="row"><input type="range" id="${id}" min="${min}" max="${max}" step="${step}"><input type="number" id="${id}n" min="${min}" max="${max}" step="${step}"></div>`;
-  panel.innerHTML=`<h4>layers (click selects, shift adds; box = visible in editor)</h4>
+  const sec=(k,t,b)=>`<details data-sec="${k}"${secOpen[k]===false?"":" open"}><summary>${t}</summary><div>${b}</div></details>`;
+  panel.innerHTML=`<div class="ehead" title="drag to move · H hides"><b>editor</b><button class="btn" id="edock" type="button"></button><button class="btn" id="ecollapse" type="button" title="Collapse (H)">–</button></div><div class="ebody">
+    ${sec("layers","Layers",`<h4>click selects, shift adds; box = visible in editor</h4>
     <div class="ll"><label data-name="${HG}"><input type="checkbox" checked>HOUSE GROUP (house, stairs, items)</label>${LAYERS.filter(shown).slice().sort((a,b)=>b.z-a.z).map(l=>`<label data-name="${l.name}"><input type="checkbox" checked>${l.name}</label>`).join("")}</div>
     <label class="row"><input type="checkbox" id="elift" checked>bring to front while dragging</label>
-    <label class="row"><input type="checkbox" id="elinklegs">link both legs (move and scale together)</label>
-    <h4>selected: <span id="eselname">none</span> · arrows nudge, shift = 10×</h4>
+    <label class="row"><input type="checkbox" id="elinklegs">link both legs (move and scale together)</label>`)}
+    ${sec("selected","Selected layer",`<h4>selected: <span id="eselname">none</span> · arrows nudge, shift = 10×</h4>
     <div class="nums">${["x","y","w","h"].map(k=>`<label>${k}<input type="number" id="en${k}" step="1"></label>`).join("")}</div>
-    <h4>size % (around its centre · alt/cmd + wheel · pinch)</h4>
-    <div class="row"><button class="btn big" id="esminus" type="button" aria-label="Smaller">−</button><input type="range" id="esz" min="10" max="400" step="1"><input type="number" id="eszn" min="5" max="1000" step="1"><button class="btn big" id="esplus" type="button" aria-label="Bigger">+</button></div>
     <h4>dropped sticker</h4>
-    <div class="row wrapRow"><button class="btn" id="efront" type="button">bring to front</button><button class="btn" id="eback" type="button">send backward</button><button class="btn" id="eremove" type="button">remove (back to tray)</button></div>
-    <h4>house group scale % (house, stairs, rooms and everything dropped inside)</h4>${rng("ehg",10,300,1)}
-    <h4>toolbar height</h4>${rng("etb",.3,4,.05)}
+    <div class="row wrapRow"><button class="btn" id="efront" type="button">bring to front</button><button class="btn" id="eback" type="button">send backward</button><button class="btn" id="eremove" type="button">remove (back to tray)</button></div>`)}
+    ${sec("size","Size",`<h4>size % (around its centre · alt/cmd + wheel · pinch)</h4>
+    <div class="row"><button class="btn big" id="esminus" type="button" aria-label="Smaller">−</button><input type="range" id="esz" min="10" max="400" step="1"><input type="number" id="eszn" min="5" max="1000" step="1"><button class="btn big" id="esplus" type="button" aria-label="Bigger">+</button></div>`)}
+    ${sec("house","House group",`<h4>scale % (house, stairs, rooms and everything dropped inside)</h4>${rng("ehg",10,300,1)}`)}
+    ${sec("toolbar","Toolbar",`<h4>toolbar height</h4>${rng("etb",.3,4,.05)}
     <h4>all tray items size</h4>${rng("eta",.2,5,.05)}
-    <h4>tray item: <span id="etrayname"></span></h4>${rng("eti",.1,8,.05)}`;
+    <h4>tray item: <span id="etrayname"></span></h4>${rng("eti",.1,8,.05)}`)}</div>`;
   document.body.appendChild(panel);
+  // panel: collapse (H, round button), drag by its header, dock left/right, sections remembered, always kept on screen
+  const pbtn=document.createElement("button"); pbtn.className="epanelBtn"; pbtn.type="button"; pbtn.title="Show editor panel (H)"; pbtn.textContent="☰";
+  document.body.appendChild(pbtn);
+  let pst={dock:"right",x:null,y:null,collapsed:false,...lsGet("dollhouse-epanel",{})};
+  const keepOnScreen=()=>{ if(pst.x==null)return; const r=panel.getBoundingClientRect();
+    pst.x=Math.max(0,Math.min(innerWidth-r.width,pst.x)); pst.y=Math.max(0,Math.min(innerHeight-r.height,pst.y)); panel.style.left=pst.x+"px"; panel.style.top=pst.y+"px" };
+  const applyPanel=()=>{ const left=pst.dock==="left";
+    panel.classList.toggle("left",left); pbtn.classList.toggle("left",left);
+    panel.classList.toggle("collapsed",pst.collapsed); pbtn.classList.toggle("on",pst.collapsed);
+    panel.style.left=panel.style.top=panel.style.right=""; if(pst.x!=null){panel.style.right="auto"; keepOnScreen()}
+    $("#edock").textContent=left?"dock right":"dock left"; lsSet("dollhouse-epanel",pst); drawSel() };
+  const togglePanel=()=>{pst.collapsed=!pst.collapsed; applyPanel()};
+  $("#ecollapse").onclick=togglePanel; pbtn.onclick=togglePanel;
+  $("#edock").onclick=()=>{pst.dock=pst.dock==="left"?"right":"left"; pst.x=pst.y=null; applyPanel()};
+  panel.querySelectorAll("details").forEach(d=>d.addEventListener("toggle",()=>{secOpen[d.dataset.sec]=d.open; lsSet("dollhouse-epanel-secs",secOpen); keepOnScreen()}));
+  const head=panel.querySelector(".ehead");
+  head.addEventListener("pointerdown",e=>{ if(e.target.closest("button"))return; e.preventDefault(); head.setPointerCapture(e.pointerId);
+    const r=panel.getBoundingClientRect(), dx=e.clientX-r.left, dy=e.clientY-r.top;
+    const mv=ev=>{pst.x=ev.clientX-dx; pst.y=ev.clientY-dy; panel.style.right="auto"; keepOnScreen(); drawSel()};
+    const end=()=>{head.removeEventListener("pointermove",mv); head.removeEventListener("pointerup",end); head.removeEventListener("pointercancel",end); lsSet("dollhouse-epanel",pst)};
+    head.addEventListener("pointermove",mv); head.addEventListener("pointerup",end); head.addEventListener("pointercancel",end) });
+  addEventListener("resize",keepOnScreen);
+  addEventListener("keydown",e=>{ if(e.target.closest&&e.target.closest("input,textarea"))return; if(e.key.toLowerCase()==="h"&&!e.metaKey&&!e.ctrlKey&&!e.altKey)togglePanel() });
+  applyPanel();
   panel.querySelectorAll(".ll label").forEach(lb=>{ const n=lb.dataset.name, cb=lb.querySelector("input");
     cb.addEventListener("click",e=>e.stopPropagation());
     cb.addEventListener("change",()=>{ cb.checked?hiddenEd.delete(n):hiddenEd.add(n); applyLayers() });
@@ -728,6 +770,7 @@ function startEditor(){
   addEventListener("keyup",e=>{if(e.key===" ")space=false});
   // drag / scale / pan / two-finger pinch, all in artboard units
   const pts=new Map(); let op=null;
+  const fade=on=>document.body.classList.toggle("edrag",on);
   wrap.addEventListener("pointerdown",e=>{
     if(e.target.closest(".etools,.epanel"))return;
     e.preventDefault(); e.stopPropagation(); wrap.setPointerCapture(e.pointerId);
@@ -741,14 +784,14 @@ function startEditor(){
     const [x,y]=toArt(e.clientX,e.clientY), h=e.target.dataset&&e.target.dataset.h;
     const orig=()=>Object.fromEntries(opNames().map(n=>[n,{...box(n)}]));
     if(h&&sel.size){ const b=selBox(), c=[b.x+(h.includes("e")?b.w:0),b.y+(h.includes("s")?b.h:0)], a=[b.x+(h.includes("e")?0:b.w),b.y+(h.includes("s")?0:b.h)];
-      op={type:"size",a,c,x,y,o:orig()}; return }
+      op={type:"size",a,c,x,y,o:orig()}; fade(true); return }
     const dh=hitDrop(x,y); // dropped stickers are in front of every layer
     const inSel=!e.shiftKey&&(dh?sel.has(dh):[...sel].some(n=>{const l=box(n); if(n===HG)return x>=l.x&&y>=l.y&&x<=l.x+l.w&&y<=l.y+l.h; return !edHidden(n)&&x>=l.x&&y>=l.y&&x<=l.x+l.w&&y<=l.y+l.h&&alphaAt(n,(x-l.x)/l.w,(y-l.y)/l.h)>16}));
-    if(inSel){ op={type:"move",x,y,o:orig()}; if(liftOn)lift=new Set(sel); applyLayers(); return }
+    if(inSel){ op={type:"move",x,y,o:orig()}; fade(true); if(liftOn)lift=new Set(sel); applyLayers(); return }
     const hit=dh||hitTest(x,y);
     if(!hit){ if(!e.shiftKey)sel.clear(); drawSel(); op=null; return }
     if(e.shiftKey){ sel.has(hit)?sel.delete(hit):sel.add(hit) } else if(!sel.has(hit)) sel=new Set([hit]);
-    drawSel(); op=sel.size?{type:"move",x,y,o:orig()}:null; if(op&&liftOn){lift=new Set(sel); applyLayers()}
+    drawSel(); op=sel.size?{type:"move",x,y,o:orig()}:null; fade(!!op); if(op&&liftOn){lift=new Set(sel); applyLayers()}
     $("#estatus").textContent=[...sel].join(", ");
   },true);
   wrap.addEventListener("pointermove",e=>{
@@ -765,7 +808,7 @@ function startEditor(){
       for(const n in op.o){const q=op.o[n]; setBox(n,{x:a[0]+(q.x-a[0])*sx,y:a[1]+(q.y-a[1])*sy,w:q.w*sx,h:q.h*sy})} }
     applyLayers();
   },true);
-  const up=e=>{ if(!pts.delete(e.pointerId))return; if(op&&op.type!=="pinch"||!pts.size){ if(op&&op.type!=="pan"&&op.type!=="pinch"){saveDraft(); useLayers(LAYERS)} op=null; if(lift.size){lift.clear(); applyLayers()} } };
+  const up=e=>{ if(!pts.delete(e.pointerId))return; if(op&&op.type!=="pinch"||!pts.size){ if(op&&op.type!=="pan"&&op.type!=="pinch"){saveDraft(); useLayers(LAYERS)} op=null; fade(false); if(lift.size){lift.clear(); applyLayers()} } };
   wrap.addEventListener("pointerup",up,true); wrap.addEventListener("pointercancel",up,true);
   wrap.addEventListener("click",e=>e.stopPropagation(),true);
   // wheel / trackpad pinch (ctrl+wheel) / Safari gesture zoom, about the pointer
