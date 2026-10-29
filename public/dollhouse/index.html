@@ -102,7 +102,19 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .emptyNote{color:var(--muted);margin:0;align-self:center;flex:1 1 200px}
 .ghost{position:fixed;left:0;top:0;pointer-events:none;z-index:50;transform:translate(-50%,-50%)}
 .ghost.back{transition:all .25s ease-in}
-
+/* editor (?edit=1): every layer can be picked; zoom resizes the scene (sharp pictures), pan moves it */
+.editing .stageWrap{cursor:default;overflow:visible}
+.editing .scene{width:calc(min(100cqw,100cqh * 8800 / 4946) * var(--zoom,1))}
+.editing .stage *{pointer-events:none!important}
+#selLayer{position:absolute;inset:0;pointer-events:none;z-index:40}
+#selLayer .ol{position:absolute;outline:1px dashed rgba(0,0,0,.45)}
+#selLayer .box{position:absolute;outline:1px solid var(--ink)}
+#selLayer .h{position:absolute;width:10px;height:10px;background:var(--bg);border:1px solid var(--ink);box-sizing:border-box;transform:translate(-50%,-50%);pointer-events:auto}
+#selLayer .h[data-h=nw],#selLayer .h[data-h=se]{cursor:nwse-resize}
+#selLayer .h[data-h=ne],#selLayer .h[data-h=sw]{cursor:nesw-resize}
+.etools{position:fixed;left:50%;top:6px;transform:translateX(-50%);z-index:20;display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--ink);padding:3px 6px;font-size:12px;line-height:1.3;white-space:nowrap}
+.etools input[type=range]{width:120px}
+.etools .st{color:var(--muted)}
 @media (max-width:860px){ header{flex-wrap:wrap;row-gap:4px} .stageWrap{padding-top:40px;box-sizing:border-box} }
 /* phones: same scene, same aspect (width-limited), centred above the sheet */
 @media (max-width:700px){
@@ -553,11 +565,16 @@ let rt; addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(renderShee
 if(window.ResizeObserver) new ResizeObserver(()=>{ if(measureStretch()!==SY) renderPlaced() }).observe(stage);
 
 
-/* ---------------- scene layers ----------------
-   Every layer except the item-* stickers and outlet-left is an <img> in % of the artboard; the stage (game area) follows the house layer. */
-const sceneEl=$("#scene"), layersEl=$("#layers");
+/* ---------------- scene layers + layout file ----------------
+   Every layer except the item-* stickers and outlet-left is an <img> in % of the artboard; the stage (game area) follows the house layer.
+   Visitors: dollhouse-layout.json if present, else DEFAULT_LAYERS. ?edit=1: the draft in this browser first, then the same. */
+const sceneEl=$("#scene"), layersEl=$("#layers"), selLayer=$("#selLayer");
+const LAYOUT_FILE="dollhouse-layout.json", DRAFT_KEY="dollhouse-layers-draft";
+const EDIT=new URLSearchParams(location.search).get("edit")==="1";
 const pct=(v,t)=>v/t*100+"%";
-const shown=l=>!HIDDEN.includes(l.name)&&!isItem(l.name);
+const shown=l=>!HIDDEN.includes(l.name)&&(EDIT||!isItem(l.name));
+let fileLayers=DEFAULT_LAYERS; // what Reset goes back to (the published file, or the built-in defaults)
+let sel=new Set(), zoom=1, panX=0, panY=0; // editor: selected layer names, view zoom and pan
 function buildLayers(){
   layersEl.innerHTML=LAYERS.filter(shown).map(l=>`<img class="ly" data-name="${l.name}" src="layers/${l.name}.webp" alt="" draggable="false">`).join("");
 }
@@ -565,10 +582,126 @@ function placeBox(el,l){ el.style.left=pct(l.x,ART.w); el.style.top=pct(l.y,ART.
 function applyLayers(){
   LAYERS.forEach(l=>{ const el=layersEl.querySelector(`[data-name="${l.name}"]`); if(!el)return; placeBox(el,l); el.style.zIndex=l.z+1 });
   const house=LAYERS.find(l=>l.name==="house"); if(house) placeBox(stage,house);
+  if(EDIT) drawSel();
+}
+function cleanLayers(j){ // known layer names only; anything missing or broken → default values
+  const arr=Array.isArray(j)?j:j&&Array.isArray(j.layers)?j.layers:null; if(!arr)return null;
+  const ok=v=>typeof v==="number"&&isFinite(v);
+  return DEFAULT_LAYERS.map(d=>{const q=arr.find(l=>l&&l.name===d.name);
+    return q&&ok(q.x)&&ok(q.y)&&ok(q.w)&&ok(q.h)&&q.w>0&&q.h>0?{...d,x:q.x,y:q.y,w:q.w,h:q.h,z:ok(q.z)?q.z:d.z}:{...d}});
+}
+function useLayers(ls){ // item stickers take their size from their layer (artboard units = house units at the default house width)
+  LAYERS=ls.map(l=>({...l})); const hw=(LAYERS.find(l=>l.name==="house")||{}).w||VB.w;
+  builtins.forEach(it=>{const l=LAYERS.find(l=>`layers/${l.name}.webp`===it.src); if(l&&isItem(l.name)) it.h=l.h*VB.w/hw});
+  applyLayers();
 }
 buildLayers(); applyLayers();
 const houseImgs=Promise.all([...layersEl.querySelectorAll("img")].map(i=>i.decode().catch(()=>{})));
-houseImgs.then(()=>{houseDone=true; checkLoaded()});
+const layoutReady=fetch(LAYOUT_FILE,{cache:"no-cache"}).then(r=>r.ok?r.json():null).catch(()=>null).then(j=>{
+  fileLayers=cleanLayers(j)||DEFAULT_LAYERS; useLayers((EDIT&&cleanLayers(lsGet(DRAFT_KEY,null)))||fileLayers); renderPlaced(); if(EDIT)startEditor() });
+Promise.all([houseImgs,layoutReady.catch(()=>{})]).then(()=>{houseDone=true; checkLoaded()});
+
+/* ---------------- editor (?edit=1) ----------------
+   Every shown layer (items too) can be dragged; corner handles scale the selection keeping its aspect; shift-click adds.
+   Zoom (slider, wheel, pinch) resizes the scene itself, so the pictures stay sharp; space- or alt-drag pans.
+   Save downloads and copies dollhouse-layout.json (same shape as the published file, artboard units). */
+const lay=name=>LAYERS.find(l=>l.name===name);
+const editable=()=>LAYERS.filter(shown).map(l=>l.name);
+function selBox(){ let x0=1/0,y0=1/0,x1=-1/0,y1=-1/0; sel.forEach(n=>{const b=lay(n); x0=Math.min(x0,b.x);y0=Math.min(y0,b.y);x1=Math.max(x1,b.x+b.w);y1=Math.max(y1,b.y+b.h)}); return {x:x0,y:y0,w:x1-x0,h:y1-y0} }
+const rectStyle=b=>`left:${pct(b.x,ART.w)};top:${pct(b.y,ART.h)};width:${pct(b.w,ART.w)};height:${pct(b.h,ART.h)}`;
+function drawSel(){
+  if(!sel.size){selLayer.innerHTML="";return}
+  const b=selBox();
+  selLayer.innerHTML=[...sel].map(n=>`<div class="ol" style="${rectStyle(lay(n))}"></div>`).join("")+`<div class="box" style="${rectStyle(b)}"></div>`+
+    [["nw",b.x,b.y],["ne",b.x+b.w,b.y],["sw",b.x,b.y+b.h],["se",b.x+b.w,b.y+b.h]].map(([h,x,y])=>`<div class="h" data-h="${h}" style="left:${pct(x,ART.w)};top:${pct(y,ART.h)}"></div>`).join("");
+}
+function toArt(cx,cy){const r=sceneEl.getBoundingClientRect(); return [(cx-r.left)/r.width*ART.w,(cy-r.top)/r.height*ART.h]}
+const alphaMaps={}; // layer name → small canvas of its picture, for picking by the visible pixels
+function alphaAt(name,u,v){
+  let c=alphaMaps[name]; const im=layersEl.querySelector(`[data-name="${name}"]`);
+  if(!c){ if(!im||!im.naturalWidth)return 255; c=document.createElement("canvas"); c.width=Math.max(1,Math.round(im.naturalWidth/4)); c.height=Math.max(1,Math.round(im.naturalHeight/4));
+    try{c.getContext("2d",{willReadFrequently:true}).drawImage(im,0,0,c.width,c.height)}catch(e){return 255} alphaMaps[name]=c }
+  try{return c.getContext("2d",{willReadFrequently:true}).getImageData(Math.min(c.width-1,Math.floor(u*c.width)),Math.min(c.height-1,Math.floor(v*c.height)),1,1).data[3]}catch(e){return 255}
+}
+function hitTest(x,y){ // topmost layer with a visible pixel under the point
+  const ls=editable().map(lay).sort((a,b)=>b.z-a.z||LAYERS.indexOf(b)-LAYERS.indexOf(a));
+  for(const l of ls){ if(x<l.x||y<l.y||x>l.x+l.w||y>l.y+l.h)continue; if(alphaAt(l.name,(x-l.x)/l.w,(y-l.y)/l.h)>16) return l.name }
+  return null;
+}
+function setZoom(z,cx,cy){ // zoom about a screen point (default: the window centre)
+  const nz=Math.min(4,Math.max(.3,z)), r=wrap.getBoundingClientRect(); cx??=r.left+r.width/2; cy??=r.top+r.height/2;
+  const ox=cx-(r.left+r.width/2), oy=cy-(r.top+r.height/2);
+  panX=ox-(ox-panX)*nz/zoom; panY=oy-(oy-panY)*nz/zoom; zoom=nz; applyView();
+}
+function applyView(){ sceneEl.style.setProperty("--zoom",zoom); sceneEl.style.left=panX+"px"; sceneEl.style.top=panY+"px";
+  const sl=$("#ezoom"); if(sl)sl.value=Math.round(zoom*100) }
+function saveDraft(){ lsSet(DRAFT_KEY,LAYERS) }
+const layoutJson=()=>JSON.stringify({canvas:{w:ART.w,h:ART.h},
+  note:"x,y = top-left in the 8800x4946 artboard; z = stacking order (higher is in front). outlet-left is hidden behind the wall in the original artwork.",
+  layers:LAYERS.map(l=>({name:l.name,group:l.group,z:l.z,x:Math.round(l.x),y:Math.round(l.y),w:Math.round(l.w),h:Math.round(l.h)}))},null,1);
+function saveLayout(){
+  const json=layoutJson(); saveDraft();
+  navigator.clipboard?.writeText(json).catch(()=>{});
+  const url=URL.createObjectURL(new Blob([json],{type:"application/json"})), a=document.createElement("a");
+  a.href=url; a.download=LAYOUT_FILE; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),2000);
+  $("#estatus").textContent=`saved and copied — send ${LAYOUT_FILE} to the bot to publish`;
+}
+function startEditor(){
+  document.body.classList.add("editing");
+  const bar=document.createElement("div"); bar.className="etools";
+  bar.innerHTML=`<b style="font-weight:400">edit</b><button class="btn" id="eall" type="button">Select all</button>
+    <label>zoom <input type="range" id="ezoom" min="30" max="400" step="1" value="100"></label>
+    <button class="btn" id="ereset" type="button">Reset</button><button class="btn primary" id="esave" type="button">Save</button><span class="st" id="estatus">drag layers · corners scale · shift-click adds · space-drag pans</span>`;
+  document.body.appendChild(bar);
+  const selectAll=()=>{sel=new Set(editable()); drawSel()};
+  $("#eall").onclick=selectAll;
+  $("#ezoom").oninput=e=>setZoom(e.target.value/100);
+  $("#ereset").onclick=()=>{ lsSet(DRAFT_KEY,null); useLayers(fileLayers); sel.clear(); drawSel(); zoom=1; panX=panY=0; applyView(); renderPlaced(); $("#estatus").textContent="reset to the published layout" };
+  $("#esave").onclick=saveLayout;
+  let space=false;
+  addEventListener("keydown",e=>{ if(e.target.closest&&e.target.closest("input,textarea"))return;
+    if(e.key===" "){space=true; e.preventDefault()}
+    if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="a"){e.preventDefault(); selectAll()}
+    else if(e.key==="Escape"){sel.clear(); drawSel()} });
+  addEventListener("keyup",e=>{if(e.key===" ")space=false});
+  // drag / scale / pan / two-finger pinch, all in artboard units
+  const pts=new Map(); let op=null;
+  wrap.addEventListener("pointerdown",e=>{
+    if(e.target.closest(".etools"))return;
+    e.preventDefault(); e.stopPropagation(); wrap.setPointerCapture(e.pointerId);
+    pts.set(e.pointerId,[e.clientX,e.clientY]);
+    if(pts.size===2){ const [a,b]=[...pts.values()]; op={type:"pinch",d0:Math.hypot(a[0]-b[0],a[1]-b[1])||1,z0:zoom}; return }
+    if(pts.size>2)return;
+    if(space||e.altKey||e.button===1){ op={type:"pan",x:e.clientX,y:e.clientY,px:panX,py:panY}; return }
+    const [x,y]=toArt(e.clientX,e.clientY), h=e.target.dataset&&e.target.dataset.h;
+    const orig=()=>Object.fromEntries([...sel].map(n=>[n,{...lay(n)}]));
+    if(h&&sel.size){ const b=selBox(), c=[b.x+(h.includes("e")?b.w:0),b.y+(h.includes("s")?b.h:0)], a=[b.x+(h.includes("e")?0:b.w),b.y+(h.includes("s")?0:b.h)];
+      op={type:"size",a,c,o:orig()}; return }
+    const hit=hitTest(x,y);
+    if(!hit){ if(!e.shiftKey)sel.clear(); drawSel(); op=null; return }
+    if(e.shiftKey){ sel.has(hit)?sel.delete(hit):sel.add(hit) } else if(!sel.has(hit)) sel=new Set([hit]);
+    drawSel(); op=sel.size?{type:"move",x,y,o:orig()}:null;
+    $("#estatus").textContent=[...sel].join(", ");
+  },true);
+  wrap.addEventListener("pointermove",e=>{
+    if(!pts.has(e.pointerId))return; pts.set(e.pointerId,[e.clientX,e.clientY]); if(!op)return;
+    if(op.type==="pinch"){ if(pts.size<2)return; const [a,b]=[...pts.values()]; setZoom(op.z0*Math.hypot(a[0]-b[0],a[1]-b[1])/op.d0,(a[0]+b[0])/2,(a[1]+b[1])/2); return }
+    if(op.type==="pan"){ panX=op.px+e.clientX-op.x; panY=op.py+e.clientY-op.y; applyView(); return }
+    const [x,y]=toArt(e.clientX,e.clientY);
+    if(op.type==="move"){ for(const n in op.o){const q=op.o[n]; Object.assign(lay(n),{x:q.x+x-op.x,y:q.y+y-op.y})} }
+    else { const {a,c}=op, vx=c[0]-a[0], vy=c[1]-a[1], s=Math.max(.05,((x-a[0])*vx+(y-a[1])*vy)/(vx*vx+vy*vy||1));
+      for(const n in op.o){const q=op.o[n]; Object.assign(lay(n),{x:a[0]+(q.x-a[0])*s,y:a[1]+(q.y-a[1])*s,w:q.w*s,h:q.h*s})} }
+    applyLayers();
+  },true);
+  const up=e=>{ if(!pts.delete(e.pointerId))return; if(op&&op.type!=="pinch"||!pts.size){ if(op&&op.type!=="pan"&&op.type!=="pinch"){saveDraft(); useLayers(LAYERS)} op=null } };
+  wrap.addEventListener("pointerup",up,true); wrap.addEventListener("pointercancel",up,true);
+  wrap.addEventListener("click",e=>e.stopPropagation(),true);
+  // wheel / trackpad pinch (ctrl+wheel) / Safari gesture zoom, about the pointer
+  wrap.addEventListener("wheel",e=>{e.preventDefault(); setZoom(zoom*Math.exp(-e.deltaY*(e.ctrlKey?.01:.0015)),e.clientX,e.clientY)},{passive:false});
+  let g0=1; wrap.addEventListener("gesturestart",e=>{e.preventDefault(); g0=zoom});
+  wrap.addEventListener("gesturechange",e=>{e.preventDefault(); setZoom(g0*e.scale,e.clientX,e.clientY)});
+  wrap.style.touchAction="none";
+}
 
 drawHouse(); builtins.forEach(measure); render();
 if(ALLOW_UPLOAD) loadUploads().finally(()=>{uploadsDone=true; checkLoaded()}); else checkLoaded();
