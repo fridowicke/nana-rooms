@@ -3,14 +3,22 @@
   "w": 8800,
   "h": 4946
  },
- "note": "x,y = top-left in the 8800x4946 artboard; z = stacking order (higher is in front). outlet-left is hidden behind the wall in the original artwork.",
+ "note": "x,y = top-left in the 8800x4946 artboard; z = stacking order (higher is in front). outlet-left is hidden behind the wall in the original artwork. houseGroup: house, outside-stairs and item-* layers are drawn at houseGroup.x + x*scale, houseGroup.y + y*scale, size*scale.",
+ "houseGroup": {
+  "x": 0,
+  "y": 0,
+  "scale": 1
+ },
+ "toolbarScale": 1,
+ "trayItemsScale": 1,
+ "trayItems": {},
  "layers": [
   {
    "name": "background-wall",
    "group": "background",
    "z": 0,
-   "x": 0,
-   "y": 0,
+   "x": -3,
+   "y": -95,
    "w": 8800,
    "h": 4004
   },
@@ -18,7 +26,7 @@
    "name": "floor",
    "group": "background",
    "z": 1,
-   "x": 0,
+   "x": -1,
    "y": 3672,
    "w": 8800,
    "h": 1274
@@ -36,19 +44,19 @@
    "name": "leg-left",
    "group": "scene",
    "z": 8,
-   "x": 900,
-   "y": 0,
-   "w": 1725,
-   "h": 3771
+   "x": 0,
+   "y": -327,
+   "w": 1899,
+   "h": 4151
   },
   {
    "name": "leg-right",
    "group": "scene",
    "z": 8,
-   "x": 5096,
-   "y": 0,
+   "x": 6002,
+   "y": -324,
    "w": 2840,
-   "h": 3804
+   "h": 4151
   },
   {
    "name": "outlet-left",
@@ -63,8 +71,8 @@
    "name": "outlet-right",
    "group": "background",
    "z": 3,
-   "x": 6843,
-   "y": 743,
+   "x": 1684,
+   "y": 777,
    "w": 708,
    "h": 1145
   },
@@ -72,35 +80,35 @@
    "name": "outside-stairs",
    "group": "scene",
    "z": 4,
-   "x": 2223,
-   "y": 1512,
-   "w": 391,
-   "h": 2245
+   "x": 2101,
+   "y": 1724,
+   "w": 442,
+   "h": 2537
   },
   {
    "name": "house",
    "group": "scene",
    "z": 5,
-   "x": 2453,
-   "y": 784,
-   "w": 3097,
-   "h": 3040
+   "x": 2456,
+   "y": 787,
+   "w": 3680,
+   "h": 3612
   },
   {
    "name": "girl",
    "group": "scene",
    "z": 7,
-   "x": 5625,
-   "y": 1401,
-   "w": 1060,
-   "h": 2422
+   "x": 6417,
+   "y": 1416,
+   "w": 1273,
+   "h": 2909
   },
   {
    "name": "speech-bubble",
    "group": "scene",
    "z": 9,
-   "x": 4747,
-   "y": 232,
+   "x": 5512,
+   "y": 421,
    "w": 2056,
    "h": 1365
   },
@@ -108,10 +116,10 @@
    "name": "mailbox",
    "group": "scene",
    "z": 10,
-   "x": 5476,
-   "y": 3458,
-   "w": 172,
-   "h": 414
+   "x": 6111,
+   "y": 3712,
+   "w": 271,
+   "h": 653
   },
   {
    "name": "item-audiocontroller",
@@ -234,10 +242,10 @@
    "name": "item-skull",
    "group": "toolbar-item",
    "z": 20,
-   "x": 3100,
-   "y": 1748,
-   "w": 340,
-   "h": 308
+   "x": 3198,
+   "y": 1855,
+   "w": 426,
+   "h": 386
   },
   {
    "name": "item-tv",
