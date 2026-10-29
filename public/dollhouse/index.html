@@ -28,7 +28,7 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none}
 body{margin:0;height:100vh;height:100dvh;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;box-sizing:border-box;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-top:0;padding-bottom:max(4px,env(safe-area-inset-bottom,0px));-webkit-user-select:none;user-select:none}
 *{border-radius:0}
-.app{position:relative;margin:0 auto;height:100%;display:flex;flex-direction:column;gap:4px;min-height:0}
+.app{position:relative;margin:0 auto;height:100%;display:flex;flex-direction:column;gap:0;min-height:0}
 /* the header floats over the top of the wall so the scene can start at the top edge of the window */
 header{position:absolute;top:6px;left:0;right:0;z-index:2;pointer-events:none;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:nowrap}
 .how{margin:0;max-width:70ch;font-size:12px;line-height:1.3;color:var(--muted)}
@@ -41,18 +41,13 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .btn:disabled{opacity:.3;cursor:default;background:var(--bg);color:var(--ink)}
 :focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
-/* scene: 16:9 (8800 × 4946), centred, contain-fitted above the sheet, never cropped. Each layer = layers/<name>.webp placed in
-   % of the artboard (left x/8800, top y/4946, width w/8800), stacked by z. Letterbox bars = colours sampled from the
-   picture edges (wall stripe at the sides, wall top above, floor below), drawn outside the scene box and clipped to the wrap height */
-.stageWrap{position:relative;width:100%;flex:1 1 0;min-height:0;container-type:size;display:flex;align-items:center;justify-content:center;clip-path:inset(0 -100vw)}
-.scene{position:relative;z-index:0;flex:none;width:min(100%,calc((100dvh - 120px) * 8800 / 4946));width:min(100cqw,100cqh * 8800 / 4946);aspect-ratio:8800/4946}
+/* scene: 16:9 (8800 × 4946), cover-fitted to the area above the sheet: scale = max(window width / 8800, area height / 4946),
+   centred horizontally, bottom-aligned (floor and house never cut, only the top of the wall or the sides may be cropped).
+   The area spans the full window width (out of the body padding). Each layer = layers/<name>.webp placed in % of the artboard
+   (left x/8800, top y/4946, width w/8800), stacked by z, so every layer, sticker and editor handle shares one scale and offset */
+.stageWrap{position:relative;width:100vw;margin-left:calc(50% - 50vw);flex:1 1 0;min-height:0;container-type:size;display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
+.scene{position:relative;z-index:0;flex:none;width:max(100vw,calc((100dvh - 120px) * 8800 / 4946));width:max(100cqw,100cqh * 8800 / 4946);aspect-ratio:8800/4946}
 .ly{position:absolute;display:block;max-width:none;pointer-events:none;-webkit-user-drag:none}
-.bleed{position:absolute;z-index:-1;pointer-events:none}
-.bleed.top{left:-100vw;right:-100vw;bottom:100%;height:100vh;background:rgb(30,216,78)}
-.bleed.bottom{left:-100vw;right:-100vw;top:calc(100% - 1px);height:100vh;background:rgb(253,156,23)}
-.bleed.l,.bleed.r{top:0;bottom:0;width:100vw;background:linear-gradient(rgb(30,216,78) 0%,rgb(55,208,40) 25%,rgb(110,207,25) 45%,rgb(190,232,59) 57%,rgb(194,231,59) 59.6%,
-  rgb(205,206,201) 59.6%,rgb(200,201,196) 74.2%,rgb(248,54,0) 74.2%,rgb(253,156,23) 100%)}
-.bleed.l{right:calc(100% - 1px)} .bleed.r{left:calc(100% - 1px)}
 /* the game area = the box of the house layer; stickers live in its units (VB) */
 .stage{position:absolute;z-index:30}
 .sheet{position:relative;z-index:1;background:var(--bg)}
@@ -103,8 +98,8 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .ghost{position:fixed;left:0;top:0;pointer-events:none;z-index:50;transform:translate(-50%,-50%)}
 .ghost.back{transition:all .25s ease-in}
 /* editor (?edit=1): every layer can be picked; zoom resizes the scene (sharp pictures), pan moves it */
-.editing .stageWrap{cursor:default;overflow:visible}
-.editing .scene{width:calc(min(100cqw,100cqh * 8800 / 4946) * var(--zoom,1))}
+.editing .stageWrap{cursor:default}
+.editing .scene{width:calc(max(100cqw,100cqh * 8800 / 4946) * var(--zoom,1))}
 .editing .stage *{pointer-events:none!important}
 #selLayer{position:absolute;inset:0;pointer-events:none;z-index:40}
 #selLayer .ol{position:absolute;outline:1px dashed rgba(0,0,0,.45)}
@@ -115,8 +110,8 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .etools{position:fixed;left:50%;top:6px;transform:translateX(-50%);z-index:20;display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--ink);padding:3px 6px;font-size:12px;line-height:1.3;white-space:nowrap}
 .etools input[type=range]{width:120px}
 .etools .st{color:var(--muted)}
-@media (max-width:860px){ header{flex-wrap:wrap;row-gap:4px} .stageWrap{padding-top:40px;box-sizing:border-box} }
-/* phones: same scene, same aspect (width-limited), centred above the sheet */
+@media (max-width:860px){ header{flex-wrap:wrap;row-gap:4px} }
+/* phones: same cover-fitted scene above the sheet */
 @media (max-width:700px){
   body{padding-left:max(4px,env(safe-area-inset-left,0px));padding-right:max(4px,env(safe-area-inset-right,0px))}
   .sheet{padding:2px 0 2px 4px}
@@ -139,8 +134,7 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 
   <div class="stageWrap" id="wrap">
     <div class="scene" id="scene">
-    <div class="bleed top"></div><div class="bleed bottom"></div><div class="bleed l"></div><div class="bleed r"></div>
-    <div id="layers"></div>
+        <div id="layers"></div>
     <div class="stage" id="stage">
       <svg class="layer" id="zones" viewBox="0 0 3097 3040" preserveAspectRatio="none" aria-hidden="true"></svg>
       <svg class="layer walls" id="walls" viewBox="0 0 3097 3040" preserveAspectRatio="none" aria-hidden="true"></svg>
@@ -630,7 +624,7 @@ function hitTest(x,y){ // topmost layer with a visible pixel under the point
 }
 function setZoom(z,cx,cy){ // zoom about a screen point (default: the window centre)
   const nz=Math.min(4,Math.max(.3,z)), r=wrap.getBoundingClientRect(); cx??=r.left+r.width/2; cy??=r.top+r.height/2;
-  const ox=cx-(r.left+r.width/2), oy=cy-(r.top+r.height/2);
+  const ox=cx-(r.left+r.width/2), oy=cy-r.bottom; // the scene is anchored at the bottom centre of the area
   panX=ox-(ox-panX)*nz/zoom; panY=oy-(oy-panY)*nz/zoom; zoom=nz; applyView();
 }
 function applyView(){ sceneEl.style.setProperty("--zoom",zoom); sceneEl.style.left=panX+"px"; sceneEl.style.top=panY+"px";
