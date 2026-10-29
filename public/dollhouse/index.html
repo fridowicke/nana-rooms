@@ -331,10 +331,14 @@ function fitSheet(){ // largest thumbnail height (max 22px phone / 28px desktop,
 function renderSheet(){
   // measure the sheet at the default sizes first: that height (--tbh) fixes the scene area, whatever the real tray sizes are
   const real=TRAY; TRAY={...DEFAULT_TRAY,trayItems:{}}; sheetHTML(); fitSheet();
-  document.querySelector(".app").style.setProperty("--tbh",sheet.offsetHeight+"px"); TRAY=real;
+  document.querySelector(".app").style.setProperty("--tbh",sheet.offsetHeight+"px");
+  // phones (<=860px, outside the editor) keep the default tray: toolbarScale and tray item sizes apply on desktop only
+  const phone=innerWidth<=860&&!EDIT;
+  if(!phone) TRAY=real;
   sheetHTML();
   bindSheet();
   fitSheet();
+  TRAY=real;
 }
 function sheetHTML(){
   sheet.innerHTML=items.map(it=>
