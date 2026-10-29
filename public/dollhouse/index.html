@@ -48,7 +48,8 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .stageWrap{position:relative;width:100vw;margin-left:calc(50% - 50vw);flex:1 1 0;min-height:0;container-type:size;display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
 .scene{position:relative;z-index:0;flex:none;width:max(100vw,calc((100dvh - 120px) * 8800 / 4946));width:max(100cqw,100cqh * 8800 / 4946);aspect-ratio:8800/4946}
 .ly{position:absolute;display:block;max-width:none;pointer-events:none;-webkit-user-drag:none}
-/* the game area = the box of the house layer; stickers live in its units (VB) */
+/* the game area = the box of the house layer; stickers live in its units (VB). z 30 = above every scene layer (house, stairs, girl,
+   legs, mailbox, items: z ≤ 21, raised layers in the editor 29), so dropped stickers always stay in front; the sheet and editor UI are above the scene */
 .stage{position:absolute;z-index:30}
 .sheet{position:relative;z-index:1;background:var(--bg)}
 .layer{position:absolute;inset:0;width:100%;height:100%}
@@ -122,6 +123,9 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .epanel .row{display:flex;align-items:center;gap:4px}
 .epanel .row input[type=range]{flex:1;min-width:0}
 .epanel .row input[type=number]{width:52px;flex:none}
+.epanel .btn.big{font-size:16px;padding:0 10px;line-height:1.3;flex:none}
+.epanel .wrapRow{flex-wrap:wrap}
+.editing .placed img{transition:opacity .7s ease}
 @media (max-width:860px){ header{flex-wrap:wrap;row-gap:4px} }
 /* phones: same cover-fitted scene above the sheet */
 @media (max-width:700px){
@@ -268,12 +272,13 @@ function roomAt(x,y){
   return null;
 }
 const inRect=(cx,cy,el)=>{const r=el.getBoundingClientRect();return cx>=r.left&&cx<=r.right&&cy>=r.top&&cy<=r.bottom};
-function sizeOf(it){ // height/width in canvas units, never bigger than a normal room; in a slot: contained in the slot box
+function sizeOf(it,raw){ // height/width in canvas units, never bigger than a normal room; in a slot: contained in the slot box; × pos.s (editor size) unless raw
   // hy = the height in vertical canvas units (= h / SY on a stretched phone house, so the picture keeps its aspect)
   const sl=pos[it.id]?.slot&&SLOTS.find(s=>s.id===pos[it.id].slot);
   if(sl){const w=Math.min(sl.w,sl.h*SY*it.ratio); return {w,h:w/it.ratio,hy:w/it.ratio/SY}}
   const maxH=ROOMS[0].h*.92, maxW=ROOMS[0].w*.95;
   let h=Math.min(it.h,maxH), w=h*it.ratio; if(w>maxW){w=maxW;h=w/it.ratio}
+  const s=raw?1:pos[it.id]?.s||1; h*=s; w*=s;
   return {w,h,hy:h/SY};
 }
 function slotAt(it,x,y){ // nearest slot of the item's type around the drop point, or null
@@ -288,7 +293,7 @@ function putSlot(it,sl){ // one picture per slot: the previous one goes back to 
 function slotPos(it,sl){ const {hy}=sizeOf(it); pos[it.id].x=sl.x+sl.w/2; pos[it.id].y=sl.type==="window"?sl.y+sl.h/2+hy/2:sl.y+sl.h }
 function put(it,room,x,y){ // place a sticker (x,y = its centre); a wallpaper replaces the one already in that area
   if(it.wall){ items.forEach(o=>{if(o.wall&&o!==it&&pos[o.id]?.room===room.id)delete pos[o.id]}); pos[it.id]={room:room.id}; }
-  else pos[it.id]={room:room?room.id:null,x,y:y+sizeOf(it).hy/2};
+  else { const o=pos[it.id]; pos[it.id]={room:room?room.id:null,x,y:0,s:o?.s,z:o?.z}; pos[it.id].y=y+sizeOf(it).hy/2 } // keeps its editor size and order
 }
 
 /* ---------------- render ---------------- */
@@ -332,7 +337,7 @@ function renderPlaced(popId){
     return SY===1?img:`<g clip-path="url(#clip-${id})"><image href="${it.src}" data-id="${it.id}" class="${cls}" x="${b.x}" y="${b.y*SY}" width="${b.w}" height="${b.h*SY}"
       preserveAspectRatio="xMidYMid slice" transform="scale(1 ${1/SY})"/></g>`}).join("");
   wallsEl.querySelectorAll("image").forEach(el=>el.addEventListener("pointerdown",startDrag));
-  placedEl.innerHTML=items.filter(it=>!it.wall&&pos[it.id]).map(it=>{const p=pos[it.id],{hy}=sizeOf(it);
+  placedEl.innerHTML=placedOrder().map(it=>{const p=pos[it.id],{hy}=sizeOf(it);
     if(p.slot){const sl=SLOTS.find(s=>s.id===p.slot); if(sl)slotPos(it,sl)}
     return `<img src="${it.src}" alt="" draggable="false" data-id="${it.id}" class="${(popId===it.id?"pop":"")+(videoRoom&&p.room===videoRoom?" gone":"")}"
       style="left:${(p.x-VB.x)/VB.w*100}%;top:${(p.y-VB.y)/VB.h*100}%;height:${hy/VB.h*100}%">`}).join("");
@@ -340,6 +345,8 @@ function renderPlaced(popId){
   updateHud();
 }
 function render(popId){renderSheet();renderPlaced(popId)}
+// dropped stickers back to front (pos.z, set by the editor's front / backward buttons; same z → sheet order)
+function placedOrder(){return items.filter(it=>!it.wall&&pos[it.id]).sort((a,b)=>(pos[a.id].z||0)-(pos[b.id].z||0))}
 function placedCount(){return items.filter(it=>pos[it.id]).length}
 function allPlaced(){return items.length>0&&placedCount()===items.length}
 function updateHud(){ $("#progress").textContent=`${placedCount()} / ${items.length} placed`; $("#random").disabled=!items.some(it=>!pos[it.id]); }
@@ -361,7 +368,7 @@ function moveGhost(x,y){drag.gh.style.left=x+"px";drag.gh.style.top=y+"px"}
 function hot(room){document.querySelectorAll(".zone").forEach(z=>z.classList.toggle("hot",!!room&&z.dataset.room===room.id))}
 function endDrag(ev){
   const d=drag; drag=null; d.el.onpointermove=d.el.onpointerup=d.el.onpointercancel=null; hot(null);
-  if(ev&&!d.moved){ d.gh.remove(); if(d.fromHouse){delete pos[d.it.id];render()} else autoPlace(d.it.id); return }
+  if(ev&&!d.moved){ d.gh.remove(); if(EDIT&&!d.fromHouse)return; if(d.fromHouse){delete pos[d.it.id];render()} else autoPlace(d.it.id); return }
   const [x,y]=ev?toCanvas(ev.clientX,ev.clientY):[-1,-1], room=ev&&roomAt(x,y);
   // wallpapers need a room or the tower; objects stay anywhere on the stage except over the sheet
   if(d.it.wall?room:ev&&!inRect(ev.clientX,ev.clientY,sheet)&&inRect(ev.clientX,ev.clientY,stage)){ d.gh.remove(); const sl=slotAt(d.it,x,y); if(sl)putSlot(d.it,sl); else put(d.it,room,x,y); render(d.it.id); checkDone(); return }
@@ -521,9 +528,9 @@ function buildLayers(){
 }
 function placeBox(el,l){ el.style.left=pct(l.x,ART.w); el.style.top=pct(l.y,ART.h); el.style.width=pct(l.w,ART.w); el.style.height=pct(l.h,ART.h) }
 function applyLayers(){
-  LAYERS.forEach(l=>{ const el=layersEl.querySelector(`[data-name="${l.name}"]`); if(!el)return; placeBox(el,eff(l)); el.style.zIndex=lift.has(l.name)||lift.has(HG)&&inGroup(l.name)?999:l.z+1; el.style.visibility=edHidden(l.name)?"hidden":"" });
+  LAYERS.forEach(l=>{ const el=layersEl.querySelector(`[data-name="${l.name}"]`); if(!el)return; placeBox(el,eff(l)); el.style.zIndex=lift.has(l.name)||lift.has(HG)&&inGroup(l.name)?29:l.z+1; el.style.visibility=edHidden(l.name)?"hidden":"" });
   const house=LAYERS.find(l=>l.name==="house"); if(house) placeBox(stage,eff(house));
-  if(EDIT){ drawSel(); syncPanel() }
+  if(EDIT){ if(sel.size&&[...sel].some(n=>isDrop(n))) renderPlaced(); drawSel(); syncPanel() }
 }
 function cleanTray(j){ // tray sizes; missing in older files → defaults
   const n=(v,a,b)=>typeof v==="number"&&isFinite(v)?Math.min(b,Math.max(a,v)):null, t={...DEFAULT_TRAY,trayItems:{}};
@@ -561,8 +568,21 @@ Promise.all([houseImgs,layoutReady.catch(()=>{})]).then(()=>{houseDone=true; che
 const lay=name=>LAYERS.find(l=>l.name===name);
 const editable=()=>LAYERS.filter(shown).map(l=>l.name);
 function groupBox(){ let x0=1/0,y0=1/0,x1=-1/0,y1=-1/0; ["house","outside-stairs"].map(n=>eff(lay(n))).filter(Boolean).forEach(b=>{x0=Math.min(x0,b.x);y0=Math.min(y0,b.y);x1=Math.max(x1,b.x+b.w);y1=Math.max(y1,b.y+b.h)}); return {x:x0,y:y0,w:x1-x0,h:y1-y0} }
-const box=n=>n===HG?groupBox():eff(lay(n)); // on-screen box in artboard units
+// DROPPED STICKERS in the editor: selection name "drop:<item id>"; box = the placed picture in artboard units (through the house box),
+// setBox moves it (centre) and sets pos.s (size, aspect kept). They stay in house units, so they keep following the house group.
+const DROP="drop:", isDrop=n=>n.startsWith(DROP), dropIt=n=>items.find(i=>i.id===n.slice(DROP.length));
+function dropBox(n){ const it=dropIt(n), p=it&&pos[it.id], h=lay("house"); if(!p||it.wall||!h)return null;
+  const sb=eff(h), kx=sb.w/VB.w, ky=sb.h/VB.h, {w,hy}=sizeOf(it); return {x:sb.x+(p.x-w/2)*kx,y:sb.y+(p.y-hy)*ky,w:w*kx,h:hy*ky} }
+function setDropBox(n,b){ const it=dropIt(n), p=it&&pos[it.id]; if(!p||it.wall)return; delete p.slot;
+  const sb=eff(lay("house")), kx=sb.w/VB.w, ky=sb.h/VB.h, base=sizeOf(it,true), s=Math.min(8,Math.max(.1,b.w/kx/base.w));
+  const cx=(b.x+b.w/2-sb.x)/kx, cy=(b.y+b.h/2-sb.y)/ky; p.s=s; p.x=cx; p.y=cy+base.hy*s/2; p.room=roomAt(cx,cy)?.id||null }
+function hitDrop(x,y){ for(const it of placedOrder().reverse()){ const b=dropBox(DROP+it.id); if(b&&x>=b.x&&y>=b.y&&x<=b.x+b.w&&y<=b.y+b.h) return DROP+it.id } return null }
+function dropOrder(n,dir){ // dir 1 = bring to front, -1 = one step backward
+  const list=placedOrder(), it=dropIt(n), i=list.indexOf(it); if(i<0)return; list.forEach((o,j)=>pos[o.id].z=j);
+  if(dir>0) pos[it.id].z=list.length; else if(i>0){pos[it.id].z=i-1; pos[list[i-1].id].z=i} renderPlaced() }
+const box=n=>n===HG?groupBox():isDrop(n)?dropBox(n):eff(lay(n)); // on-screen box in artboard units
 function setBox(n,b){ // b = new on-screen box; group members are stored unscaled, the group keeps its aspect (width decides)
+  if(isDrop(n)){ setDropBox(n,b); return }
   if(n===HG){ const c=groupBox(), k=Math.max(.02,b.w/c.w); if(GROUP.scale*k<.1||GROUP.scale*k>5)return;
     GROUP={x:b.x-(c.x-GROUP.x)*k,y:b.y-(c.y-GROUP.y)*k,scale:GROUP.scale*k}; return }
   const l=lay(n); if(!inGroup(n)){Object.assign(l,b);return}
@@ -572,9 +592,15 @@ function setGroupScale(v){ // numeric field: scale about the bottom centre of th
   const c=groupBox(), k=v/GROUP.scale, ax=c.x+c.w/2, ay=c.y+c.h; setBox(HG,{x:ax-(ax-c.x)*k,y:ay-(ay-c.y)*k,w:c.w*k,h:c.h*k});
 }
 const opNames=()=>sel.has(HG)?[...sel].filter(n=>!inGroup(n)):[...sel]; // with the group selected its members follow it
+// SIZE %: house group = its scale; a layer = its width against the original artwork; a dropped sticker = pos.s
+function sizePct(n){ if(n===HG)return GROUP.scale*100; if(isDrop(n))return (pos[dropIt(n)?.id]?.s||1)*100;
+  const l=lay(n), d=DEFAULT_LAYERS.find(q=>q.name===n); return l&&d?l.w/d.w*100:100 }
+function scaleSel(k,o){ // every selected layer scales by k about its own centre, aspect kept (o = boxes at the start of a pinch)
+  opNames().forEach(n=>{ const q=o?o[n]:box(n); if(!q)return; const cx=q.x+q.w/2, cy=q.y+q.h/2; setBox(n,{x:cx-q.w*k/2,y:cy-q.h*k/2,w:q.w*k,h:q.h*k}) }) }
 function selBox(){ let x0=1/0,y0=1/0,x1=-1/0,y1=-1/0; sel.forEach(n=>{const b=box(n); x0=Math.min(x0,b.x);y0=Math.min(y0,b.y);x1=Math.max(x1,b.x+b.w);y1=Math.max(y1,b.y+b.h)}); return {x:x0,y:y0,w:x1-x0,h:y1-y0} }
 const rectStyle=b=>`left:${pct(b.x,ART.w)};top:${pct(b.y,ART.h)};width:${pct(b.w,ART.w)};height:${pct(b.h,ART.h)}`;
 function drawSel(){
+  sel.forEach(n=>{if(isDrop(n)&&!dropBox(n))sel.delete(n)}); // sent back to the tray
   if(linkLegs&&LEGS.some(n=>sel.has(n))) LEGS.forEach(n=>sel.add(n));
   if(!sel.size){selLayer.innerHTML="";return}
   const b=selBox();
@@ -625,7 +651,9 @@ function syncPanel(){ // layer list highlight + numeric fields of the selected l
   p.querySelectorAll(".ll label").forEach(lb=>{lb.classList.toggle("on",sel.has(lb.dataset.name)); lb.querySelector("input").checked=!hiddenEd.has(lb.dataset.name)});
   const one=sel.size===1?box([...sel][0]):null;
   ["x","y","w","h"].forEach(k=>{const f=$("#en"+k); f.disabled=!one; if(document.activeElement!==f) f.value=one?Math.round(one[k]):""});
-  $("#eselname").textContent=one?[...sel][0]:sel.size?sel.size+" layers":"none";
+  $("#eselname").textContent=one?(isDrop([...sel][0])?"dropped "+(dropIt([...sel][0])?.name||""):[...sel][0]):sel.size?sel.size+" layers":"none";
+  const pn=opNames()[0]; ["#esz","#eszn","#esminus","#esplus"].forEach(id=>{const f=$(id); f.disabled=!pn; if(f.tagName==="INPUT"&&document.activeElement!==f) f.value=pn?Math.round(sizePct(pn)):""});
+  ["#efront","#eback","#eremove"].forEach(id=>{$(id).disabled=!(sel.size===1&&pn&&isDrop(pn))});
   ["#ehg","#ehgn"].forEach(id=>{if(document.activeElement!==$(id))$(id).value=Math.round(GROUP.scale*100)});
   const ts=traySel?TRAY.trayItems[traySel]||1:1;
   $("#etrayname").textContent=traySel||"click an item in the tray"; ["#eti","#etin"].forEach(id=>{$(id).disabled=!traySel; if(document.activeElement!==$(id))$(id).value=ts.toFixed(2)});
@@ -636,7 +664,7 @@ function startEditor(){
   const bar=document.createElement("div"); bar.className="etools";
   bar.innerHTML=`<b style="font-weight:400">edit</b><button class="btn" id="eall" type="button">Select all</button><button class="btn" id="ehouse" type="button">House group</button>
     <label>zoom <input type="range" id="ezoom" min="30" max="400" step="1" value="100"></label>
-    <button class="btn" id="ereset" type="button">Reset</button><button class="btn primary" id="esave" type="button">Save</button><span class="st" id="estatus">drag layers · corners scale (shift = free) · shift-click adds · space-drag pans</span>`;
+    <button class="btn" id="ereset" type="button">Reset</button><button class="btn primary" id="esave" type="button">Save</button><span class="st" id="estatus">drag layers · corners scale (shift = free) · alt/cmd-wheel sizes · drag tray items in, click one to pick it</span>`;
   document.body.appendChild(bar);
   const panel=document.createElement("div"); panel.className="epanel"; panel.id="epanel";
   const rng=(id,min,max,step)=>`<div class="row"><input type="range" id="${id}" min="${min}" max="${max}" step="${step}"><input type="number" id="${id}n" min="${min}" max="${max}" step="${step}"></div>`;
@@ -646,6 +674,10 @@ function startEditor(){
     <label class="row"><input type="checkbox" id="elinklegs">link both legs (move and scale together)</label>
     <h4>selected: <span id="eselname">none</span> · arrows nudge, shift = 10×</h4>
     <div class="nums">${["x","y","w","h"].map(k=>`<label>${k}<input type="number" id="en${k}" step="1"></label>`).join("")}</div>
+    <h4>size % (around its centre · alt/cmd + wheel · pinch)</h4>
+    <div class="row"><button class="btn big" id="esminus" type="button" aria-label="Smaller">−</button><input type="range" id="esz" min="10" max="400" step="1"><input type="number" id="eszn" min="5" max="1000" step="1"><button class="btn big" id="esplus" type="button" aria-label="Bigger">+</button></div>
+    <h4>dropped sticker</h4>
+    <div class="row wrapRow"><button class="btn" id="efront" type="button">bring to front</button><button class="btn" id="eback" type="button">send backward</button><button class="btn" id="eremove" type="button">remove (back to tray)</button></div>
     <h4>house group scale % (house, stairs, rooms and everything dropped inside)</h4>${rng("ehg",10,300,1)}
     <h4>toolbar height</h4>${rng("etb",.3,4,.05)}
     <h4>all tray items size</h4>${rng("eta",.2,5,.05)}
@@ -666,9 +698,9 @@ function startEditor(){
   const pair=(id,get,set)=>[id,id+"n"].forEach(i=>$("#"+i).addEventListener("input",e=>{const v=parseFloat(e.target.value); if(!isFinite(v)||v<=0)return; set(v); trayChanged()}));
   pair("etb",0,v=>{TRAY.toolbarScale=v}); pair("eta",0,v=>{TRAY.trayItemsScale=v});
   pair("eti",0,v=>{ if(!traySel)return; if(Math.abs(v-1)<1e-3)delete TRAY.trayItems[traySel]; else TRAY.trayItems[traySel]=v });
-  // tray: in the editor a click selects an item (no dragging into the house)
-  sheet.addEventListener("pointerdown",e=>{ const st=e.target.closest(".sticker"); if(!st)return; e.preventDefault(); e.stopPropagation();
-    const it=items.find(i=>i.id===st.dataset.id); traySel=it&&trayKey(it); renderSheet(); syncPanel() },true);
+  // tray: in the editor a click selects an item (tray size); dragging it still drops it into the house
+  sheet.addEventListener("pointerdown",e=>{ const st=e.target.closest(".sticker"); if(!st)return;
+    const it=items.find(i=>i.id===st.dataset.id); traySel=it&&trayKey(it); sheet.querySelectorAll(".sticker").forEach(s=>s.classList.toggle("tsel",s===st&&!!traySel)); syncPanel() },true);
   syncPanel();
   const selectAll=()=>{sel=new Set(editable()); drawSel()};
   $("#eall").onclick=selectAll;
@@ -676,6 +708,15 @@ function startEditor(){
   $("#ereset").onclick=()=>{ lsSet(DRAFT_KEY,null); TRAY={...fileTray,trayItems:{...fileTray.trayItems}}; GROUP={...fileGroup}; renderSheet(); useLayers(fileLayers); sel.clear(); drawSel(); zoom=1; panX=panY=0; applyView(); renderPlaced(); $("#estatus").textContent="reset to the published layout" };
   $("#esave").onclick=saveLayout;
   let space=false, nudgeT;
+  const commitSoon=()=>{clearTimeout(nudgeT); nudgeT=setTimeout(()=>{saveDraft(); useLayers(LAYERS); renderPlaced()},250)};
+  const setSizePct=v=>{ const pn=opNames()[0]; if(!pn||!isFinite(v))return; v=Math.min(1000,Math.max(5,v)); const cur=sizePct(pn); if(cur>0) scaleSel(v/cur); applyLayers(); commitSoon() };
+  ["esz","eszn"].forEach(i=>$("#"+i).addEventListener("input",e=>setSizePct(parseFloat(e.target.value))));
+  $("#esminus").onclick=()=>{const pn=opNames()[0]; if(pn) setSizePct(Math.round(sizePct(pn)/5)*5-5)};
+  $("#esplus").onclick=()=>{const pn=opNames()[0]; if(pn) setSizePct(Math.round(sizePct(pn)/5)*5+5)};
+  const dropSel=()=>sel.size===1&&isDrop([...sel][0])?[...sel][0]:null;
+  $("#efront").onclick=()=>{const n=dropSel(); if(n){dropOrder(n,1); drawSel()}};
+  $("#eback").onclick=()=>{const n=dropSel(); if(n){dropOrder(n,-1); drawSel()}};
+  $("#eremove").onclick=()=>{const n=dropSel(), it=n&&dropIt(n); if(!it)return; delete pos[it.id]; sel.delete(n); render(); drawSel(); syncPanel()};
   addEventListener("keydown",e=>{ if(e.target.closest&&e.target.closest("input,textarea"))return;
     const ar={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];
     if(ar&&sel.size){ e.preventDefault(); const st=e.shiftKey?100:10; opNames().forEach(n=>{const b=box(n); setBox(n,{...b,x:b.x+ar[0]*st,y:b.y+ar[1]*st})}); applyLayers(); clearTimeout(nudgeT); nudgeT=setTimeout(()=>{saveDraft(); useLayers(LAYERS); renderPlaced()},250); return }
@@ -689,16 +730,20 @@ function startEditor(){
     if(e.target.closest(".etools,.epanel"))return;
     e.preventDefault(); e.stopPropagation(); wrap.setPointerCapture(e.pointerId);
     pts.set(e.pointerId,[e.clientX,e.clientY]);
-    if(pts.size===2){ const [a,b]=[...pts.values()]; op={type:"pinch",d0:Math.hypot(a[0]-b[0],a[1]-b[1])||1,z0:zoom}; return }
+    if(pts.size===2){ const [a,b]=[...pts.values()], d0=Math.hypot(a[0]-b[0],a[1]-b[1])||1, [mx,my]=toArt((a[0]+b[0])/2,(a[1]+b[1])/2), sb=sel.size?selBox():null;
+      // two fingers over the selection size it, elsewhere they zoom the view
+      if(sb&&mx>=sb.x&&my>=sb.y&&mx<=sb.x+sb.w&&my<=sb.y+sb.h){ op={type:"pinchSel",d0,o:Object.fromEntries(opNames().map(n=>[n,{...box(n)}]))}; return }
+      op={type:"pinch",d0,z0:zoom}; return }
     if(pts.size>2)return;
     if(space||e.altKey||e.button===1){ op={type:"pan",x:e.clientX,y:e.clientY,px:panX,py:panY}; return }
     const [x,y]=toArt(e.clientX,e.clientY), h=e.target.dataset&&e.target.dataset.h;
     const orig=()=>Object.fromEntries(opNames().map(n=>[n,{...box(n)}]));
     if(h&&sel.size){ const b=selBox(), c=[b.x+(h.includes("e")?b.w:0),b.y+(h.includes("s")?b.h:0)], a=[b.x+(h.includes("e")?0:b.w),b.y+(h.includes("s")?0:b.h)];
       op={type:"size",a,c,x,y,o:orig()}; return }
-    const inSel=!e.shiftKey&&[...sel].some(n=>{const l=box(n); if(n===HG)return x>=l.x&&y>=l.y&&x<=l.x+l.w&&y<=l.y+l.h; return !edHidden(n)&&x>=l.x&&y>=l.y&&x<=l.x+l.w&&y<=l.y+l.h&&alphaAt(n,(x-l.x)/l.w,(y-l.y)/l.h)>16});
+    const dh=hitDrop(x,y); // dropped stickers are in front of every layer
+    const inSel=!e.shiftKey&&(dh?sel.has(dh):[...sel].some(n=>{const l=box(n); if(n===HG)return x>=l.x&&y>=l.y&&x<=l.x+l.w&&y<=l.y+l.h; return !edHidden(n)&&x>=l.x&&y>=l.y&&x<=l.x+l.w&&y<=l.y+l.h&&alphaAt(n,(x-l.x)/l.w,(y-l.y)/l.h)>16}));
     if(inSel){ op={type:"move",x,y,o:orig()}; if(liftOn)lift=new Set(sel); applyLayers(); return }
-    const hit=hitTest(x,y);
+    const hit=dh||hitTest(x,y);
     if(!hit){ if(!e.shiftKey)sel.clear(); drawSel(); op=null; return }
     if(e.shiftKey){ sel.has(hit)?sel.delete(hit):sel.add(hit) } else if(!sel.has(hit)) sel=new Set([hit]);
     drawSel(); op=sel.size?{type:"move",x,y,o:orig()}:null; if(op&&liftOn){lift=new Set(sel); applyLayers()}
@@ -707,6 +752,7 @@ function startEditor(){
   wrap.addEventListener("pointermove",e=>{
     if(!pts.has(e.pointerId))return; pts.set(e.pointerId,[e.clientX,e.clientY]); if(!op)return;
     if(op.type==="pinch"){ if(pts.size<2)return; const [a,b]=[...pts.values()]; setZoom(op.z0*Math.hypot(a[0]-b[0],a[1]-b[1])/op.d0,(a[0]+b[0])/2,(a[1]+b[1])/2); return }
+    if(op.type==="pinchSel"){ if(pts.size<2)return; const [a,b]=[...pts.values()]; scaleSel(Math.hypot(a[0]-b[0],a[1]-b[1])/op.d0,op.o); applyLayers(); return }
     if(op.type==="pan"){ panX=op.px+e.clientX-op.x; panY=op.py+e.clientY-op.y; applyView(); return }
     const [x,y]=toArt(e.clientX,e.clientY);
     if(op.type==="move"){ for(const n in op.o){const q=op.o[n]; setBox(n,{...q,x:q.x+x-op.x,y:q.y+y-op.y})} }
@@ -721,7 +767,11 @@ function startEditor(){
   wrap.addEventListener("pointerup",up,true); wrap.addEventListener("pointercancel",up,true);
   wrap.addEventListener("click",e=>e.stopPropagation(),true);
   // wheel / trackpad pinch (ctrl+wheel) / Safari gesture zoom, about the pointer
-  wrap.addEventListener("wheel",e=>{e.preventDefault(); setZoom(zoom*Math.exp(-e.deltaY*(e.ctrlKey?.01:.0015)),e.clientX,e.clientY)},{passive:false});
+  // alt / cmd + wheel over the selection sizes it instead
+  wrap.addEventListener("wheel",e=>{e.preventDefault();
+    if((e.altKey||e.metaKey)&&!e.ctrlKey&&sel.size){ const [x,y]=toArt(e.clientX,e.clientY), b=selBox();
+      if(x>=b.x&&y>=b.y&&x<=b.x+b.w&&y<=b.y+b.h){ scaleSel(Math.exp(-(e.deltaY||e.deltaX)*.0015)); applyLayers(); commitSoon(); return } }
+    setZoom(zoom*Math.exp(-e.deltaY*(e.ctrlKey?.01:.0015)),e.clientX,e.clientY)},{passive:false});
   let g0=1; wrap.addEventListener("gesturestart",e=>{e.preventDefault(); g0=zoom});
   wrap.addEventListener("gesturechange",e=>{e.preventDefault(); setZoom(g0*e.scale,e.clientX,e.clientY)});
   wrap.style.touchAction="none";
