@@ -47,7 +47,7 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
    centred horizontally, bottom-aligned (floor and house never cut, only the top of the wall or the sides may be cropped).
    The area spans the full window width (out of the body padding). Each layer = layers/<name>.webp placed in % of the artboard
    (left x/8800, top y/4946, width w/8800), stacked by z, so every layer, sticker and editor handle shares one scale and offset */
-.stageWrap{position:relative;width:100vw;margin-left:calc(50% - 50vw);flex:1 1 0;min-height:0;container-type:size;display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
+.stageWrap{position:relative;width:100vw;margin-left:calc(50% - 50vw);flex:none;height:calc(100% - var(--tbh,0px));min-height:0;container-type:size;display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
 .scene{position:relative;z-index:0;flex:none;width:max(100vw,calc((100dvh - 120px) * 8800 / 4946));width:max(100cqw,100cqh * 8800 / 4946);aspect-ratio:8800/4946}
 .ly{position:absolute;display:block;max-width:none;pointer-events:none;-webkit-user-drag:none}
 .ly.vin{opacity:0;transition:opacity .3s ease}
@@ -82,8 +82,9 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .banner{position:absolute;left:50%;top:24%;transform:translateX(-50%);opacity:0;pointer-events:none;transition:opacity .4s;z-index:3}
 .alive .banner{opacity:1;pointer-events:auto}
 
-/* sticker sheet */
-.sheet{--t:22px;--o:-4px;flex:0 0 auto;max-height:calc(17vh * var(--tb,1));max-height:calc(17dvh * var(--tb,1));overflow:hidden;box-sizing:border-box;padding:2px 2px 2px 6px;margin:0;display:flex;flex-wrap:wrap;align-items:flex-end;align-content:flex-start;gap:1px;transition:opacity .3s}
+/* sticker sheet: fixed over the bottom of the window, above the scene, below the editor UI. The scene area is always the window
+   minus the sheet height at the DEFAULT sizes (--tbh, see renderSheet), so a bigger toolbar or bigger tray items just cover more of the scene */
+.sheet{position:fixed;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));bottom:max(4px,env(safe-area-inset-bottom,0px));--t:22px;--o:-4px;flex:0 0 auto;max-height:calc(17vh * var(--tb,1));max-height:calc(17dvh * var(--tb,1));overflow:hidden;box-sizing:border-box;padding:2px 2px 2px 6px;margin:0;display:flex;flex-wrap:wrap;align-items:flex-end;align-content:flex-start;gap:1px;transition:opacity .3s}
 .sheet.locked{opacity:.3;pointer-events:none}
 .sticker{position:relative;border:0;padding:0;margin:0 0 0 var(--o);display:grid;place-items:end center;background:transparent;touch-action:none;cursor:grab;min-width:0;transition:opacity .15s,transform .15s}
 .sticker:hover{opacity:.75;transform:scale(1.04)}
@@ -151,7 +152,7 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
 /* phones: same cover-fitted scene above the sheet */
 @media (max-width:700px){
   body{padding-left:max(4px,env(safe-area-inset-left,0px));padding-right:max(4px,env(safe-area-inset-right,0px))}
-  .sheet{padding:2px 0 2px 4px}
+  .sheet{padding:2px 0 2px 4px;left:max(4px,env(safe-area-inset-left,0px));right:max(4px,env(safe-area-inset-right,0px))}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
@@ -327,11 +328,21 @@ function fitSheet(){ // largest thumbnail height (max 22px phone / 28px desktop,
     if(sheet.scrollHeight<=sheet.clientHeight+1) break; }
 }
 function renderSheet(){
+  // measure the sheet at the default sizes first: that height (--tbh) fixes the scene area, whatever the real tray sizes are
+  const real=TRAY; TRAY={...DEFAULT_TRAY,trayItems:{}}; sheetHTML(); fitSheet();
+  document.querySelector(".app").style.setProperty("--tbh",sheet.offsetHeight+"px"); TRAY=real;
+  sheetHTML();
+  bindSheet();
+  fitSheet();
+}
+function sheetHTML(){
   sheet.innerHTML=items.map(it=>
     `<button class="sticker${pos[it.id]?" used":""}${EDIT&&traySel&&trayKey(it)===traySel?" tsel":""}" type="button" data-id="${it.id}" aria-label="Sticker"><img src="${it.src}" alt="" draggable="false" style="height:calc(var(--t) * ${trayScaleOf(it).toFixed(3)});width:calc(var(--t) * ${(it.ratio*trayScaleOf(it)).toFixed(3)})">${OWNER?`<span class="del" role="button" tabindex="0" aria-label="Delete picture">×</span>`:""}${OWNER?`<span class="types">${["door","window","stairs"].map(t=>`<span role="button" tabindex="0" data-type="${t}" class="${types[typeKey(it)]===t?"on":""}" title="${t}" aria-label="${t}">${t[0].toUpperCase()}</span>`).join("")}</span>`:""}</button>`).join("")+
     (items.length?"":`<p class="emptyNote">No stickers yet. Add PNG files in the settings${ALLOW_UPLOAD?" or press + to try some from your computer":""}.</p>`)+
     (ALLOW_UPLOAD?`<label class="add" title="Add PNG">+<input type="file" id="upload" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" multiple aria-label="Add PNG stickers"></label>`:"")+
     (OWNER?`<p class="ownerLine">removed: ${removed.length} - <a id="copyRemoved">copy list</a> - <a id="undoRemoved">undo all</a></p>`:"");
+}
+function bindSheet(){
   sheet.querySelectorAll(".sticker").forEach(el=>{el.addEventListener("pointerdown",startDrag);
     el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();autoPlace(el.dataset.id)}})});
   sheet.querySelectorAll(".del").forEach(x=>{const id=x.parentElement.dataset.id;
@@ -345,7 +356,6 @@ function renderSheet(){
   $("#copyRemoved")?.addEventListener("click",copyRemoved);
   $("#undoRemoved")?.addEventListener("click",undoRemoved);
   const up=$("#upload"); if(up) up.addEventListener("change",()=>{addFiles(up.files);up.value=""});
-  fitSheet();
 }
 function renderPlaced(popId){
   // wallpapers live in the house viewBox: image = room rect, clipped by the room rect
