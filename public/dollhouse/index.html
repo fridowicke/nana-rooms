@@ -76,7 +76,7 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .alive .banner{opacity:1;pointer-events:auto}
 
 /* sticker sheet */
-.sheet{--t:22px;--o:-4px;flex:0 0 auto;max-height:17vh;max-height:17dvh;overflow:hidden;box-sizing:border-box;padding:2px 2px 2px 6px;margin:0;display:flex;flex-wrap:wrap;align-items:flex-end;align-content:flex-start;gap:1px;transition:opacity .3s}
+.sheet{--t:22px;--o:-4px;flex:0 0 auto;max-height:calc(17vh * var(--tb,1));max-height:calc(17dvh * var(--tb,1));overflow:hidden;box-sizing:border-box;padding:2px 2px 2px 6px;margin:0;display:flex;flex-wrap:wrap;align-items:flex-end;align-content:flex-start;gap:1px;transition:opacity .3s}
 .sheet.locked{opacity:.3;pointer-events:none}
 .sticker{position:relative;border:0;padding:0;margin:0 0 0 var(--o);display:grid;place-items:end center;background:transparent;touch-action:none;cursor:grab;min-width:0;transition:opacity .15s,transform .15s}
 .sticker:hover{opacity:.75;transform:scale(1.04)}
@@ -110,6 +110,18 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .etools{position:fixed;left:50%;top:6px;transform:translateX(-50%);z-index:20;display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--ink);padding:3px 6px;font-size:12px;line-height:1.3;white-space:nowrap}
 .etools input[type=range]{width:120px}
 .etools .st{color:var(--muted)}
+.sheet .sticker.tsel{outline:1px solid var(--ink);outline-offset:1px}
+.epanel{position:fixed;right:6px;top:40px;bottom:calc(17dvh + 10px);z-index:20;width:210px;display:flex;flex-direction:column;gap:6px;background:var(--bg);border:1px solid var(--ink);padding:6px;font-size:11px;line-height:1.3;overflow:auto;box-sizing:border-box}
+.epanel h4{margin:4px 0 0;font-size:11px;font-weight:400;color:var(--muted)}
+.epanel .ll{display:flex;flex-direction:column;max-height:40vh;overflow:auto;border:1px solid var(--faint)}
+.epanel .ll label{display:flex;align-items:center;gap:4px;padding:1px 3px;cursor:pointer;white-space:nowrap}
+.epanel .ll label.on{background:var(--ink);color:var(--bg)}
+.epanel .ll input{margin:0}
+.epanel .nums{display:grid;grid-template-columns:repeat(4,1fr);gap:3px}
+.epanel .nums input,.epanel input[type=number]{width:100%;box-sizing:border-box;font:inherit;font-size:11px;padding:1px 2px;border:1px solid var(--dim)}
+.epanel .row{display:flex;align-items:center;gap:4px}
+.epanel .row input[type=range]{flex:1;min-width:0}
+.epanel .row input[type=number]{width:52px;flex:none}
 @media (max-width:860px){ header{flex-wrap:wrap;row-gap:4px} }
 /* phones: same cover-fitted scene above the sheet */
 @media (max-width:700px){
@@ -181,6 +193,11 @@ const ROOM_VIDEOS = {
 const ART={w:8800,h:4946}, HIDDEN=["outlet-left"];
 const DEFAULT_LAYERS=[{"name":"background-wall","group":"background","z":0,"x":0,"y":0,"w":8800,"h":4004},{"name":"floor","group":"background","z":1,"x":0,"y":3672,"w":8800,"h":1274},{"name":"floor-splashes","group":"background","z":2,"x":0,"y":3665,"w":8800,"h":1281},{"name":"leg-left","group":"scene","z":8,"x":900,"y":0,"w":1725,"h":3771},{"name":"leg-right","group":"scene","z":8,"x":5096,"y":0,"w":2840,"h":3804},{"name":"outlet-left","group":"background","z":-1,"x":1268,"y":1713,"w":708,"h":1145},{"name":"outlet-right","group":"background","z":3,"x":6843,"y":743,"w":708,"h":1145},{"name":"outside-stairs","group":"scene","z":4,"x":2223,"y":1512,"w":391,"h":2245},{"name":"house","group":"scene","z":5,"x":2453,"y":784,"w":3097,"h":3040},{"name":"girl","group":"scene","z":7,"x":5625,"y":1401,"w":1060,"h":2422},{"name":"speech-bubble","group":"scene","z":9,"x":4747,"y":232,"w":2056,"h":1365},{"name":"mailbox","group":"scene","z":10,"x":5476,"y":3458,"w":172,"h":414},{"name":"item-audiocontroller","group":"toolbar-item","z":20,"x":3870,"y":2457,"w":261,"h":88},{"name":"item-bearbrick-copy","group":"toolbar-item","z":20,"x":3893,"y":1697,"w":166,"h":355},{"name":"item-cage","group":"toolbar-item","z":20,"x":3001,"y":2765,"w":180,"h":359},{"name":"item-car","group":"toolbar-item","z":20,"x":2745,"y":2266,"w":654,"h":328},{"name":"item-cdp","group":"toolbar-item","z":20,"x":3672,"y":2739,"w":186,"h":371},{"name":"item-ipod-nano-pink","group":"toolbar-item","z":20,"x":3922,"y":3291,"w":166,"h":383},{"name":"item-lamp-1","group":"toolbar-item","z":20,"x":3964,"y":2121,"w":378,"h":249},{"name":"item-lamp-2","group":"toolbar-item","z":20,"x":2781,"y":2663,"w":91,"h":253},{"name":"item-lamp-2-copy","group":"toolbar-item","z":20,"x":3725,"y":1608,"w":91,"h":253},{"name":"item-lamp-3","group":"toolbar-item","z":20,"x":2719,"y":1580,"w":378,"h":249},{"name":"item-lamp-copy","group":"toolbar-item","z":20,"x":3996,"y":2763,"w":372,"h":355},{"name":"item-pc","group":"toolbar-item","z":20,"x":4239,"y":2984,"w":106,"h":141},{"name":"item-radio","group":"toolbar-item","z":20,"x":3661,"y":2317,"w":200,"h":234},{"name":"item-skull","group":"toolbar-item","z":20,"x":3100,"y":1748,"w":340,"h":308},{"name":"item-tv","group":"toolbar-item","z":20,"x":2725,"y":3423,"w":313,"h":242},{"name":"item-tv-2","group":"toolbar-item","z":20,"x":4074,"y":1810,"w":335,"h":247},{"name":"item-window","group":"toolbar-item","z":20,"x":3919,"y":1629,"w":196,"h":304},{"name":"item-window-copy-2","group":"toolbar-item","z":20,"x":2994,"y":3247,"w":196,"h":304}];
 let LAYERS=DEFAULT_LAYERS.map(l=>({...l}));
+// sticker tray sizes (dollhouse-layout.json: toolbarScale = tray height, trayItemsScale = all items, trayItems = {layer name: scale})
+const DEFAULT_TRAY={toolbarScale:1,trayItemsScale:1,trayItems:{}};
+let TRAY={...DEFAULT_TRAY,trayItems:{}};
+const trayKey=it=>it.upload?null:it.name.replace(/\.webp$/,"");
+const trayScaleOf=it=>TRAY.trayItemsScale*((trayKey(it)&&TRAY.trayItems[trayKey(it)])||1);
 const isItem=name=>/^item-/.test(name);
 
 const STICKERS = [
@@ -276,13 +293,14 @@ function put(it,room,x,y){ // place a sticker (x,y = its centre); a wallpaper re
 
 /* ---------------- render ---------------- */
 function fitSheet(){ // largest thumbnail height (max 22px phone / 28px desktop, min 14px) at which all stickers fit without scrolling
-  const max=innerWidth<=860?22:28;
-  for(let t=max;t>=14;t--){ sheet.style.setProperty("--t",t+"px"); sheet.style.setProperty("--o",-Math.min(4,Math.round(t*.18))+"px");
+  sheet.style.setProperty("--tb",TRAY.toolbarScale);
+  const max=Math.round((innerWidth<=860?22:28)*TRAY.toolbarScale), min=Math.min(14,max);
+  for(let t=max;t>=min;t--){ sheet.style.setProperty("--t",t+"px"); sheet.style.setProperty("--o",-Math.min(4,Math.round(t*.18))+"px");
     if(sheet.scrollHeight<=sheet.clientHeight+1) break; }
 }
 function renderSheet(){
   sheet.innerHTML=items.map(it=>
-    `<button class="sticker${pos[it.id]?" used":""}" type="button" data-id="${it.id}" aria-label="Sticker"><img src="${it.src}" alt="" draggable="false" style="width:calc(var(--t) * ${it.ratio.toFixed(3)})">${OWNER?`<span class="del" role="button" tabindex="0" aria-label="Delete picture">×</span>`:""}${OWNER?`<span class="types">${["door","window","stairs"].map(t=>`<span role="button" tabindex="0" data-type="${t}" class="${types[typeKey(it)]===t?"on":""}" title="${t}" aria-label="${t}">${t[0].toUpperCase()}</span>`).join("")}</span>`:""}</button>`).join("")+
+    `<button class="sticker${pos[it.id]?" used":""}${EDIT&&traySel&&trayKey(it)===traySel?" tsel":""}" type="button" data-id="${it.id}" aria-label="Sticker"><img src="${it.src}" alt="" draggable="false" style="height:calc(var(--t) * ${trayScaleOf(it).toFixed(3)});width:calc(var(--t) * ${(it.ratio*trayScaleOf(it)).toFixed(3)})">${OWNER?`<span class="del" role="button" tabindex="0" aria-label="Delete picture">×</span>`:""}${OWNER?`<span class="types">${["door","window","stairs"].map(t=>`<span role="button" tabindex="0" data-type="${t}" class="${types[typeKey(it)]===t?"on":""}" title="${t}" aria-label="${t}">${t[0].toUpperCase()}</span>`).join("")}</span>`:""}</button>`).join("")+
     (items.length?"":`<p class="emptyNote">No stickers yet. Add PNG files in the settings${ALLOW_UPLOAD?" or press + to try some from your computer":""}.</p>`)+
     (ALLOW_UPLOAD?`<label class="add" title="Add PNG">+<input type="file" id="upload" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" multiple aria-label="Add PNG stickers"></label>`:"")+
     (OWNER?`<p class="ownerLine">removed: ${removed.length} - <a id="copyRemoved">copy list</a> - <a id="undoRemoved">undo all</a></p>`:"");
@@ -486,14 +504,22 @@ const pct=(v,t)=>v/t*100+"%";
 const shown=l=>!HIDDEN.includes(l.name)&&(EDIT||!isItem(l.name));
 let fileLayers=DEFAULT_LAYERS; // what Reset goes back to (the published file, or the built-in defaults)
 let sel=new Set(), zoom=1, panX=0, panY=0; // editor: selected layer names, view zoom and pan
+let traySel=null, lift=new Set(), hiddenEd=new Set(), liftOn=true; // editor: selected tray item, layers raised while dragging, layers hidden in the editor
 function buildLayers(){
   layersEl.innerHTML=LAYERS.filter(shown).map(l=>`<img class="ly" data-name="${l.name}" src="layers/${l.name}.webp" alt="" draggable="false">`).join("");
 }
 function placeBox(el,l){ el.style.left=pct(l.x,ART.w); el.style.top=pct(l.y,ART.h); el.style.width=pct(l.w,ART.w); el.style.height=pct(l.h,ART.h) }
 function applyLayers(){
-  LAYERS.forEach(l=>{ const el=layersEl.querySelector(`[data-name="${l.name}"]`); if(!el)return; placeBox(el,l); el.style.zIndex=l.z+1 });
+  LAYERS.forEach(l=>{ const el=layersEl.querySelector(`[data-name="${l.name}"]`); if(!el)return; placeBox(el,l); el.style.zIndex=lift.has(l.name)?999:l.z+1; el.style.visibility=hiddenEd.has(l.name)?"hidden":"" });
   const house=LAYERS.find(l=>l.name==="house"); if(house) placeBox(stage,house);
-  if(EDIT) drawSel();
+  if(EDIT){ drawSel(); syncPanel() }
+}
+function cleanTray(j){ // tray sizes; missing in older files → defaults
+  const n=(v,a,b)=>typeof v==="number"&&isFinite(v)?Math.min(b,Math.max(a,v)):null, t={...DEFAULT_TRAY,trayItems:{}};
+  if(!j||Array.isArray(j))return t;
+  t.toolbarScale=n(j.toolbarScale,.3,4)??1; t.trayItemsScale=n(j.trayItemsScale,.2,5)??1;
+  if(j.trayItems&&typeof j.trayItems==="object") for(const k in j.trayItems){const v=n(j.trayItems[k],.1,8); if(v!=null&&isItem(k)&&v!==1)t.trayItems[k]=v}
+  return t;
 }
 function cleanLayers(j){ // known layer names only; anything missing or broken → default values
   const arr=Array.isArray(j)?j:j&&Array.isArray(j.layers)?j.layers:null; if(!arr)return null;
@@ -508,8 +534,12 @@ function useLayers(ls){ // item stickers take their size from their layer (artbo
 }
 buildLayers(); applyLayers();
 const houseImgs=Promise.all([...layersEl.querySelectorAll("img")].map(i=>i.decode().catch(()=>{})));
+let fileTray=DEFAULT_TRAY;
 const layoutReady=fetch(LAYOUT_FILE,{cache:"no-cache"}).then(r=>r.ok?r.json():null).catch(()=>null).then(j=>{
-  fileLayers=cleanLayers(j)||DEFAULT_LAYERS; useLayers((EDIT&&cleanLayers(lsGet(DRAFT_KEY,null)))||fileLayers); renderPlaced(); if(EDIT)startEditor() });
+  fileLayers=cleanLayers(j)||DEFAULT_LAYERS; fileTray=cleanTray(j);
+  const draft=EDIT?lsGet(DRAFT_KEY,null):null, dl=cleanLayers(draft);
+  TRAY=dl&&!Array.isArray(draft)?cleanTray(draft):{...fileTray,trayItems:{...fileTray.trayItems}};
+  useLayers(dl||fileLayers); renderSheet(); renderPlaced(); if(EDIT)startEditor() });
 Promise.all([houseImgs,layoutReady.catch(()=>{})]).then(()=>{houseDone=true; checkLoaded()});
 
 /* ---------------- editor (?edit=1) ----------------
@@ -535,7 +565,7 @@ function alphaAt(name,u,v){
   try{return c.getContext("2d",{willReadFrequently:true}).getImageData(Math.min(c.width-1,Math.floor(u*c.width)),Math.min(c.height-1,Math.floor(v*c.height)),1,1).data[3]}catch(e){return 255}
 }
 function hitTest(x,y){ // topmost layer with a visible pixel under the point
-  const ls=editable().map(lay).sort((a,b)=>b.z-a.z||LAYERS.indexOf(b)-LAYERS.indexOf(a));
+  const ls=editable().filter(n=>!hiddenEd.has(n)).map(lay).sort((a,b)=>b.z-a.z||LAYERS.indexOf(b)-LAYERS.indexOf(a));
   for(const l of ls){ if(x<l.x||y<l.y||x>l.x+l.w||y>l.y+l.h)continue; if(alphaAt(l.name,(x-l.x)/l.w,(y-l.y)/l.h)>16) return l.name }
   return null;
 }
@@ -546,9 +576,11 @@ function setZoom(z,cx,cy){ // zoom about a screen point (default: the window cen
 }
 function applyView(){ sceneEl.style.setProperty("--zoom",zoom); sceneEl.style.left=panX+"px"; sceneEl.style.top=panY+"px";
   const sl=$("#ezoom"); if(sl)sl.value=Math.round(zoom*100) }
-function saveDraft(){ lsSet(DRAFT_KEY,LAYERS) }
+function saveDraft(){ lsSet(DRAFT_KEY,JSON.parse(layoutJson())) }
 const layoutJson=()=>JSON.stringify({canvas:{w:ART.w,h:ART.h},
   note:"x,y = top-left in the 8800x4946 artboard; z = stacking order (higher is in front). outlet-left is hidden behind the wall in the original artwork.",
+  toolbarScale:+TRAY.toolbarScale.toFixed(3), trayItemsScale:+TRAY.trayItemsScale.toFixed(3),
+  trayItems:Object.fromEntries(Object.entries(TRAY.trayItems).filter(([,v])=>v!==1).map(([k,v])=>[k,+v.toFixed(3)])),
   layers:LAYERS.map(l=>({name:l.name,group:l.group,z:l.z,x:Math.round(l.x),y:Math.round(l.y),w:Math.round(l.w),h:Math.round(l.h)}))},null,1);
 function saveLayout(){
   const json=layoutJson(); saveDraft();
@@ -557,6 +589,16 @@ function saveLayout(){
   a.href=url; a.download=LAYOUT_FILE; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),2000);
   $("#estatus").textContent=`saved and copied — send ${LAYOUT_FILE} to the bot to publish`;
 }
+function syncPanel(){ // layer list highlight + numeric fields of the selected layer
+  const p=$("#epanel"); if(!p)return;
+  p.querySelectorAll(".ll label").forEach(lb=>{lb.classList.toggle("on",sel.has(lb.dataset.name)); lb.querySelector("input").checked=!hiddenEd.has(lb.dataset.name)});
+  const one=sel.size===1?lay([...sel][0]):null;
+  ["x","y","w","h"].forEach(k=>{const f=$("#en"+k); f.disabled=!one; if(document.activeElement!==f) f.value=one?Math.round(one[k]):""});
+  $("#eselname").textContent=one?one.name:sel.size?sel.size+" layers":"none";
+  const ts=traySel?TRAY.trayItems[traySel]||1:1;
+  $("#etrayname").textContent=traySel||"click an item in the tray"; ["#eti","#etin"].forEach(id=>{$(id).disabled=!traySel; if(document.activeElement!==$(id))$(id).value=ts.toFixed(2)});
+  $("#etb").value=$("#etbn").value=TRAY.toolbarScale.toFixed(2); $("#eta").value=$("#etan").value=TRAY.trayItemsScale.toFixed(2);
+}
 function startEditor(){
   document.body.classList.add("editing");
   const bar=document.createElement("div"); bar.className="etools";
@@ -564,13 +606,41 @@ function startEditor(){
     <label>zoom <input type="range" id="ezoom" min="30" max="400" step="1" value="100"></label>
     <button class="btn" id="ereset" type="button">Reset</button><button class="btn primary" id="esave" type="button">Save</button><span class="st" id="estatus">drag layers · corners scale · shift-click adds · space-drag pans</span>`;
   document.body.appendChild(bar);
+  const panel=document.createElement("div"); panel.className="epanel"; panel.id="epanel";
+  const rng=(id,min,max,step)=>`<div class="row"><input type="range" id="${id}" min="${min}" max="${max}" step="${step}"><input type="number" id="${id}n" min="${min}" max="${max}" step="${step}"></div>`;
+  panel.innerHTML=`<h4>layers (click selects, shift adds; box = visible in editor)</h4>
+    <div class="ll">${LAYERS.filter(shown).slice().sort((a,b)=>b.z-a.z).map(l=>`<label data-name="${l.name}"><input type="checkbox" checked>${l.name}</label>`).join("")}</div>
+    <label class="row"><input type="checkbox" id="elift" checked>bring to front while dragging</label>
+    <h4>selected: <span id="eselname">none</span> · arrows nudge, shift = 10×</h4>
+    <div class="nums">${["x","y","w","h"].map(k=>`<label>${k}<input type="number" id="en${k}" step="1"></label>`).join("")}</div>
+    <h4>toolbar height</h4>${rng("etb",.3,4,.05)}
+    <h4>all tray items size</h4>${rng("eta",.2,5,.05)}
+    <h4>tray item: <span id="etrayname"></span></h4>${rng("eti",.1,8,.05)}`;
+  document.body.appendChild(panel);
+  panel.querySelectorAll(".ll label").forEach(lb=>{ const n=lb.dataset.name, cb=lb.querySelector("input");
+    cb.addEventListener("click",e=>e.stopPropagation());
+    cb.addEventListener("change",()=>{ cb.checked?hiddenEd.delete(n):hiddenEd.add(n); applyLayers() });
+    lb.addEventListener("click",e=>{ if(e.target===cb)return; e.preventDefault(); if(e.shiftKey){sel.has(n)?sel.delete(n):sel.add(n)} else sel=new Set([n]); drawSel(); syncPanel(); $("#estatus").textContent=[...sel].join(", ") }) });
+  $("#elift").onchange=e=>{liftOn=e.target.checked};
+  ["x","y","w","h"].forEach(k=>$("#en"+k).addEventListener("input",e=>{ const v=parseFloat(e.target.value); if(sel.size!==1||!isFinite(v)||(k==="w"||k==="h")&&v<=0)return;
+    lay([...sel][0])[k]=v; applyLayers(); saveDraft(); useLayers(LAYERS); renderPlaced() }));
+  const trayChanged=()=>{ renderSheet(); saveDraft(); syncPanel() };
+  const pair=(id,get,set)=>[id,id+"n"].forEach(i=>$("#"+i).addEventListener("input",e=>{const v=parseFloat(e.target.value); if(!isFinite(v)||v<=0)return; set(v); trayChanged()}));
+  pair("etb",0,v=>{TRAY.toolbarScale=v}); pair("eta",0,v=>{TRAY.trayItemsScale=v});
+  pair("eti",0,v=>{ if(!traySel)return; if(Math.abs(v-1)<1e-3)delete TRAY.trayItems[traySel]; else TRAY.trayItems[traySel]=v });
+  // tray: in the editor a click selects an item (no dragging into the house)
+  sheet.addEventListener("pointerdown",e=>{ const st=e.target.closest(".sticker"); if(!st)return; e.preventDefault(); e.stopPropagation();
+    const it=items.find(i=>i.id===st.dataset.id); traySel=it&&trayKey(it); renderSheet(); syncPanel() },true);
+  syncPanel();
   const selectAll=()=>{sel=new Set(editable()); drawSel()};
   $("#eall").onclick=selectAll;
   $("#ezoom").oninput=e=>setZoom(e.target.value/100);
-  $("#ereset").onclick=()=>{ lsSet(DRAFT_KEY,null); useLayers(fileLayers); sel.clear(); drawSel(); zoom=1; panX=panY=0; applyView(); renderPlaced(); $("#estatus").textContent="reset to the published layout" };
+  $("#ereset").onclick=()=>{ lsSet(DRAFT_KEY,null); TRAY={...fileTray,trayItems:{...fileTray.trayItems}}; renderSheet(); useLayers(fileLayers); sel.clear(); drawSel(); zoom=1; panX=panY=0; applyView(); renderPlaced(); $("#estatus").textContent="reset to the published layout" };
   $("#esave").onclick=saveLayout;
-  let space=false;
+  let space=false, nudgeT;
   addEventListener("keydown",e=>{ if(e.target.closest&&e.target.closest("input,textarea"))return;
+    const ar={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];
+    if(ar&&sel.size){ e.preventDefault(); const st=e.shiftKey?100:10; sel.forEach(n=>{const l=lay(n); l.x+=ar[0]*st; l.y+=ar[1]*st}); applyLayers(); clearTimeout(nudgeT); nudgeT=setTimeout(()=>{saveDraft(); useLayers(LAYERS); renderPlaced()},250); return }
     if(e.key===" "){space=true; e.preventDefault()}
     if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="a"){e.preventDefault(); selectAll()}
     else if(e.key==="Escape"){sel.clear(); drawSel()} });
@@ -578,7 +648,7 @@ function startEditor(){
   // drag / scale / pan / two-finger pinch, all in artboard units
   const pts=new Map(); let op=null;
   wrap.addEventListener("pointerdown",e=>{
-    if(e.target.closest(".etools"))return;
+    if(e.target.closest(".etools,.epanel"))return;
     e.preventDefault(); e.stopPropagation(); wrap.setPointerCapture(e.pointerId);
     pts.set(e.pointerId,[e.clientX,e.clientY]);
     if(pts.size===2){ const [a,b]=[...pts.values()]; op={type:"pinch",d0:Math.hypot(a[0]-b[0],a[1]-b[1])||1,z0:zoom}; return }
@@ -588,10 +658,12 @@ function startEditor(){
     const orig=()=>Object.fromEntries([...sel].map(n=>[n,{...lay(n)}]));
     if(h&&sel.size){ const b=selBox(), c=[b.x+(h.includes("e")?b.w:0),b.y+(h.includes("s")?b.h:0)], a=[b.x+(h.includes("e")?0:b.w),b.y+(h.includes("s")?0:b.h)];
       op={type:"size",a,c,o:orig()}; return }
+    const inSel=!e.shiftKey&&[...sel].some(n=>{const l=lay(n); return !hiddenEd.has(n)&&x>=l.x&&y>=l.y&&x<=l.x+l.w&&y<=l.y+l.h&&alphaAt(n,(x-l.x)/l.w,(y-l.y)/l.h)>16});
+    if(inSel){ op={type:"move",x,y,o:orig()}; if(liftOn)lift=new Set(sel); applyLayers(); return }
     const hit=hitTest(x,y);
     if(!hit){ if(!e.shiftKey)sel.clear(); drawSel(); op=null; return }
     if(e.shiftKey){ sel.has(hit)?sel.delete(hit):sel.add(hit) } else if(!sel.has(hit)) sel=new Set([hit]);
-    drawSel(); op=sel.size?{type:"move",x,y,o:orig()}:null;
+    drawSel(); op=sel.size?{type:"move",x,y,o:orig()}:null; if(op&&liftOn){lift=new Set(sel); applyLayers()}
     $("#estatus").textContent=[...sel].join(", ");
   },true);
   wrap.addEventListener("pointermove",e=>{
@@ -604,7 +676,7 @@ function startEditor(){
       for(const n in op.o){const q=op.o[n]; Object.assign(lay(n),{x:a[0]+(q.x-a[0])*s,y:a[1]+(q.y-a[1])*s,w:q.w*s,h:q.h*s})} }
     applyLayers();
   },true);
-  const up=e=>{ if(!pts.delete(e.pointerId))return; if(op&&op.type!=="pinch"||!pts.size){ if(op&&op.type!=="pan"&&op.type!=="pinch"){saveDraft(); useLayers(LAYERS)} op=null } };
+  const up=e=>{ if(!pts.delete(e.pointerId))return; if(op&&op.type!=="pinch"||!pts.size){ if(op&&op.type!=="pan"&&op.type!=="pinch"){saveDraft(); useLayers(LAYERS)} op=null; if(lift.size){lift.clear(); applyLayers()} } };
   wrap.addEventListener("pointerup",up,true); wrap.addEventListener("pointercancel",up,true);
   wrap.addEventListener("click",e=>e.stopPropagation(),true);
   // wheel / trackpad pinch (ctrl+wheel) / Safari gesture zoom, about the pointer
