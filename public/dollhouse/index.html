@@ -48,8 +48,8 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
    The house sits in its hole at left 17.857%, top 350/1990, width 66.43% (height by its own aspect), so everything scales with it */
 .scene{position:relative;z-index:0;flex:none;width:min(100%,calc((100dvh - 120px) * 3500 / 1990));width:min(100cqw,100cqh * 3500 / 1990);aspect-ratio:3500/1990}
 .backdrop{position:absolute;left:0;top:0;width:100%;height:124.271%;max-width:none;display:block;pointer-events:none;-webkit-user-drag:none}
-/* wider screen than the scene: the wall stripes and the two baseboard lines continue to the page edges (scene units, drawn
-   outside the scene box only; body clips them at the viewport). Floor stays white. */
+/* wider or taller screen than the scene: the wall stripes continue to the page edges and the window top, the two baseboard
+   lines to the page edges (scene units, drawn outside the scene box only; body clips them at the viewport). Floor stays white. */
 .wallFill{position:absolute;left:0;top:0;width:100%;height:124.271%;overflow:visible;pointer-events:none}
 .stage{position:absolute;left:17.857%;top:17.588%;width:66.43%;aspect-ratio:2400/1677}
 .sheet{position:relative;z-index:1}
@@ -145,10 +145,12 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
   <div class="stageWrap" id="wrap">
     <div class="scene" id="scene">
     <svg class="wallFill" viewBox="0 0 3500 2473" preserveAspectRatio="none" aria-hidden="true">
-      <!-- stripes at x = 66 and 296 (+ 492 n) as in backdrop.svg, from the top to the upper baseboard line -->
-      <defs><pattern id="stripes" patternUnits="userSpaceOnUse" x="0" y="0" width="492" height="1478">
-        <rect x="65.45" y="0" width="1.1" height="1478" fill="#a0a0a0"/><rect x="295.45" y="0" width="1.1" height="1478" fill="#a0a0a0"/></pattern></defs>
-      <rect x="-14000" y="0" width="14000" height="1478" fill="url(#stripes)"/><rect x="3500" y="0" width="14000" height="1478" fill="url(#stripes)"/>
+      <!-- stripes at x = 66 and 296 (+ 492 n) as in backdrop.svg, from above the window top to the upper baseboard line;
+           left, right and above the scene box (inside it the backdrop draws its own) -->
+      <defs><pattern id="stripes" patternUnits="userSpaceOnUse" x="0" y="-14000" width="492" height="15478">
+        <rect x="65.45" y="0" width="1.1" height="15478" fill="#a0a0a0"/><rect x="295.45" y="0" width="1.1" height="15478" fill="#a0a0a0"/></pattern></defs>
+      <rect x="-14000" y="-14000" width="14000" height="15478" fill="url(#stripes)"/><rect x="3500" y="-14000" width="14000" height="15478" fill="url(#stripes)"/>
+      <rect x="0" y="-14000" width="3500" height="14000" fill="url(#stripes)"/>
       <rect x="-14000" y="1477.15" width="14000" height="2.7" fill="#a0a0a0"/><rect x="3500" y="1477.15" width="14000" height="2.7" fill="#a0a0a0"/>
       <rect x="-14000" y="1669.15" width="14000" height="2.7" fill="#a0a0a0"/><rect x="3500" y="1669.15" width="14000" height="2.7" fill="#a0a0a0"/>
     </svg>
@@ -605,9 +607,9 @@ let L=null; // current layout or null (= plain backdrop)
 function buildPieces(){
   piecesEl.innerHTML=PIECES.filter(p=>p.id!=="house").map(p=>p.id==="wall"
     ? `<svg class="piece" data-id="wall" viewBox="0 0 ${SW} ${SH}" preserveAspectRatio="none" aria-hidden="true">
-        <defs><pattern id="wallStripes" patternUnits="userSpaceOnUse" x="0" y="0" width="492" height="4478">
-        <rect x="65.45" y="0" width="1.1" height="4478" fill="#a0a0a0"/><rect x="295.45" y="0" width="1.1" height="4478" fill="#a0a0a0"/></pattern></defs>
-        <rect x="-14000" y="-3000" width="31500" height="4478" fill="url(#wallStripes)"/>
+        <defs><pattern id="wallStripes" patternUnits="userSpaceOnUse" x="0" y="-14000" width="492" height="15478">
+        <rect x="65.45" y="0" width="1.1" height="15478" fill="#a0a0a0"/><rect x="295.45" y="0" width="1.1" height="15478" fill="#a0a0a0"/></pattern></defs>
+        <rect x="-14000" y="-14000" width="31500" height="15478" fill="url(#wallStripes)"/>
         <rect x="-14000" y="1477.15" width="31500" height="2.7" fill="#a0a0a0"/><rect x="-14000" y="1669.15" width="31500" height="2.7" fill="#a0a0a0"/></svg>`
     : `<svg class="piece" data-id="${p.id}" viewBox="${p.b.x} ${p.b.y} ${p.b.w} ${p.b.h}" preserveAspectRatio="none" aria-hidden="true">
         <defs><clipPath id="clip-p-${p.id}"><polygon points="${p.poly.map(q=>q.join(",")).join(" ")}"/></clipPath></defs>
