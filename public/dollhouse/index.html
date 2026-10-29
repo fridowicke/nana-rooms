@@ -51,8 +51,8 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .scene{position:relative;z-index:0;flex:none;width:max(100vw,calc((100dvh - 120px) * 8800 / 4946));width:max(100cqw,100cqh * 8800 / 4946);aspect-ratio:8800/4946}
 .ly{position:absolute;display:block;max-width:none;pointer-events:none;-webkit-user-drag:none}
 .ly.vin{opacity:0;transition:opacity .3s ease}
-/* colour variant button: bottom-left corner of the stage, under the editor panel (z 20) if they ever meet */
-.varBtn{position:absolute;left:10px;bottom:10px;z-index:15;width:34px;height:34px;border-radius:50%;border:1px solid var(--ink);background:var(--bg);padding:0;cursor:pointer;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center}
+/* colour variant button: in .app, 12px above the top of the sticker toolbar (--tbr = its real height, set in fitSheet), under the editor panel (z 20) */
+.varBtn{position:absolute;left:calc(50% - 50vw + 12px);bottom:calc(var(--tbr,0px) + 12px);z-index:15;width:34px;height:34px;border-radius:50%;border:1px solid var(--ink);background:var(--bg);padding:0;cursor:pointer;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center}
 .varBtn:hover{background:var(--ink)}
 /* the game area = the box of the house layer; stickers live in its units (VB). z 30 = above every scene layer (house, stairs, girl,
    legs, mailbox, items: z ≤ 21, raised layers in the editor 29), so dropped stickers always stay in front; the sheet and editor UI are above the scene */
@@ -182,10 +182,10 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
     </div>
     <div id="selLayer"></div>
     </div>
-    <button class="varBtn" id="varBtn" type="button" title="Change colours" aria-label="Change colours">🎃</button>
   </div>
 
   <div class="sheet" id="sheet" aria-label="Stickers"></div>
+  <button class="varBtn" id="varBtn" type="button" title="Change colours" aria-label="Change colours">🎃</button>
 </div>
 
 <script>
@@ -326,6 +326,7 @@ function fitSheet(){ // largest thumbnail height (max 22px phone / 28px desktop,
   const max=Math.round((innerWidth<=860?22:28)*TRAY.toolbarScale), min=Math.min(14,max);
   for(let t=max;t>=min;t--){ sheet.style.setProperty("--t",t+"px"); sheet.style.setProperty("--o",-Math.min(4,Math.round(t*.18))+"px");
     if(sheet.scrollHeight<=sheet.clientHeight+1) break; }
+  document.querySelector(".app").style.setProperty("--tbr",sheet.offsetHeight+"px");
 }
 function renderSheet(){
   // measure the sheet at the default sizes first: that height (--tbh) fixes the scene area, whatever the real tray sizes are
