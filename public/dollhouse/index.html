@@ -6,10 +6,10 @@
 <title>Dollhouse Game</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preload" as="image" href="loader-house.webp" type="image/webp" fetchpriority="high">
-<link rel="preload" as="image" href="blueprint.svg" type="image/svg+xml" fetchpriority="high">
-<link rel="preload" as="image" href="backdrop.svg" type="image/svg+xml" fetchpriority="high">
+<link rel="preload" as="image" href="layers/background-wall.webp" type="image/webp" fetchpriority="high">
+<link rel="preload" as="image" href="layers/house.webp" type="image/webp" fetchpriority="high">
 <style>
-/* loading widget: shown from the first paint until the house picture, its backdrop, the stickers and saved uploads are ready */
+/* loading widget: shown from the first paint until the scene layers, the stickers and saved uploads are ready */
 #loader{position:fixed;inset:0;z-index:1000;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .2s;
   font-family:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;font-size:12px;color:#666}
 /* loader-house.webp: animated pixel art, 160 × 212, shown at an integer scale (2×, 1× on narrow screens), never cropped */
@@ -18,7 +18,7 @@
 #loader.out{opacity:0;pointer-events:none}
 </style>
 <style>
-/* Layout: the scene backdrop with the blueprint picture (blueprint.svg, 2400 × 1677) in it, fitted above the sticker sheet. Black on white, square corners. */
+/* Layout: the scene (separate picture layers on an 8800 × 4946 artboard, 16:9) fitted above the sticker sheet. Black on white, square corners. */
 :root{
   --bg:#ffffff; --ink:#000000; --dim:rgba(0,0,0,.35); --faint:rgba(0,0,0,.05); --muted:#666666;
   --font:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
@@ -41,18 +41,21 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .btn:disabled{opacity:.3;cursor:default;background:var(--bg);color:var(--ink)}
 :focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
-/* house */
-.stageWrap{position:relative;width:100%;flex:1 1 0;min-height:0;container-type:size;display:flex;align-items:center;justify-content:center}
-/* the scene = backdrop.svg (3500 × 2473) cropped to its drawn part, 3500 × 1990 (the bottom of the file is empty floor);
-   contain-fitted from the top of the window to the sheet, centred, never cut: both legs, heels and the outlet stay whole.
-   The house sits in its hole at left 17.857%, top 350/1990, width 66.43% (height by its own aspect), so everything scales with it */
-.scene{position:relative;z-index:0;flex:none;width:min(100%,calc((100dvh - 120px) * 3500 / 1990));width:min(100cqw,100cqh * 3500 / 1990);aspect-ratio:3500/1990}
-.backdrop{position:absolute;left:0;top:0;width:100%;height:124.271%;max-width:none;display:block;pointer-events:none;-webkit-user-drag:none}
-/* wider or taller screen than the scene: the wall stripes continue to the page edges and the window top, the two baseboard
-   lines to the page edges (scene units, drawn outside the scene box only; body clips them at the viewport). Floor stays white. */
-.wallFill{position:absolute;left:0;top:0;width:100%;height:124.271%;overflow:visible;pointer-events:none}
-.stage{position:absolute;left:17.857%;top:17.588%;width:66.43%;aspect-ratio:2400/1677}
-.sheet{position:relative;z-index:1}
+/* scene: 16:9 (8800 × 4946), centred, contain-fitted above the sheet, never cropped. Each layer = layers/<name>.webp placed in
+   % of the artboard (left x/8800, top y/4946, width w/8800), stacked by z. Letterbox bars = colours sampled from the
+   picture edges (wall stripe at the sides, wall top above, floor below), drawn outside the scene box and clipped to the wrap height */
+.stageWrap{position:relative;width:100%;flex:1 1 0;min-height:0;container-type:size;display:flex;align-items:center;justify-content:center;clip-path:inset(0 -100vw)}
+.scene{position:relative;z-index:0;flex:none;width:min(100%,calc((100dvh - 120px) * 8800 / 4946));width:min(100cqw,100cqh * 8800 / 4946);aspect-ratio:8800/4946}
+.ly{position:absolute;display:block;max-width:none;pointer-events:none;-webkit-user-drag:none}
+.bleed{position:absolute;z-index:-1;pointer-events:none}
+.bleed.top{left:-100vw;right:-100vw;bottom:100%;height:100vh;background:rgb(30,216,78)}
+.bleed.bottom{left:-100vw;right:-100vw;top:calc(100% - 1px);height:100vh;background:rgb(253,156,23)}
+.bleed.l,.bleed.r{top:0;bottom:0;width:100vw;background:linear-gradient(rgb(30,216,78) 0%,rgb(55,208,40) 25%,rgb(110,207,25) 45%,rgb(190,232,59) 57%,rgb(194,231,59) 59.6%,
+  rgb(205,206,201) 59.6%,rgb(200,201,196) 74.2%,rgb(248,54,0) 74.2%,rgb(253,156,23) 100%)}
+.bleed.l{right:calc(100% - 1px)} .bleed.r{left:calc(100% - 1px)}
+/* the game area = the box of the house layer; stickers live in its units (VB) */
+.stage{position:absolute;z-index:30}
+.sheet{position:relative;z-index:1;background:var(--bg)}
 .layer{position:absolute;inset:0;width:100%;height:100%}
 .screens{position:absolute;inset:0;pointer-events:none;z-index:1}
 .screens video{position:absolute;display:block;object-fit:cover;opacity:0;transition:opacity .7s ease;background:var(--ink)}
@@ -100,26 +103,6 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .ghost{position:fixed;left:0;top:0;pointer-events:none;z-index:50;transform:translate(-50%,-50%)}
 .ghost.back{transition:all .25s ease-in}
 
-/* split scene: the backdrop as separate pieces (wall, outlet, legs, figure; vector, each the original picture clipped to its
-   outline) placed by a layout (dollhouse-layout.json or the ?edit=1 editor); the whole scene can be zoomed */
-.scene{transform-origin:50% 50%}
-.pieces{position:absolute;inset:0;pointer-events:none;display:none}
-.split .pieces{display:block}
-.split .backdrop,.split .wallFill{display:none}
-.piece{position:absolute;display:block;overflow:visible}
-.houseBack{display:none;position:absolute;left:1.667%;top:26.24%;width:71.67%;height:66.79%;background:var(--bg)}
-.split .houseBack{display:block}
-.editing .stageWrap{cursor:default}
-.editing .stage *{pointer-events:none!important}
-#selLayer{position:absolute;inset:0;pointer-events:none;z-index:4}
-#selLayer .ol{position:absolute;outline:1px dashed rgba(0,0,0,.45)}
-#selLayer .box{position:absolute;outline:1px solid var(--ink)}
-#selLayer .h{position:absolute;width:calc(10px / var(--z,1));height:calc(10px / var(--z,1));background:var(--bg);border:calc(1px / var(--z,1)) solid var(--ink);box-sizing:border-box;transform:translate(-50%,-50%);pointer-events:auto}
-#selLayer .h[data-h=nw],#selLayer .h[data-h=se]{cursor:nwse-resize}
-#selLayer .h[data-h=ne],#selLayer .h[data-h=sw]{cursor:nesw-resize}
-.etools{position:fixed;left:50%;top:6px;transform:translateX(-50%);z-index:20;display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--ink);padding:3px 6px;font-size:12px;line-height:1.3;white-space:nowrap}
-.etools input[type=range]{width:120px}
-.etools .st{color:var(--muted)}
 @media (max-width:860px){ header{flex-wrap:wrap;row-gap:4px} .stageWrap{padding-top:40px;box-sizing:border-box} }
 /* phones: same scene, same aspect (width-limited), centred above the sheet */
 @media (max-width:700px){
@@ -144,24 +127,12 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 
   <div class="stageWrap" id="wrap">
     <div class="scene" id="scene">
-    <svg class="wallFill" viewBox="0 0 3500 2473" preserveAspectRatio="none" aria-hidden="true">
-      <!-- stripes at x = 66 and 296 (+ 492 n) as in backdrop.svg, from above the window top to the upper baseboard line;
-           left, right and above the scene box (inside it the backdrop draws its own) -->
-      <defs><pattern id="stripes" patternUnits="userSpaceOnUse" x="0" y="-14000" width="492" height="15478">
-        <rect x="65.45" y="0" width="1.1" height="15478" fill="#a0a0a0"/><rect x="295.45" y="0" width="1.1" height="15478" fill="#a0a0a0"/></pattern></defs>
-      <rect x="-14000" y="-14000" width="14000" height="15478" fill="url(#stripes)"/><rect x="3500" y="-14000" width="14000" height="15478" fill="url(#stripes)"/>
-      <rect x="0" y="-14000" width="3500" height="14000" fill="url(#stripes)"/>
-      <rect x="-14000" y="1477.15" width="14000" height="2.7" fill="#a0a0a0"/><rect x="3500" y="1477.15" width="14000" height="2.7" fill="#a0a0a0"/>
-      <rect x="-14000" y="1669.15" width="14000" height="2.7" fill="#a0a0a0"/><rect x="3500" y="1669.15" width="14000" height="2.7" fill="#a0a0a0"/>
-    </svg>
-    <img class="backdrop" src="backdrop.svg" alt="" draggable="false">
-    <div class="pieces" id="pieces"></div>
+    <div class="bleed top"></div><div class="bleed bottom"></div><div class="bleed l"></div><div class="bleed r"></div>
+    <div id="layers"></div>
     <div class="stage" id="stage">
-      <div class="houseBack"></div>
-      <svg class="layer" id="zones" viewBox="0 0 2400 1677" preserveAspectRatio="none" aria-hidden="true"></svg>
-      <svg class="layer walls" id="walls" viewBox="0 0 2400 1677" preserveAspectRatio="none" aria-hidden="true"></svg>
+      <svg class="layer" id="zones" viewBox="0 0 3097 3040" preserveAspectRatio="none" aria-hidden="true"></svg>
+      <svg class="layer walls" id="walls" viewBox="0 0 3097 3040" preserveAspectRatio="none" aria-hidden="true"></svg>
       <div class="screens" id="screens"></div>
-      <img class="layer" id="lines" src="blueprint.svg" alt="" draggable="false" style="pointer-events:none;-webkit-user-drag:none">
       <div class="placed" id="placed" aria-label="House"></div>
       <div class="banner"><button class="btn primary" id="again" type="button">Play again</button></div>
     </div>
@@ -186,8 +157,8 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
      Dropped on a room or the tower it covers that whole area behind the furniture; one per area,
      a new one sends the old one back to the sheet. This works for uploaded files too.
    Objects stay exactly where they are dropped (centre under the finger), anywhere on the stage.
-   SLOTS: a picture whose file name contains "door", "window" or "stair"/"spiral" dropped on (or next to) the matching
-     dashed drawing snaps into it and hides the drawing; one picture per slot. Anywhere else it is a normal object.
+   SLOTS: a picture whose file name contains "door" or "window" dropped on (or next to) the door or a tower window
+     of the house snaps into it; one picture per slot. Anywhere else it is a normal object.
    ALLOW_UPLOAD: true shows a "+" on the sheet to test PNGs from your computer
                  (you can also drop files onto the sheet). Set false for the public site.
    ===================================================================== */
@@ -199,7 +170,15 @@ const ROOM_VIDEOS = {
   r1:"finale.mp4",
 };
 
+/* SCENE: layers/<name>.webp on an 8800 × 4946 artboard (the files are drawn at 50 %); x, y = top-left, w, h = size, z = stacking
+   (higher is in front). item-* layers are not part of the scene: they are the first stickers on the sheet, at their artboard size. */
+const ART={w:8800,h:4946}, HIDDEN=["outlet-left"];
+const DEFAULT_LAYERS=[{"name":"background-wall","group":"background","z":0,"x":0,"y":0,"w":8800,"h":4004},{"name":"floor","group":"background","z":1,"x":0,"y":3672,"w":8800,"h":1274},{"name":"floor-splashes","group":"background","z":2,"x":0,"y":3665,"w":8800,"h":1281},{"name":"leg-left","group":"scene","z":8,"x":900,"y":0,"w":1725,"h":3771},{"name":"leg-right","group":"scene","z":8,"x":5096,"y":0,"w":2840,"h":3804},{"name":"outlet-left","group":"background","z":-1,"x":1268,"y":1713,"w":708,"h":1145},{"name":"outlet-right","group":"background","z":3,"x":6843,"y":743,"w":708,"h":1145},{"name":"outside-stairs","group":"scene","z":4,"x":2223,"y":1512,"w":391,"h":2245},{"name":"house","group":"scene","z":5,"x":2453,"y":784,"w":3097,"h":3040},{"name":"girl","group":"scene","z":7,"x":5625,"y":1401,"w":1060,"h":2422},{"name":"speech-bubble","group":"scene","z":9,"x":4747,"y":232,"w":2056,"h":1365},{"name":"mailbox","group":"scene","z":10,"x":5476,"y":3458,"w":172,"h":414},{"name":"item-audiocontroller","group":"toolbar-item","z":20,"x":3870,"y":2457,"w":261,"h":88},{"name":"item-bearbrick-copy","group":"toolbar-item","z":20,"x":3893,"y":1697,"w":166,"h":355},{"name":"item-cage","group":"toolbar-item","z":20,"x":3001,"y":2765,"w":180,"h":359},{"name":"item-car","group":"toolbar-item","z":20,"x":2745,"y":2266,"w":654,"h":328},{"name":"item-cdp","group":"toolbar-item","z":20,"x":3672,"y":2739,"w":186,"h":371},{"name":"item-ipod-nano-pink","group":"toolbar-item","z":20,"x":3922,"y":3291,"w":166,"h":383},{"name":"item-lamp-1","group":"toolbar-item","z":20,"x":3964,"y":2121,"w":378,"h":249},{"name":"item-lamp-2","group":"toolbar-item","z":20,"x":2781,"y":2663,"w":91,"h":253},{"name":"item-lamp-2-copy","group":"toolbar-item","z":20,"x":3725,"y":1608,"w":91,"h":253},{"name":"item-lamp-3","group":"toolbar-item","z":20,"x":2719,"y":1580,"w":378,"h":249},{"name":"item-lamp-copy","group":"toolbar-item","z":20,"x":3996,"y":2763,"w":372,"h":355},{"name":"item-pc","group":"toolbar-item","z":20,"x":4239,"y":2984,"w":106,"h":141},{"name":"item-radio","group":"toolbar-item","z":20,"x":3661,"y":2317,"w":200,"h":234},{"name":"item-skull","group":"toolbar-item","z":20,"x":3100,"y":1748,"w":340,"h":308},{"name":"item-tv","group":"toolbar-item","z":20,"x":2725,"y":3423,"w":313,"h":242},{"name":"item-tv-2","group":"toolbar-item","z":20,"x":4074,"y":1810,"w":335,"h":247},{"name":"item-window","group":"toolbar-item","z":20,"x":3919,"y":1629,"w":196,"h":304},{"name":"item-window-copy-2","group":"toolbar-item","z":20,"x":2994,"y":3247,"w":196,"h":304}];
+let LAYERS=DEFAULT_LAYERS.map(l=>({...l}));
+const isItem=name=>/^item-/.test(name);
+
 const STICKERS = [
+  ...DEFAULT_LAYERS.filter(l=>isItem(l.name)).map(l=>({src:`layers/${l.name}.webp`, h:l.h, art:true})),
   // {src:"pieces/bed.png", h:80},
   {src:"pieces/door.webp", h:50, snap:"floor"},
   {src:"pieces/girl1.webp", h:54, snap:"floor"},
@@ -288,26 +267,25 @@ const STICKERS = [
 const ALLOW_UPLOAD = true;
 const UPLOAD_HEIGHT = 240; // ×K below
 
-// House geometry = pixels of blueprint.svg (2400 × 1677). 4 floors × 2 rooms (the see-through parts of the picture);
-// the roof is drawn opaque, so it is not a wallpaper area. K = old room height (162) → new, keeps sticker sizes relative to a room.
+// House geometry = artboard units inside the house layer (house.webp at 3097 × 3040). 4 floors × 2 rooms + the tower above the door;
+// a wallpaper covers one of these areas. K = old room height (162) → new, keeps sticker sizes relative to a room.
 const ROOMS = [
-  {id:"r1",x:232,y:447, w:457,h:252},{id:"r2",x:731,y:447, w:455,h:252},
-  {id:"r3",x:232,y:733, w:457,h:247},{id:"r4",x:731,y:733, w:455,h:247},
-  {id:"r5",x:232,y:1014,w:457,h:250},{id:"r6",x:731,y:1014,w:455,h:250},
-  {id:"r7",x:232,y:1298,w:457,h:252},{id:"r8",x:731,y:1298,w:455,h:252},
+  {id:"r1",x:128,y:768, w:910,h:488},{id:"r2",x:1066,y:768, w:948,h:488},
+  {id:"r3",x:128,y:1328,w:910,h:468},{id:"r4",x:1066,y:1328,w:948,h:468},
+  {id:"r5",x:128,y:1872,w:910,h:436},{id:"r6",x:1066,y:1872,w:948,h:436},
+  {id:"r7",x:128,y:2426,w:910,h:416},{id:"r8",x:1066,y:2426,w:948,h:416},
 ];
-const K = 252/162;
-const TOWER = {id:"tower",x:1248,y:447,w:342,h:816}; // see-through inside of the tower above the door, one wallpaper area
+const K = 488/162;
+const TOWER = {id:"tower",x:2108,y:768,w:674,h:1540}; // inside of the tower above the door, one wallpaper area
 
-// Slots: the door, the three tower window frames and the spiral stairs of the picture; box = its place in picture pixels
+// Slots: the door and the three tower windows of the house picture; box = its place in house units
 const SLOTS = [
-  {id:"door",         type:"door",   x:1367, y:1355, w:102, h:193},
-  {id:"tower-win-1",  type:"window", x:1380, y:485,  w:66,  h:142},
-  {id:"tower-win-2",  type:"window", x:1380, y:776,  w:66,  h:142},
-  {id:"tower-win-3",  type:"window", x:1380, y:1046, w:66,  h:142},
-  {id:"stairs",       type:"stairs", x:40,   y:418,  w:196, h:1154},
+  {id:"door",         type:"door",   x:2343, y:2472, w:176, h:396},
+  {id:"tower-win-1",  type:"window", x:2360, y:900,  w:140, h:230},
+  {id:"tower-win-2",  type:"window", x:2360, y:1420, w:140, h:230},
+  {id:"tower-win-3",  type:"window", x:2360, y:1930, w:140, h:230},
 ];
-const SLOT_NEAR = 31; // a drop this close to a slot box still snaps
+const SLOT_NEAR = 40; // a drop this close to a slot box still snaps
 const slotType=name=>/door/i.test(name)?"door":/window/i.test(name)?"window":/stair|spiral/i.test(name)?"stairs":null;
 
 /* ---------------- owner mode (only while the URL has ?owner=shelest; never remembered) ---------------- */
@@ -321,18 +299,18 @@ const typeKey=it=>it.upload?it.id:it.src;
 const typeOf=it=>types[typeKey(it)]||slotType(it.name);
 
 /* ---------------- setup ---------------- */
-const VB={x:0,y:0,w:2400,h:1677};          // the whole picture
+const VB={x:0,y:0,w:3097,h:3040};          // the house layer box
 const $=s=>document.querySelector(s);
 const stage=$("#stage"), wrap=$("#wrap"), sheet=$("#sheet"), placedEl=$("#placed"), screens=$("#screens"), wallsEl=$("#walls");
 const isWall=name=>/^wall/i.test(name);
 const isJpeg=(name,type)=>type==="image/jpeg"||/\.jpe?g$/i.test(name);
-const builtins=STICKERS.map((s,i)=>({id:"s"+i, src:s.src, name:s.src.split("/").pop(), h:(s.h||80)*3*K, snap:s.snap||"auto", ratio:1, wall:false, ready:false}));
+const builtins=STICKERS.map((s,i)=>({id:"s"+i, src:s.src, name:s.src.split("/").pop(), h:s.art?s.h:(s.h||80)*3*K, snap:s.snap||"auto", ratio:1, wall:false, ready:false}));
 let items=builtins.filter(it=>!removed.includes(it.src));
 let videoRoom=null;     // room whose stickers are hidden while its finale video plays
 const pos={};            // id -> {room, x, y}  (x = centre, y = bottom, canvas units, room = area or null, slot = slot id); wallpapers: {room}
 let alive=false;
 
-function drawHouse(){ // the picture is an <img>; only the drop zones are drawn
+function drawHouse(){ // the picture is a scene layer; only the drop zones are drawn
   $("#zones").innerHTML=ROOMS.map(r=>`<rect class="zone" data-room="${r.id}" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"/>`).join("")+
     `<rect class="zone" data-room="tower" x="${TOWER.x}" y="${TOWER.y}" width="${TOWER.w}" height="${TOWER.h}"/>`;
 }
@@ -401,7 +379,7 @@ function renderSheet(){
   fitSheet();
 }
 function renderPlaced(popId){
-  // wallpapers live in the same viewBox as #lines: image = room rect, clipped by the room rect
+  // wallpapers live in the house viewBox: image = room rect, clipped by the room rect
   SY=measureStretch();
   // on a stretched phone house the image is drawn SY times taller and squeezed back by the stretch, so it is not distorted
   wallsEl.innerHTML=`<defs>${ROOMS.map(r=>`<clipPath id="clip-${r.id}"><rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"/></clipPath>`).join("")}
@@ -519,8 +497,7 @@ function measure(it){const im=new Image(); im.onload=()=>{it.ratio=im.naturalWid
 /* ---------------- loading widget ---------------- */
 let uploadsDone=!ALLOW_UPLOAD;
 function hideLoader(){ const l=$("#loader"); if(!l||l.classList.contains("out"))return; l.classList.add("out"); setTimeout(()=>l.remove(),200) }
-let houseDone=false; // blueprint + backdrop loaded and decoded (or failed)
-const houseImgs=Promise.all([...document.querySelectorAll("#lines,.backdrop")].map(i=>i.decode().catch(()=>{})));
+let houseDone=false; // scene layers loaded and decoded (or failed)
 function checkLoaded(){ if(houseDone&&uploadsDone&&items.every(it=>it.ready)) hideLoader() }
 setTimeout(hideLoader,8000); // failsafe
 
@@ -575,137 +552,23 @@ let rt; addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(renderShee
 // the phone stretch follows the stage size (sheet height, rotation, Safari toolbar): re-place stickers when it changes
 if(window.ResizeObserver) new ResizeObserver(()=>{ if(measureStretch()!==SY) renderPlaced() }).observe(stage);
 
-/* ---------------- scene layout + editor (?edit=1) ----------------
-   Scene units: 3500 × 1990 (the cropped backdrop). Each piece = {x, y, w} (top-left, width; height by its own aspect).
-   Polygons = outline of each piece in backdrop.svg pixels. No layout file and no editor → the plain backdrop.svg. */
-const SW=3500, SH=1990, LAYOUT_FILE="dollhouse-layout.json", DRAFT_KEY="dollhouse-layout-draft";
-const EDIT=new URLSearchParams(location.search).get("edit")==="1";
-const dbl=a=>a.map(([x,y])=>[x*2,y*2]);
-const PIECES=[ // bottom → top
-  {id:"wall"},
-  {id:"outlet",poly:dbl([[1482,181],[1668,181],[1668,477],[1482,477]])},
-  {id:"leg-left",poly:dbl([[222,0],[442,0],[439,100],[402,230],[354,330],[302,520],[314,560],[342,640],[340,760],[292,800],[287,947],[0,947],[0,838],[148,560],[193,505],[219,240]])},
-  {id:"leg-right",poly:dbl([[1038,0],[1327,0],[1432,110],[1562,258],[1652,478],[1751,518],[1751,952],[1478,952],[1478,880],[1558,760],[1568,620],[1513,540],[1488,482],[1258,237]])},
-  {id:"figure",poly:dbl([[1153,858],[1248,700],[1288,420],[1328,338],[1402,338],[1442,560],[1452,820],[1457,962],[1457,985],[1153,985]])},
-  {id:"house"},
-];
-PIECES.forEach(pc=>{
-  if(pc.poly){const xs=pc.poly.map(p=>p[0]),ys=pc.poly.map(p=>p[1]); pc.b={x:Math.min(...xs),y:Math.min(...ys)}; pc.b.w=Math.max(...xs)-pc.b.x; pc.b.h=Math.max(...ys)-pc.b.y}
-  else pc.b=pc.id==="wall"?{x:0,y:0,w:SW,h:SH}:{x:625,y:350,w:2325,h:2325*1677/2400};
-  pc.r=pc.b.h/pc.b.w;
-});
-const pieceOf=id=>PIECES.find(p=>p.id===id);
-const sceneEl=$("#scene"), piecesEl=$("#pieces"), selLayer=$("#selLayer");
-const defaultLayout=()=>({zoom:1,pieces:Object.fromEntries(PIECES.map(p=>[p.id,{x:p.b.x,y:p.b.y,w:p.b.w}]))});
-function cleanLayout(j){ // anything missing or broken → default values
-  const d=defaultLayout(); if(!j||typeof j!=="object")return null; const ok=v=>typeof v==="number"&&isFinite(v);
-  if(ok(j.zoom)&&j.zoom>0)d.zoom=j.zoom;
-  PIECES.forEach(p=>{const q=j.pieces&&j.pieces[p.id]; if(q&&ok(q.x)&&ok(q.y)&&ok(q.w)&&q.w>0)d.pieces[p.id]={x:q.x,y:q.y,w:q.w}});
-  return d;
-}
-let L=null; // current layout or null (= plain backdrop)
-function buildPieces(){
-  piecesEl.innerHTML=PIECES.filter(p=>p.id!=="house").map(p=>p.id==="wall"
-    ? `<svg class="piece" data-id="wall" viewBox="0 0 ${SW} ${SH}" preserveAspectRatio="none" aria-hidden="true">
-        <defs><pattern id="wallStripes" patternUnits="userSpaceOnUse" x="0" y="-14000" width="492" height="15478">
-        <rect x="65.45" y="0" width="1.1" height="15478" fill="#a0a0a0"/><rect x="295.45" y="0" width="1.1" height="15478" fill="#a0a0a0"/></pattern></defs>
-        <rect x="-14000" y="-14000" width="31500" height="15478" fill="url(#wallStripes)"/>
-        <rect x="-14000" y="1477.15" width="31500" height="2.7" fill="#a0a0a0"/><rect x="-14000" y="1669.15" width="31500" height="2.7" fill="#a0a0a0"/></svg>`
-    : `<svg class="piece" data-id="${p.id}" viewBox="${p.b.x} ${p.b.y} ${p.b.w} ${p.b.h}" preserveAspectRatio="none" aria-hidden="true">
-        <defs><clipPath id="clip-p-${p.id}"><polygon points="${p.poly.map(q=>q.join(",")).join(" ")}"/></clipPath></defs>
-        <image href="backdrop.svg" x="0" y="0" width="3500" height="2473" clip-path="url(#clip-p-${p.id})"/></svg>`).join("");
-}
-const pct=(v,t)=>v/t*100+"%";
-function applyLayout(){
-  if(!L){ sceneEl.classList.remove("split"); sceneEl.style.transform=""; ["left","top","width"].forEach(k=>stage.style[k]=""); return }
-  if(!piecesEl.firstChild) buildPieces();
-  sceneEl.classList.add("split"); sceneEl.style.transform=L.zoom===1?"":`scale(${L.zoom})`; sceneEl.style.setProperty("--z",L.zoom);
-  PIECES.forEach(p=>{const q=L.pieces[p.id], el=p.id==="house"?stage:piecesEl.querySelector(`[data-id="${p.id}"]`);
-    el.style.left=pct(q.x,SW); el.style.top=pct(q.y,SH); el.style.width=pct(q.w,SW); if(p.id!=="house")el.style.height=pct(q.w*p.r,SH)});
-  if(EDIT) drawSel();
-}
 
-let sel=new Set();
-const box=id=>{const q=L.pieces[id];return {x:q.x,y:q.y,w:q.w,h:q.w*pieceOf(id).r}};
-function selBox(){ let x0=1/0,y0=1/0,x1=-1/0,y1=-1/0; sel.forEach(id=>{const b=box(id); x0=Math.min(x0,b.x);y0=Math.min(y0,b.y);x1=Math.max(x1,b.x+b.w);y1=Math.max(y1,b.y+b.h)}); return {x:x0,y:y0,w:x1-x0,h:y1-y0} }
-const rectStyle=b=>`left:${pct(b.x,SW)};top:${pct(b.y,SH)};width:${pct(b.w,SW)};height:${pct(b.h,SH)}`;
-function drawSel(){
-  if(!sel.size){selLayer.innerHTML="";return}
-  const b=selBox();
-  selLayer.innerHTML=[...sel].map(id=>`<div class="ol" style="${rectStyle(box(id))}"></div>`).join("")+`<div class="box" style="${rectStyle(b)}"></div>`+
-    [["nw",b.x,b.y],["ne",b.x+b.w,b.y],["sw",b.x,b.y+b.h],["se",b.x+b.w,b.y+b.h]].map(([h,x,y])=>`<div class="h" data-h="${h}" style="left:${pct(x,SW)};top:${pct(y,SH)}"></div>`).join("");
+/* ---------------- scene layers ----------------
+   Every layer except the item-* stickers and outlet-left is an <img> in % of the artboard; the stage (game area) follows the house layer. */
+const sceneEl=$("#scene"), layersEl=$("#layers");
+const pct=(v,t)=>v/t*100+"%";
+const shown=l=>!HIDDEN.includes(l.name)&&!isItem(l.name);
+function buildLayers(){
+  layersEl.innerHTML=LAYERS.filter(shown).map(l=>`<img class="ly" data-name="${l.name}" src="layers/${l.name}.webp" alt="" draggable="false">`).join("");
 }
-function toScene(cx,cy){const r=sceneEl.getBoundingClientRect(); return [(cx-r.left)/r.width*SW,(cy-r.top)/r.height*SH]}
-function inPoly(x,y,poly){let c=false; for(let i=0,j=poly.length-1;i<poly.length;j=i++){const [xi,yi]=poly[i],[xj,yj]=poly[j];
-  if((yi>y)!==(yj>y)&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)c=!c} return c}
-function hitTest(x,y){ // topmost piece under the point
-  for(const p of [...PIECES].reverse()){ const b=box(p.id); if(x<b.x||y<b.y||x>b.x+b.w||y>b.y+b.h)continue;
-    const ax=p.b.x+(x-b.x)/b.w*p.b.w, ay=p.b.y+(y-b.y)/b.h*p.b.h;
-    if(p.poly?inPoly(ax,ay,p.poly):p.id==="house"?ax-p.b.x<p.b.w*1780/2400&&ay-p.b.y>p.b.h*200/1677:true) return p.id }
-  return null;
+function placeBox(el,l){ el.style.left=pct(l.x,ART.w); el.style.top=pct(l.y,ART.h); el.style.width=pct(l.w,ART.w); el.style.height=pct(l.h,ART.h) }
+function applyLayers(){
+  LAYERS.forEach(l=>{ const el=layersEl.querySelector(`[data-name="${l.name}"]`); if(!el)return; placeBox(el,l); el.style.zIndex=l.z+1 });
+  const house=LAYERS.find(l=>l.name==="house"); if(house) placeBox(stage,house);
 }
-function setZoom(z){ L.zoom=Math.min(3,Math.max(.3,z)); const sl=$("#ezoom"); if(sl)sl.value=Math.round(L.zoom*100); applyLayout() }
-function saveDraft(){ try{localStorage.setItem(DRAFT_KEY,JSON.stringify(L))}catch(e){} }
-const layoutJson=()=>JSON.stringify({version:1,zoom:+L.zoom.toFixed(3),pieces:Object.fromEntries(PIECES.map(p=>{const q=L.pieces[p.id];return [p.id,{x:+q.x.toFixed(1),y:+q.y.toFixed(1),w:+q.w.toFixed(1)}]}))},null,2);
-function saveLayout(){
-  const json=layoutJson(); saveDraft();
-  navigator.clipboard?.writeText(json).catch(()=>{});
-  const url=URL.createObjectURL(new Blob([json],{type:"application/json"})), a=document.createElement("a");
-  a.href=url; a.download=LAYOUT_FILE; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),2000);
-  $("#estatus").textContent=`saved — send ${LAYOUT_FILE} to the bot to publish`;
-}
-function startEditor(){
-  document.body.classList.add("editing");
-  const bar=document.createElement("div"); bar.className="etools";
-  bar.innerHTML=`<b style="font-weight:400">edit</b><button class="btn" id="eall" type="button">Select all</button>
-    <label>zoom <input type="range" id="ezoom" min="30" max="300" step="1" value="${Math.round(L.zoom*100)}"></label>
-    <button class="btn" id="ereset" type="button">Reset</button><button class="btn primary" id="esave" type="button">Save</button><span class="st" id="estatus">drag pieces · corners resize · shift-click adds</span>`;
-  document.body.appendChild(bar);
-  $("#eall").onclick=()=>{sel=new Set(PIECES.map(p=>p.id)); drawSel()};
-  $("#ezoom").oninput=e=>setZoom(e.target.value/100);
-  $("#ereset").onclick=()=>{ try{localStorage.removeItem(DRAFT_KEY)}catch(e){} L=defaultLayout(); sel.clear(); setZoom(1); $("#estatus").textContent="reset to the default" };
-  $("#esave").onclick=saveLayout;
-  addEventListener("keydown",e=>{ if(e.target.closest&&e.target.closest("input,textarea"))return;
-    if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="a"){e.preventDefault(); sel=new Set(PIECES.map(p=>p.id)); drawSel()}
-    else if(e.key==="Escape"){sel.clear(); drawSel()} });
-  // drag / resize / two-finger pinch, all in scene units
-  const pts=new Map(); let op=null;
-  wrap.addEventListener("pointerdown",e=>{
-    e.preventDefault(); e.stopPropagation(); wrap.setPointerCapture(e.pointerId);
-    pts.set(e.pointerId,[e.clientX,e.clientY]);
-    if(pts.size===2){ const [a,b]=[...pts.values()]; op={type:"pinch",d0:Math.hypot(a[0]-b[0],a[1]-b[1])||1,z0:L.zoom}; return }
-    if(pts.size>2)return;
-    const [x,y]=toScene(e.clientX,e.clientY), h=e.target.dataset&&e.target.dataset.h;
-    const orig=()=>Object.fromEntries([...sel].map(id=>[id,{...L.pieces[id]}]));
-    if(h&&sel.size){ const b=selBox(), c=[b.x+(h.includes("e")?b.w:0),b.y+(h.includes("s")?b.h:0)], a=[b.x+(h.includes("e")?0:b.w),b.y+(h.includes("s")?0:b.h)];
-      op={type:"size",a,c,o:orig()}; return }
-    const hit=hitTest(x,y);
-    if(!hit){ if(!e.shiftKey)sel.clear(); drawSel(); op=null; return }
-    if(e.shiftKey){ sel.has(hit)?sel.delete(hit):sel.add(hit) } else if(!sel.has(hit)) sel=new Set([hit]);
-    drawSel(); op=sel.size?{type:"move",x,y,o:orig()}:null;
-  },true);
-  wrap.addEventListener("pointermove",e=>{
-    if(!pts.has(e.pointerId))return; pts.set(e.pointerId,[e.clientX,e.clientY]); if(!op)return;
-    if(op.type==="pinch"){ if(pts.size<2)return; const [a,b]=[...pts.values()]; setZoom(op.z0*Math.hypot(a[0]-b[0],a[1]-b[1])/op.d0); return }
-    const [x,y]=toScene(e.clientX,e.clientY);
-    if(op.type==="move"){ for(const id in op.o){const q=op.o[id]; L.pieces[id]={x:q.x+x-op.x,y:q.y+y-op.y,w:q.w}} }
-    else { const {a,c}=op, vx=c[0]-a[0], vy=c[1]-a[1], s=Math.max(.05,((x-a[0])*vx+(y-a[1])*vy)/(vx*vx+vy*vy||1));
-      for(const id in op.o){const q=op.o[id]; L.pieces[id]={x:a[0]+(q.x-a[0])*s,y:a[1]+(q.y-a[1])*s,w:q.w*s}} }
-    applyLayout();
-  },true);
-  const up=e=>{ if(!pts.delete(e.pointerId))return; if(op&&op.type!=="pinch"||!pts.size){ if(op)saveDraft(); op=null } };
-  wrap.addEventListener("pointerup",up,true); wrap.addEventListener("pointercancel",up,true);
-  wrap.addEventListener("click",e=>e.stopPropagation(),true);
-  // wheel / trackpad pinch (ctrl+wheel) / Safari gesture zoom
-  wrap.addEventListener("wheel",e=>{e.preventDefault(); setZoom(L.zoom*Math.exp(-e.deltaY*(e.ctrlKey?.01:.0015))); saveDraft()},{passive:false});
-  let g0=1; wrap.addEventListener("gesturestart",e=>{e.preventDefault(); g0=L.zoom});
-  wrap.addEventListener("gesturechange",e=>{e.preventDefault(); setZoom(g0*e.scale)}); wrap.addEventListener("gestureend",saveDraft);
-  wrap.style.touchAction="none";
-}
-const layoutReady=(EDIT?Promise.resolve(lsGet(DRAFT_KEY,null)):Promise.resolve(null))
-  .then(d=>d||fetch(LAYOUT_FILE,{cache:"no-cache"}).then(r=>r.ok?r.json():null).catch(()=>null))
-  .then(j=>{ L=cleanLayout(j)||(EDIT?defaultLayout():null); applyLayout(); if(EDIT)startEditor() });
-Promise.all([houseImgs,layoutReady.catch(()=>{})]).then(()=>{houseDone=true; checkLoaded()});
+buildLayers(); applyLayers();
+const houseImgs=Promise.all([...layersEl.querySelectorAll("img")].map(i=>i.decode().catch(()=>{})));
+houseImgs.then(()=>{houseDone=true; checkLoaded()});
 
 drawHouse(); builtins.forEach(measure); render();
 if(ALLOW_UPLOAD) loadUploads().finally(()=>{uploadsDone=true; checkLoaded()}); else checkLoaded();
