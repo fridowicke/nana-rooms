@@ -6,7 +6,9 @@
 <title>Dollhouse Game</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preload" as="image" href="loader-house.webp" type="image/webp" fetchpriority="high">
-<link rel="preload" as="image" href="layers/background-wall.webp" type="image/webp" fetchpriority="high">
+<script>/* preload the wall of the colour variant chosen last time (see VARIANTS) */
+(function(){var d="";try{d={halloween:"halloween/"}[JSON.parse(localStorage.getItem("dollhouse-variant"))]||""}catch(e){}
+document.write('<link rel="preload" as="image" href="layers/'+d+'background-wall.webp" type="image/webp" fetchpriority="high">')})()</script>
 <link rel="preload" as="image" href="layers/house.webp" type="image/webp" fetchpriority="high">
 <style>
 /* loading widget: shown from the first paint until the scene layers, the stickers and saved uploads are ready */
@@ -48,6 +50,10 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .stageWrap{position:relative;width:100vw;margin-left:calc(50% - 50vw);flex:1 1 0;min-height:0;container-type:size;display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
 .scene{position:relative;z-index:0;flex:none;width:max(100vw,calc((100dvh - 120px) * 8800 / 4946));width:max(100cqw,100cqh * 8800 / 4946);aspect-ratio:8800/4946}
 .ly{position:absolute;display:block;max-width:none;pointer-events:none;-webkit-user-drag:none}
+.ly.vin{opacity:0;transition:opacity .3s ease}
+/* colour variant button: bottom-left corner of the stage, under the editor panel (z 20) if they ever meet */
+.varBtn{position:absolute;left:10px;bottom:10px;z-index:15;width:34px;height:34px;border-radius:50%;border:1px solid var(--ink);background:var(--bg);padding:0;cursor:pointer;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center}
+.varBtn:hover{background:var(--ink)}
 /* the game area = the box of the house layer; stickers live in its units (VB). z 30 = above every scene layer (house, stairs, girl,
    legs, mailbox, items: z ≤ 21, raised layers in the editor 29), so dropped stickers always stay in front; the sheet and editor UI are above the scene */
 .stage{position:absolute;z-index:30}
@@ -175,6 +181,7 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
     </div>
     <div id="selLayer"></div>
     </div>
+    <button class="varBtn" id="varBtn" type="button" title="Change colours" aria-label="Change colours">🎃</button>
   </div>
 
   <div class="sheet" id="sheet" aria-label="Stickers"></div>
@@ -540,12 +547,31 @@ function eff(l){ if(!l||!inGroup(l.name))return l; const s=GROUP.scale; return {
 function cleanGroup(j){ const g=j&&!Array.isArray(j)&&j.houseGroup, ok=v=>typeof v==="number"&&isFinite(v);
   return g&&ok(g.x)&&ok(g.y)&&ok(g.scale)&&g.scale>0?{x:g.x,y:g.y,scale:Math.min(5,Math.max(.1,g.scale))}:{...DEFAULT_GROUP} }
 const edHidden=n=>hiddenEd.has(n)||inGroup(n)&&hiddenEd.has(HG);
+/* COLOUR VARIANTS: the wall, floor and floor-splashes layers come from layers/<dir><name>.webp; same sizes and positions in every set.
+   Add a variant = a folder under layers/ with those three files + one line here. The choice is kept in localStorage. */
+const VARIANTS=[{id:"default",dir:"",icon:"🎃"},{id:"halloween",dir:"halloween/",icon:"🎨"}]; // icon = shown while that set is active
+const VARIANT_LAYERS=["background-wall","floor","floor-splashes"], VARIANT_KEY="dollhouse-variant";
+let variant=VARIANTS.find(v=>v.id===lsGet(VARIANT_KEY,""))||VARIANTS[0];
+const layerSrc=n=>`layers/${VARIANT_LAYERS.includes(n)?variant.dir:""}${n}.webp`;
 function buildLayers(){
-  layersEl.innerHTML=LAYERS.filter(shown).map(l=>`<img class="ly" data-name="${l.name}" src="layers/${l.name}.webp" alt="" draggable="false">`).join("");
+  layersEl.innerHTML=LAYERS.filter(shown).map(l=>`<img class="ly" data-name="${l.name}" src="${layerSrc(l.name)}" alt="" draggable="false">`).join("");
 }
+function setVariant(v){ // cross-fade: the new picture loads on top (invisible), fades in over 300 ms, then the old one is removed
+  if(v===variant)return; variant=v; lsSet(VARIANT_KEY,v.id); varBtn.textContent=v.icon;
+  VARIANT_LAYERS.forEach(n=>{ const old=[...layersEl.querySelectorAll(`[data-name="${n}"]`)]; if(!old.length)return;
+    const im=old[0].cloneNode(); im.classList.add("vin"); im.src=layerSrc(n); old[old.length-1].after(im);
+    (im.decode?im.decode():Promise.resolve()).catch(()=>{}).then(()=>{ if(!im.isConnected)return; requestAnimationFrame(()=>im.style.opacity=1);
+      setTimeout(()=>{ old.forEach(o=>o.remove()); im.classList.remove("vin"); im.style.opacity="" },320) }) });
+}
+const varBtn=$("#varBtn"); varBtn.textContent=variant.icon;
+varBtn.addEventListener("pointerdown",e=>e.stopPropagation());
+varBtn.addEventListener("click",()=>setVariant(VARIANTS[(VARIANTS.indexOf(variant)+1)%VARIANTS.length]));
+// desktop: once the page is idle, warm the cache with the other sets so the switch is instant (phones load on demand)
+if(matchMedia("(hover:hover) and (pointer:fine)").matches) addEventListener("load",()=>(window.requestIdleCallback||(f=>setTimeout(f,2000)))(()=>
+  VARIANTS.filter(v=>v!==variant).forEach(v=>VARIANT_LAYERS.forEach(n=>{ new Image().src=`layers/${v.dir}${n}.webp` }))));
 function placeBox(el,l){ el.style.left=pct(l.x,ART.w); el.style.top=pct(l.y,ART.h); el.style.width=pct(l.w,ART.w); el.style.height=pct(l.h,ART.h) }
 function applyLayers(){
-  LAYERS.forEach(l=>{ const el=layersEl.querySelector(`[data-name="${l.name}"]`); if(!el)return; placeBox(el,eff(l)); el.style.zIndex=lift.has(l.name)||lift.has(HG)&&inGroup(l.name)?29:l.z+1; el.style.visibility=edHidden(l.name)?"hidden":"" });
+  LAYERS.forEach(l=>layersEl.querySelectorAll(`[data-name="${l.name}"]`).forEach(el=>{ placeBox(el,eff(l)); el.style.zIndex=lift.has(l.name)||lift.has(HG)&&inGroup(l.name)?29:l.z+1; el.style.visibility=edHidden(l.name)?"hidden":"" }));
   const house=LAYERS.find(l=>l.name==="house"); if(house) placeBox(stage,eff(house));
   if(EDIT){ if(sel.size&&[...sel].some(n=>isDrop(n))) renderPlaced(); drawSel(); syncPanel() }
 }
