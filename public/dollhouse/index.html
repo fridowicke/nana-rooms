@@ -191,14 +191,14 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
   border-radius:0 0 6px 6px;font-size:8px;color:#777}
 /* red dot: only the title bar stays, clicking the title bar opens it again */
 .song.min{height:auto}.song.min .bd,.song.min .st{display:none}.song.min .tb{border-bottom:0;border-radius:6px;cursor:pointer}
-/* back link to the folders desktop (../#about, no intro there): a small door like the front door of the house with "back" under it,
-   right below the player (or its title bar when minimised), 40x49 px target via padding */
+/* back link to the folders desktop (../#about, no intro there): Nana's pixel-art open door (img/back-door.png) with "back" under it,
+   right below the player (or its title bar when minimised), 46x71 px target via padding */
 .back{position:fixed;top:144px;left:3px;z-index:17;padding:4px 9px;display:none;flex-direction:column;align-items:center;gap:1px;min-width:34px;min-height:44px;box-sizing:border-box;text-decoration:none;background:transparent;
   font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;font-size:10px;line-height:1;color:#333;text-shadow:0 0 2px #fff,0 0 3px #fff}
 .song.on~.back{display:flex}
 .song.min~.back{top:28px}
-.back svg{display:block;transition:transform .15s ease}
-.back:hover svg{transform:translateY(-1px)}
+.back img{display:block;width:28px;height:auto;image-rendering:pixelated;transition:transform .15s ease}
+.back:hover img{transform:translateY(-1px)}
 /* phones: the Random / Reset / counter row needs the top edge, so the player sits just below it */
 @media (max-width:470px){.song{top:36px}.back{top:174px}.song.min~.back{top:58px}}
 </style>
@@ -212,7 +212,7 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
 <div class="bar" id="songBar" role="slider" aria-label="Seek"><div class="fill" id="songFill"></div><div class="knob" id="songKnob"></div></div>
 <div class="tm"><span id="songEl">0:00</span><span id="songRem">-0:00</span></div></div>
 <div class="st"><span>128kbps</span><span>1 / 1</span></div><audio id="songAudio" src="audio/song.m4a" preload="auto" loop></audio></div>
-<a class="back" href="../#about" aria-label="Back to the folders"><svg width="22" height="34" viewBox="0 0 22 34" aria-hidden="true" fill="none" stroke="#555" stroke-width=".8"><path d="M5 6.5Q11 1.5 17 6.5z" fill="#ece8dc"/><rect x="1.5" y="6.5" width="19" height="1.6" fill="#ece8dc"/><path d="M3 31V8.1M19 31V8.1"/><rect x="4" y="8.6" width="14" height="22.4" fill="#ece8dc"/><rect x="5.8" y="10.4" width="4.4" height="8"/><rect x="11.8" y="10.4" width="4.4" height="8"/><rect x="5.8" y="22" width="4.4" height="6.6"/><rect x="11.8" y="22" width="4.4" height="6.6"/><circle cx="15.9" cy="20.2" r=".9" fill="#333" stroke="none"/><rect x="1" y="31" width="20" height="2.4" fill="#ece8dc"/></svg><span>back</span></a>
+<a class="back" href="../#about" aria-label="Back to the folders"><img src="img/back-door.png" width="28" height="52" alt=""><span>back</span></a>
 
 <div class="app">
   <header>
