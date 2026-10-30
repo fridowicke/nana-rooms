@@ -221,6 +221,29 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
 .back img{display:block;width:42px;height:auto;image-rendering:pixelated}
 /* phones: the Random / Reset / counter row needs the top edge, so the player sits just below it */
 @media (max-width:470px){.song{top:36px}}
+/* phones held sideways (short and not desktop-wide: height < 500px, landscape, width < 1000px): the whole 16:9 scene is fitted by HEIGHT
+   above a compact one-row tray, centred, so the house, the lowest row and the floor are never cut; the strips left and right of it
+   continue the wall and floor as mirrored copies of their outer edges (--wall/--floor/--splash). Player, Back and tray clear the notch. */
+@media (max-height:499px) and (orientation:landscape) and (max-width:999px){
+  .scene{width:min(100cqw,100cqh * 8800 / 4946)}
+  .scene::before,.scene::after{content:"";position:absolute;z-index:-1;top:0;bottom:0;width:calc(50cqw - 50% + 2px);pointer-events:none;transform:scaleX(-1);
+    background:var(--splash) 0 100%/calc(100cqh * 8800 / 4946) calc(100% * 1281 / 4946) no-repeat,var(--floor) 0 100%/calc(100cqh * 8800 / 4946) calc(100% * 1274 / 4946) no-repeat,
+      var(--wall) 0 0/calc(100cqh * 8800 / 4946) calc(100% * 4004 / 4946) no-repeat}
+  .scene::before{right:calc(100% - 1px)}
+  .scene::after{left:calc(100% - 1px);background-position:100% 100%,100% 100%,100% 0}
+  .sheet{left:max(8px,env(safe-area-inset-left,0px));right:max(8px,env(safe-area-inset-right,0px));bottom:max(2px,env(safe-area-inset-bottom,0px));
+    max-height:40px;flex-wrap:nowrap;justify-content:space-between;padding:1px 2px}
+  .sheet .sticker{flex:none;margin-left:0}
+  .song{left:max(6px,env(safe-area-inset-left,0px))}
+  .back{right:max(10px,env(safe-area-inset-right,0px))}
+  .varBtn{left:calc(50% - 50vw + max(8px,env(safe-area-inset-left,0px)));bottom:calc(var(--tbr,0px) + 8px);width:28px;height:28px;font-size:14px}
+}
+/* portrait phones: a one-time (per session) hint to turn the phone, top centre under the counter row and the player; fades after 6 s or on tap */
+#turnHint{display:none;position:fixed;left:50%;top:110px;z-index:19;transform:translateX(-50%);padding:5px 14px;border:1px solid #f4a7c8;border-radius:999px;
+  background:linear-gradient(#fff,#ffe3ef);color:#e0579a;font:300 12px/1.2 var(--font);letter-spacing:.04em;white-space:nowrap;cursor:pointer;
+  box-shadow:0 1px 0 #fff inset,0 2px 6px rgba(240,120,170,.25);transition:opacity .6s}
+#turnHint.out{opacity:0;pointer-events:none}
+@media (orientation:portrait) and (max-width:700px){#turnHint.on{display:block}}
 </style>
 </head>
 <body>
@@ -232,6 +255,7 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
 <div class="bar" id="songBar" role="slider" aria-label="Seek"><div class="fill" id="songFill"></div><div class="knob" id="songKnob"></div></div>
 <div class="tm"><span id="songEl">0:00</span><span id="songRem">-0:00</span></div></div>
 <div class="st"><span>128kbps</span><span>1 / 1</span></div><audio id="songAudio" src="audio/song.m4a" preload="auto" loop></audio></div>
+<button id="turnHint" type="button">turn your phone sideways ♡ for the big view</button>
 <a class="back" href="../#about" aria-label="Back to the folders"><img src="../assets/go-back.gif" width="42" height="54" alt=""></a>
 
 <div class="app">
@@ -373,6 +397,7 @@ function drawHouse(){ // the picture is a scene layer; only the drop zones are d
 /* ---------------- geometry helpers ---------------- */
 const scale=()=>stage.getBoundingClientRect().width/VB.w;          // px per canvas unit
 const PHONE=matchMedia("(max-width:700px)");
+const LAND=matchMedia("(max-height:499px) and (orientation:landscape) and (max-width:999px)"); // phone held sideways (see the CSS)
 let SY=1; // vertical stretch of the house on phones (1 … 2.2): one canvas unit is SY times taller than wide on screen
 function measureStretch(){ const r=stage.getBoundingClientRect(); stage.style.setProperty("--k",r.width/VB.w);
   return PHONE.matches&&r.width?Math.min(2.2,Math.max(1,(r.height/VB.h)/(r.width/VB.w))):1 }
@@ -410,9 +435,9 @@ function put(it,room,x,y){ // place a sticker (x,y = its centre); a wallpaper re
 /* ---------------- render ---------------- */
 function fitSheet(){ // largest thumbnail height (max 22px phone / 28px desktop, min 14px) at which all stickers fit without scrolling
   sheet.style.setProperty("--tb",TRAY.toolbarScale);
-  const desk=innerWidth>860, max=Math.round((desk?28:22)*TRAY.toolbarScale), min=Math.min(desk?4:14,max);
+  const land=LAND.matches, desk=innerWidth>860&&!land, max=Math.round((desk?28:land?20:22)*TRAY.toolbarScale), min=Math.min(desk||land?4:14,max);
   for(let t=max;t>=min;t--){ sheet.style.setProperty("--t",t+"px"); sheet.style.setProperty("--o",-Math.min(4,Math.round(t*.18))+"px");
-    if(sheet.scrollHeight<=sheet.clientHeight+1&&(!desk||sheet.scrollWidth<=sheet.clientWidth+1)) break; } // desktop: one row across the full width
+    if(sheet.scrollHeight<=sheet.clientHeight+1&&(!(desk||land)||sheet.scrollWidth<=sheet.clientWidth+1)) break; } // desktop and phone sideways: one row across the full width
   document.documentElement.style.setProperty("--tbr",sheet.offsetHeight+"px");
 }
 function renderSheet(){
@@ -420,7 +445,7 @@ function renderSheet(){
   const real=TRAY; TRAY={...DEFAULT_TRAY,trayItems:{}}; sheetHTML(); fitSheet();
   document.querySelector(".app").style.setProperty("--tbh",sheet.offsetHeight+"px");
   // phones (<=860px, outside the editor) keep the default tray: toolbarScale and tray item sizes apply on desktop only
-  const phone=innerWidth<=860&&!EDIT;
+  const phone=(innerWidth<=860||LAND.matches)&&!EDIT;
   if(!phone) TRAY=real;
   sheetHTML();
   bindSheet();
@@ -658,7 +683,7 @@ function setVariant(v){
       const keep=VARIANT_LAYERS.map(n=>outs.find(o=>o.dataset.name===n)); if(keep.every(Boolean)) varCache[prev.id]=keep;
       varBusy=false; varBtn.classList.remove("busy"); warmNext() },270) }));
 }
-const setWall=()=>sceneEl.style.setProperty("--wall",`url(${layerSrc("background-wall")})`); setWall(); // the phone wall extension
+const setWall=()=>[["--wall","background-wall"],["--floor","floor"],["--splash","floor-splashes"]].forEach(([k,n])=>sceneEl.style.setProperty(k,`url(${layerSrc(n)})`)); setWall(); // the phone wall / floor extensions
 const varBtn=$("#varBtn"); varBtn.textContent=variant.icon;
 varBtn.addEventListener("pointerdown",e=>e.stopPropagation());
 varBtn.addEventListener("click",()=>setVariant(nextVariant()));
@@ -994,6 +1019,14 @@ checkLoaded();
     console.log("[song] play() attempt: ready");
     a.play().then(()=>{ console.log("[song] playing"); go() },err=>{ console.log("[song] play() blocked: "+err.name); clearTimeout(wait); ask() });
     const wait=setTimeout(go,4000) }; // allowed but still buffering: reveal anyway, it starts when it can
+  /* portrait phones: "turn your phone sideways" hint, once per session, after the reveal; gone after 6 s or on tap */
+  const hint=$("turnHint"), hintOff=()=>{ hint.classList.add("out"); setTimeout(()=>hint.remove(),700) };
+  const hintGo=()=>{ const l=$("loader"); if(l&&!l.classList.contains("out")){ setTimeout(hintGo,300); return }
+    let seen=false; try{ seen=sessionStorage.getItem("dollhouse-turn-hint")==="1" }catch(e){}
+    if(seen||/[?&]edit=1/.test(location.search)||!matchMedia("(orientation:portrait) and (max-width:700px)").matches){ hint.remove(); return }
+    try{ sessionStorage.setItem("dollhouse-turn-hint","1") }catch(e){}
+    hint.classList.add("on"); hint.addEventListener("click",hintOff); setTimeout(hintOff,6000) };
+  hintGo();
   const show=()=>{ const l=$("loader"); if(!l||l.classList.contains("out")){ el.classList.add("on"); draw(); tryPlay("reveal") } else setTimeout(show,200) }; show();
 })();</script>
 <script type="module" src="nana.js"></script>
