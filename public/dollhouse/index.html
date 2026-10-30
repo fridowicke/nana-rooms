@@ -162,28 +162,54 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
   .sheet{padding:2px 0 2px 4px;left:max(4px,env(safe-area-inset-left,0px));right:max(4px,env(safe-area-inset-right,0px))}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
-/* song player: a tiny pill in the top-left corner (above the scene, below the avatar and her bubble, z 18); the 28 px touch target is the
-   transparent padding around the 22 px pill. Hidden until the loading screen is gone. The song never autoplays, only the play button starts it. */
-.song{position:fixed;top:1px;left:1px;z-index:17;padding:3px;display:none}
-.song.on{display:block}
-.song .pill{display:flex;align-items:center;gap:5px;height:22px;box-sizing:border-box;padding:0 8px 0 2px;background:#fff;border:1px solid var(--ink);border-radius:11px}
-.song button{width:18px;height:18px;padding:0;border:0;background:none;display:grid;place-items:center}
-.song button::before{content:"";width:0;height:0;border-style:solid;border-width:4px 0 4px 7px;border-color:transparent transparent transparent var(--ink);margin-left:2px}
-.song.playing button::before{width:2px;height:8px;border-width:0 2px;border-color:var(--ink);margin-left:0}
-.song .bar{position:relative;width:54px;height:16px;cursor:pointer;touch-action:manipulation}
-.song .bar::before{content:"";position:absolute;left:0;right:0;top:7px;height:2px;background:#f6c6dc}
-.song .fill{position:absolute;left:0;top:7px;height:2px;width:0;background:#e0559a}
-/* back link to the folders desktop (../#about, no intro there), right next to the song pill, same 22 px height, 28 px target via padding; shown with it */
-.back{position:fixed;top:1px;left:96px;z-index:17;padding:3px;display:none;text-decoration:none}
+/* song player: a 240×135 px macOS "Tiny Player" window pinned in the top-left corner (fixed px, not scaled with the house; above the scene,
+   below the avatar and her bubble, z 18). Hidden until the loading screen is gone, then it tries to autoplay (see the script at the end). */
+.song{position:fixed;top:6px;left:6px;z-index:17;width:240px;height:135px;box-sizing:border-box;display:none;flex-direction:column;overflow:hidden;
+  background:#f5f5f5;border:1px solid #c8c8c8;border-radius:7px;box-shadow:0 3px 12px rgba(0,0,0,.22),0 0 1px rgba(0,0,0,.25);
+  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;color:#333;line-height:1.2}
+.song.on{display:flex}
+.song .tb{position:relative;flex:none;height:17px;display:flex;align-items:center;justify-content:center;background:linear-gradient(#e8e8e8,#d2d2d2);
+  border-bottom:1px solid #bdbdbd;border-radius:6px 6px 0 0;cursor:default}
+.song .dots{position:absolute;left:6px;top:5px;display:flex;gap:4px;border-radius:0}
+.song .dots i{width:7px;height:7px;border-radius:50%;box-sizing:border-box;border:.5px solid rgba(0,0,0,.18)}
+.song .dots .r{background:#ff5f57;cursor:pointer}.song .dots .y{background:#febc2e}.song .dots .g{background:#28c840}
+.song .tt{font-size:8px;font-weight:600;color:#4a4a4a}
+.song .bd{flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 14px;border-radius:0;text-align:center}
+.song .trk{font-size:9px;font-weight:700;color:#222}
+.song .art{font-size:8px;color:#8a8a8a;margin-top:1px}
+.song .ctl{display:flex;align-items:center;justify-content:center;gap:16px;margin:4px 0 5px}
+.song .ctl button{padding:0;border:0;background:none;display:grid;place-items:center;color:#333;border-radius:0}
+.song .ctl button:disabled{opacity:.3;cursor:default}
+.song .ctl svg{display:block;fill:currentColor}
+.song #songBtn .pa,.song.playing #songBtn .pl{display:none}.song.playing #songBtn .pa{display:block}
+.song .bar{position:relative;height:9px;cursor:pointer;touch-action:none;border-radius:0}
+.song .bar::before{content:"";position:absolute;left:0;right:0;top:3px;height:3px;background:#ccc;border-radius:2px}
+.song .fill{position:absolute;left:0;top:3px;height:3px;width:0;background:#4a90d9;border-radius:2px}
+.song .knob{position:absolute;top:0;left:0;width:9px;height:9px;box-sizing:border-box;margin-left:-4.5px;background:#fff;border:1.5px solid #4a90d9;border-radius:50%}
+.song .tm{display:flex;justify-content:space-between;font-size:8px;color:#8a8a8a;font-variant-numeric:tabular-nums;margin-top:1px;border-radius:0}
+.song .st{flex:none;height:14px;display:flex;align-items:center;justify-content:space-between;padding:0 7px;background:#e4e4e4;border-top:1px solid #cfcfcf;
+  border-radius:0 0 6px 6px;font-size:8px;color:#777}
+/* red dot: only the title bar stays, clicking the title bar opens it again */
+.song.min{height:auto}.song.min .bd,.song.min .st{display:none}.song.min .tb{border-bottom:0;border-radius:6px;cursor:pointer}
+/* back link to the folders desktop (../#about, no intro there), right below the player (or its title bar when minimised), 28 px target via padding */
+.back{position:fixed;top:144px;left:3px;z-index:17;padding:3px;display:none;text-decoration:none}
 .song.on~.back{display:block}
+.song.min~.back{top:28px}
 .back span{display:flex;align-items:center;height:22px;box-sizing:border-box;padding:0 9px;background:#fff;border:1px solid var(--ink);border-radius:11px;color:var(--ink);font-size:12px;line-height:1}
 .back:hover span{background:#f6c6dc}
+/* phones: the Random / Reset / counter row needs the top edge, so the player sits just below it */
+@media (max-width:470px){.song{top:36px}.back{top:174px}.song.min~.back{top:58px}}
 </style>
 </head>
 <body>
 <div id="loader" role="status" aria-label="loading"><img src="loading-dollhouse.gif" alt="" width="150" height="100" fetchpriority="high"></div>
 
-<div class="song" id="song"><div class="pill"><button type="button" id="songBtn" aria-label="Play song"></button><div class="bar" id="songBar" role="slider" aria-label="Seek"><div class="fill" id="songFill"></div></div></div><audio id="songAudio" src="audio/song.m4a" preload="none" loop></audio></div>
+<div class="song" id="song"><div class="tb" id="songTb"><span class="dots"><i class="r" id="songMin" title="Hide player"></i><i class="y"></i><i class="g"></i></span><span class="tt">Tiny Player</span></div>
+<div class="bd"><div class="trk">now playing</div><div class="art">shelestvetrovki</div>
+<div class="ctl"><button type="button" id="songPrev" aria-label="Restart song"><svg width="14" height="10" viewBox="0 0 14 10"><rect x="0" y="0" width="2" height="10"/><path d="M8 0v10L2 5zM14 0v10L8 5z"/></svg></button><button type="button" id="songBtn" aria-label="Play song"><svg class="pl" width="16" height="18" viewBox="0 0 16 18"><path d="M1 0l15 9-15 9z"/></svg><svg class="pa" width="16" height="18" viewBox="0 0 16 18"><rect x="1" y="0" width="5" height="18"/><rect x="10" y="0" width="5" height="18"/></svg></button><button type="button" aria-label="Next song" disabled><svg width="14" height="10" viewBox="0 0 14 10"><path d="M0 0v10l6-5zM6 0v10l6-5z"/><rect x="12" y="0" width="2" height="10"/></svg></button></div>
+<div class="bar" id="songBar" role="slider" aria-label="Seek"><div class="fill" id="songFill"></div><div class="knob" id="songKnob"></div></div>
+<div class="tm"><span id="songEl">0:00</span><span id="songRem">-0:00</span></div></div>
+<div class="st"><span>128kbps</span><span>1 / 1</span></div><audio id="songAudio" src="audio/song.m4a" preload="auto" loop></audio></div>
 <a class="back" href="../#about" aria-label="Back to the folders"><span>&lt; back</span></a>
 
 <div class="app">
@@ -894,19 +920,40 @@ function startEditor(){
 drawHouse(); builtins.forEach(measure); render();
 checkLoaded();
 </script>
-<script>/* song player (see .song): preload=none until the first tap anywhere, then only the metadata; plays only from the play button */
-(function(){ const el=document.getElementById("song"), a=document.getElementById("songAudio"), btn=document.getElementById("songBtn"),
-  bar=document.getElementById("songBar"), fill=document.getElementById("songFill");
+<script>/* song player (see .song): autoplays once the loading screen is gone; if the browser blocks that, the first tap / key anywhere starts it,
+   unless she paused it with the player button first. Pauses while the tab is hidden and resumes afterwards if it was playing. */
+(function(){ const $=id=>document.getElementById(id), el=$("song"), a=$("songAudio"), btn=$("songBtn"), bar=$("songBar"), fill=$("songFill"), knob=$("songKnob");
+  let userPaused=false, hiddenPaused=false, armed=false;
+  const GESTURES=["pointerdown","touchstart","keydown","pointerup","touchend"]; // the last two: Chrome on Android only counts a touch on release
+  const disarm=()=>{ if(!armed)return; armed=false; GESTURES.forEach(t=>removeEventListener(t,onGesture,true)) };
+  const arm=()=>{ if(armed)return; armed=true; GESTURES.forEach(t=>addEventListener(t,onGesture,true)) };
+  function onGesture(e){ if(userPaused||!a.paused){ disarm(); return }
+    if(btn.contains(e.target)){ disarm(); return } // the play button starts it itself
+    tryPlay("gesture "+e.type) }
+  function tryPlay(why){ console.log("[song] play() attempt: "+why);
+    a.play().then(()=>{ console.log("[song] playing"); disarm() },err=>{ console.log("[song] play() blocked: "+err.name); if(err.name==="NotAllowedError"&&!userPaused) arm() }) }
   ["pointerdown","click","touchstart"].forEach(t=>el.addEventListener(t,e=>e.stopPropagation()));
-  addEventListener("pointerdown",()=>{ if(a.preload==="none") a.preload="metadata" },{once:true,capture:true});
-  btn.addEventListener("click",()=>{ if(a.paused) a.play().catch(()=>{}); else a.pause() });
+  btn.addEventListener("click",()=>{ if(a.paused){ userPaused=false; a.play().catch(()=>{}) } else{ userPaused=true; disarm(); a.pause() } });
+  $("songPrev").addEventListener("click",()=>{ a.currentTime=0; draw() });
+  $("songMin").addEventListener("click",e=>{ e.stopPropagation(); el.classList.add("min") });
+  $("songTb").addEventListener("click",()=>el.classList.remove("min"));
   const sync=()=>{ el.classList.toggle("playing",!a.paused); btn.setAttribute("aria-label",a.paused?"Play song":"Pause song") };
   a.addEventListener("play",sync); a.addEventListener("pause",sync);
-  a.addEventListener("timeupdate",()=>{ fill.style.width=(a.duration?a.currentTime/a.duration*100:0)+"%" });
-  bar.addEventListener("click",e=>{ const r=bar.getBoundingClientRect(), f=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width));
-    const go=()=>{ a.currentTime=f*a.duration; fill.style.width=f*100+"%" };
-    if(a.duration) go(); else{ a.preload="metadata"; a.addEventListener("loadedmetadata",go,{once:true}); a.load() } });
-  const show=()=>{ const l=document.getElementById("loader"); if(!l||l.classList.contains("out")) el.classList.add("on"); else setTimeout(show,200) }; show();
+  const fmt=t=>{ t=Math.max(0,Math.floor(t||0)); return Math.floor(t/60)+":"+String(t%60).padStart(2,"0") };
+  let dragging=false;
+  function draw(f){ const d=a.duration||0, t=f==null?a.currentTime:f*d, p=d?t/d*100:0;
+    fill.style.width=p+"%"; knob.style.left=p+"%"; $("songEl").textContent=fmt(t); $("songRem").textContent="-"+fmt(d-t) }
+  ["timeupdate","loadedmetadata","durationchange","seeked"].forEach(t=>a.addEventListener(t,()=>{ if(!dragging) draw() }));
+  const frac=e=>{ const r=bar.getBoundingClientRect(); return Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)) };
+  const seek=f=>{ const go=()=>{ a.currentTime=f*a.duration; draw() }; if(a.duration) go(); else a.addEventListener("loadedmetadata",go,{once:true}) };
+  bar.addEventListener("pointerdown",e=>{ dragging=true; bar.setPointerCapture(e.pointerId); draw(frac(e)) });
+  bar.addEventListener("pointermove",e=>{ if(dragging) draw(frac(e)) });
+  bar.addEventListener("pointerup",e=>{ if(!dragging)return; dragging=false; seek(frac(e)) });
+  bar.addEventListener("pointercancel",()=>{ dragging=false; draw() });
+  document.addEventListener("visibilitychange",()=>{
+    if(document.hidden){ if(!a.paused){ hiddenPaused=true; a.pause() } }
+    else{ if(hiddenPaused&&!userPaused) a.play().catch(()=>{}); hiddenPaused=false } });
+  const show=()=>{ const l=$("loader"); if(!l||l.classList.contains("out")){ el.classList.add("on"); draw(); tryPlay("reveal") } else setTimeout(show,200) }; show();
 })();</script>
 <script type="module" src="nana.js"></script>
 </body>
