@@ -444,7 +444,11 @@ function measure(it){const im=new Image(); im.onload=()=>{it.ratio=im.naturalWid
 function hideLoader(){ const l=$("#loader"); if(!l||l.classList.contains("out"))return; l.classList.add("out"); setTimeout(()=>l.remove(),320) }
 let houseDone=false; // scene layers loaded and decoded (or failed)
 function checkLoaded(){ if(houseDone&&items.every(it=>it.ready)) hideLoader() }
-setTimeout(hideLoader,8000); // failsafe
+/* failsafe: after 12 s reveal anyway, but never without the wall and floor (they are the big files on a slow phone), hard cap 40 s */
+let bgDone=false; setTimeout(()=>{ if(bgDone)hideLoader(); else bgReady.then(hideLoader) },12000); setTimeout(hideLoader,40000);
+// an <img> counts once it has loaded AND decoded; decode() alone can reject early (huge images on iOS) → then wait for load
+const imgReady=i=>new Promise(res=>{ const go=()=>(i.decode?i.decode():Promise.resolve()).catch(()=>{}).then(res);
+  if(i.complete&&i.naturalWidth)go(); else{ i.addEventListener("load",go,{once:true}); i.addEventListener("error",res,{once:true}) } });
 
 /* ---------------- the house comes alive ---------------- */
 function checkDone(){ if(allPlaced()) setTimeout(wake,500) }
@@ -586,7 +590,8 @@ function useLayers(ls){ // item stickers take their size from their layer (artbo
   applyLayers();
 }
 buildLayers(); applyLayers();
-const houseImgs=Promise.all([...layersEl.querySelectorAll("img")].map(i=>i.decode().catch(()=>{})));
+const houseImgs=Promise.all([...layersEl.querySelectorAll("img")].map(imgReady));
+const bgReady=Promise.all([...layersEl.querySelectorAll("img")].filter(i=>VARIANT_LAYERS.includes(i.dataset.name)).map(imgReady)).then(()=>{bgDone=true});
 let fileTray=DEFAULT_TRAY;
 const layoutReady=fetch(LAYOUT_FILE,{cache:"no-cache"}).then(r=>r.ok?r.json():null).catch(()=>null).then(j=>{
   fileLayers=cleanLayers(j)||DEFAULT_LAYERS; fileTray=cleanTray(j); fileGroup=cleanGroup(j);
@@ -594,7 +599,7 @@ const layoutReady=fetch(LAYOUT_FILE,{cache:"no-cache"}).then(r=>r.ok?r.json():nu
   TRAY=dl&&!Array.isArray(draft)?cleanTray(draft):{...fileTray,trayItems:{...fileTray.trayItems}};
   GROUP=dl&&!Array.isArray(draft)?cleanGroup(draft):{...fileGroup};
   useLayers(dl||fileLayers); renderSheet(); renderPlaced(); if(EDIT)startEditor() });
-Promise.all([houseImgs,layoutReady.catch(()=>{})]).then(()=>{houseDone=true; checkLoaded()});
+Promise.all([houseImgs,layoutReady.catch(()=>{}),document.fonts?document.fonts.ready.catch(()=>{}):0]).then(()=>{houseDone=true; checkLoaded()});
 
 /* ---------------- editor (?edit=1) ----------------
    Every shown layer (items too) can be dragged; corner handles scale the selection keeping its aspect; shift-click adds.
