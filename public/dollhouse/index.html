@@ -61,12 +61,9 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .sheet{position:relative;z-index:1;background:var(--bg)}
 .layer{position:absolute;inset:0;width:100%;height:100%}
 .screens{position:absolute;inset:0;pointer-events:none;z-index:1}
-/* room videos (1.38:1, film borders cropped out) in wider rooms (1.87-2.17:1): cover would cut ~30% of the picture height,
-   so the film is scaled to fill the room height and crops at most 14% of the picture height (5.6% top, 8.4% bottom = centre 40%);
-   no fill behind it, the sides show the room's own wallpaper. clip-path cuts the element back to the room box after
-   transform enlarges it 1/0.86 around 50% 40%. */
-.screens video{position:absolute;display:block;object-fit:contain;object-position:50% 40%;opacity:0;transition:opacity .7s ease;background:transparent;
-  clip-path:inset(5.6% 7% 8.4% 7%);transform:scale(1.16279);transform-origin:50% 40%}
+/* room videos fill their room box edge to edge (cover, centre 45%): the top and bottom of the film are cropped so no wallpaper
+   shows around it; the box bleeds 1 px past the room box on every side (boxStyle) so no thin strip remains at the walls. */
+.screens video{position:absolute;display:block;object-fit:cover;object-position:center 45%;opacity:0;transition:opacity .7s ease;background:transparent}
 /* never show the browser's own play buttons / controls on the room videos (Safari shows a round PLAY when autoplay is blocked) */
 .screens video::-webkit-media-controls,.screens video::-webkit-media-controls-start-playback-button,
 .screens video::-webkit-media-controls-overlay-play-button,.screens video::-webkit-media-controls-panel,
@@ -89,8 +86,6 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .placed img.pop{animation:pop .3s ease-out}
 @keyframes pop{from{opacity:0;transform:translate(-50%,-92%) scale(.9)}to{opacity:1;transform:translate(-50%,-100%)}}
 .alive .placed img{cursor:default}
-.banner{position:absolute;left:50%;top:24%;transform:translateX(-50%);opacity:0;pointer-events:none;transition:opacity .4s;z-index:3}
-.alive .banner{opacity:1;pointer-events:auto}
 
 /* sticker sheet: fixed over the bottom of the window, above the scene, below the editor UI. The scene area is always the window
    minus the sheet height at the DEFAULT sizes (--tbh, see renderSheet), so a bigger toolbar or bigger tray items just cover more of the scene */
@@ -189,7 +184,6 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
       <svg class="layer walls" id="walls" viewBox="0 0 3097 3040" preserveAspectRatio="none" aria-hidden="true"></svg>
       <div class="screens" id="screens"></div>
       <div class="placed" id="placed" aria-label="House"></div>
-      <div class="banner"><button class="btn primary" id="again" type="button">Play again</button></div>
     </div>
     <div id="selLayer"></div>
     </div>
@@ -470,7 +464,8 @@ function wake(){
    do not spin up in the same frame; window events "dollhouse:finale" / "dollhouse:finale-stop" tell the avatar (nana.js). */
 let finaleT, videos={}, soundRoom=null, finaleGen=0; // videos: room id -> <video>; soundRoom = the room whose sound is on
 const boxOf=id=>ROOMS.find(r=>r.id===id)||TOWER;
-const boxStyle=r=>({left:(r.x-VB.x)/VB.w*100+"%",top:(r.y-VB.y)/VB.h*100+"%",width:r.w/VB.w*100+"%",height:r.h/VB.h*100+"%"});
+const boxStyle=r=>({left:`calc(${(r.x-VB.x)/VB.w*100}% - 1px)`,top:`calc(${(r.y-VB.y)/VB.h*100}% - 1px)`,
+  width:`calc(${r.w/VB.w*100}% + 2px)`,height:`calc(${r.h/VB.h*100}% + 2px)`}); // 1 px bleed past the room box
 /* autoplay can be blocked (Safari low power mode, autoplay policies): keep calling play() until every video runs:
    on load events, every second, on the first tap / key anywhere, and when the page comes back into view */
 let keepAlive; const GESTURES=["touchstart","pointerdown","click","keydown"];
@@ -523,7 +518,6 @@ function reset(){
   stage.querySelectorAll(".placed img,.walls image").forEach(i=>i.style.opacity="0");
   setTimeout(()=>{for(const k in pos)delete pos[k]; stopFinale(); alive=false; sheet.classList.remove("locked"); render()},350);
 }
-$("#again").addEventListener("click",reset);
 $("#reset").addEventListener("click",reset);
 $("#random").addEventListener("click",()=>{ if(alive)return; items.filter(it=>!pos[it.id]).forEach((it,i)=>setTimeout(()=>autoPlace(it.id),i*60)) });
 let rt; addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(()=>{renderSheet(); if(EDIT)drawSel()},120)});
