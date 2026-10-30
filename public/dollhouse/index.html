@@ -31,8 +31,7 @@ body{margin:0;height:100vh;height:100dvh;background:var(--bg);color:var(--ink);f
 *{border-radius:0}
 .app{position:relative;margin:0 auto;height:100%;display:flex;flex-direction:column;gap:0;min-height:0}
 /* the header floats over the top of the wall so the scene can start at the top edge of the window */
-header{position:absolute;top:6px;left:0;right:0;z-index:2;pointer-events:none;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:nowrap}
-.how{margin:0;max-width:70ch;font-size:12px;line-height:1.3;color:var(--muted)}
+header{position:absolute;top:6px;left:0;right:0;z-index:2;pointer-events:none;display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:nowrap}
 .hud{pointer-events:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;line-height:1.3}
 #progress{font-variant-numeric:tabular-nums;color:var(--muted);margin-right:4px}
 button{font:inherit;cursor:pointer;color:var(--ink)}
@@ -163,7 +162,6 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
 
 <div class="app">
   <header>
-    <p class="how">Drag stickers into the house. Use every sticker and it comes alive.</p>
     <div class="hud">
       <span id="progress"></span>
       <button class="btn" id="random" type="button">Random</button>
@@ -209,12 +207,12 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
    and uncomment its room's line; commented rooms request nothing. The tower gets no video.
    (r1 r2 = top floor left/right, r3 r4 = 2nd floor, r5 r6 = 3rd floor, r7 r8 = ground floor) */
 const ROOM_VIDEOS = {
-  r1: "videos/room-r1.mp4",      // b/w film: two dolls in a bed
-  r2: "videos/room-r2.mp4",      // b/w film: "Playthings of Childhood – Dressmaking" title card
-  r3: "videos/room-r3.mp4",      // b/w film: curly doll at the mirror
-  // r4: "videos/room-r4.mp4",   // placeholder, video to come
-  // r5: "videos/room-r5.mp4",   // placeholder, video to come
-  // r6: "videos/room-r6.mp4",   // placeholder, video to come
+  r1: "videos/room-r1.mp4",      // b/w film: shot_030
+  r2: "videos/room-r2.mp4",      // b/w film: shot_043
+  r3: "videos/room-r3.mp4",      // b/w film: shot_044, the mirror
+  r4: "videos/room-r4.mp4",      // b/w film: shot_045 (1), two dolls in a bed
+  r5: "videos/room-r5.mp4",      // b/w film: shot_045
+  r6: "videos/room-r6.mp4",      // b/w film: shot_048
   // r7: "videos/room-r7.mp4",   // placeholder, video to come
   // r8: "videos/room-r8.mp4",   // placeholder, video to come
 };
@@ -449,23 +447,23 @@ function wake(){
   finaleT=setTimeout(startFinale,1200);
 }
 /* room videos: one muted autoplay <video> per listed room, nothing is loaded before the finale.
-   Its stickers fade out; tapping the room turns its sound on / off. */
+   Its stickers fade out; tapping the room turns its sound on / off. The videos start 150 ms apart so six decoders
+   do not spin up in the same frame; window events "dollhouse:finale" / "dollhouse:finale-stop" tell the avatar (nana.js). */
 let finaleT, videos={}, soundRoom=null, finaleGen=0; // videos: room id -> <video>; soundRoom = the room whose sound is on
-const HOW=$(".how").textContent, boxOf=id=>ROOMS.find(r=>r.id===id)||TOWER;
+const boxOf=id=>ROOMS.find(r=>r.id===id)||TOWER;
 const boxStyle=r=>({left:(r.x-VB.x)/VB.w*100+"%",top:(r.y-VB.y)/VB.h*100+"%",width:r.w/VB.w*100+"%",height:r.h/VB.h*100+"%"});
 function startFinale(){
   if(!alive)return; stopFinale(); const gen=finaleGen;
   const ids=Object.keys(ROOM_VIDEOS).filter(k=>[...ROOMS,TOWER].some(r=>r.id===k)); if(!ids.length)return;
-  for(const id of ids){
-    const el=videos[id]=document.createElement("video"); el.muted=true; el.loop=true; el.playsInline=true; el.autoplay=true;
+  ids.forEach((id,i)=>setTimeout(()=>{ if(gen!==finaleGen)return;
+    const el=videos[id]=document.createElement("video"); el.muted=true; el.loop=true; el.playsInline=true; el.autoplay=true; el.preload="auto";
     ["muted","loop","playsinline","autoplay"].forEach(a=>el.setAttribute(a,"")); el.src=ROOM_VIDEOS[id];
     el.dataset.room=id; Object.assign(el.style,boxStyle(boxOf(id))); screens.appendChild(el);
-    videoRooms.add(id);
+    videoRooms.add(id); renderPlaced();
     setTimeout(()=>{if(gen===finaleGen)el.classList.add("on")},150);
     el.play().catch(()=>{});
-  }
-  renderPlaced();
-  $(".how").textContent="Tap the room to hear it.";
+    if(!i) dispatchEvent(new Event("dollhouse:finale"));
+  },i*150));
 }
 function setSound(id){ // tapping a video room turns its sound on (and mutes the others); tapping it again mutes it
   if(!videos[id])return; soundRoom=soundRoom===id?null:id;
@@ -477,7 +475,7 @@ function setSound(id){ // tapping a video room turns its sound on (and mutes the
 function stopFinale(){
   finaleGen++; clearTimeout(finaleT); soundRoom=null;
   for(const k in videos){ const v=videos[k]; v.pause(); v.removeAttribute("src"); v.load() } videos={};
-  screens.innerHTML=""; stage.querySelector(".tag")?.remove(); $(".how").textContent=HOW;
+  screens.innerHTML=""; stage.querySelector(".tag")?.remove(); dispatchEvent(new Event("dollhouse:finale-stop"));
   if(videoRooms.size){ videoRooms.clear(); renderPlaced() }
 }
 stage.addEventListener("click",e=>{ if(!alive||!videoRooms.size||e.target.closest("button"))return;

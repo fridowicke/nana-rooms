@@ -1,14 +1,17 @@
 /* =====================================================================
    NANA · small talking avatar for the dollhouse game
    A copy of the hub narrator (public/narrator/), cut down: she flies slowly around the upper-left corner,
-   says the two LINES below after the game has faded in (every visit), tap her to hear them again, × closes.
+   says the first two LINES below after the game has faded in (every visit), tap her to hear them again, × closes.
+   The third line is said ~2 s after the room videos start (window event "dollhouse:finale" from index.html), on every finale.
    Poster first (nana/ass-poster.webp), the 3D model (nana/ass.glb + self-hosted three.js in nana/vendor/)
    is loaded only after the game is shown and swaps in when ready; if WebGL or the model fails the poster stays.
    ===================================================================== */
 const LINES = [
   "Happy Birthday Nana and Happy Halloween!!",
   "this dollhouse makeover game was developed by shelestvetrovki and designed by dripkastonline as a creative collaboration exploring old web girls games",
+  'directed by shelestvetrovki based on the "Playthings of Childhood - The Doll\'s House, 1920. A vintage silent film archive showcasing early 20th-century toy and dollhouse manufacturing.',
 ];
+const FINALE_DELAY = 2000, FINALE_HOLD = 9000; // line 3: shown 2 s after the videos start, open ~9 s after it is spoken
 const PAUSE = 4000; // calm pause between the two bubbles (ms)
 
 const BASE = new URL("./nana/", import.meta.url).href;
@@ -88,7 +91,7 @@ function placeBubble(vw, vh, bw, bh) {
 }
 
 /* ---------------- speech: words appear one by one, the mouth moves per syllable (as on the hub) ---------------- */
-let run = null, seqT = null, hideT = null;
+let run = null, seqT = null, hideT = null, finale = false, finaleT = null;
 function renderWords(text) {
   textEl.innerHTML = ""; const spans = [];
   text.split(/(\s+)/).forEach(w => {
@@ -119,16 +122,28 @@ function say(text, done) {
 }
 function stop() { if (run) { run.cancel = true; run = null; } mouth.target = 0; }
 function closeBubble() { stop(); clearTimeout(seqT); clearTimeout(hideT); bubble.dataset.empty = "1"; root.dataset.line = "0"; }
+function sayFinale() {
+  closeBubble(); root.dataset.line = "3";
+  say(LINES[2], () => { hideT = setTimeout(closeBubble, FINALE_HOLD); });
+}
 function talk() {
-  closeBubble(); root.dataset.line = "1";
+  closeBubble(); clearTimeout(finaleT); root.dataset.line = "1";
   say(LINES[0], () => {
     seqT = setTimeout(() => {
       root.dataset.line = "2";
-      say(LINES[1], () => { hideT = setTimeout(closeBubble, 6000 + LINES[1].split(/\s+/).length * 200); });
+      say(LINES[1], () => {
+        if (finale) seqT = setTimeout(sayFinale, PAUSE);
+        else hideT = setTimeout(closeBubble, 6000 + LINES[1].split(/\s+/).length * 200);
+      });
     }, PAUSE);
   });
 }
 hit.addEventListener("click", talk);
+addEventListener("dollhouse:finale", () => { finale = true; clearTimeout(finaleT); finaleT = setTimeout(sayFinale, FINALE_DELAY); });
+addEventListener("dollhouse:finale-stop", () => {
+  if (!finale) return; finale = false; clearTimeout(finaleT);
+  if (root.dataset.line === "3") closeBubble(); // a running line 1+2 replay just ends without line 3
+});
 closeBtn.addEventListener("click", e => { e.stopPropagation(); closeBubble(); });
 
 /* ---------------- start once the game is shown (the loading gif has faded out) ---------------- */
