@@ -191,20 +191,15 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
 /* =====================================================================
    SETTINGS
    ---------------------------------------------------------------------
-   STICKERS: put your PNG files into  pieces/  and list them here:
-     {src:"pieces/bed.png",   h:80}               h = height in the house, shown 3× bigger
-     {src:"pieces/lamp.png",  h:50, snap:"free"}   (one room is 162 tall; never bigger than the room)
-     {src:"pieces/sofa.png",  h:70, snap:"floor"}
+   STICKERS: the tray holds only the item-*.webp layers of layers/ (no uploads, no pieces/ files).
    WALLPAPER vs OBJECT is decided by the picture itself: a picture with no transparency (a normal photo,
      JPG or opaque PNG) is a wallpaper; a cut-out PNG with transparent parts is an object.
      A file name starting with "wall" (wall_something.png) is always a wallpaper.
      Dropped on a room or the tower it covers that whole area behind the furniture; one per area,
-     a new one sends the old one back to the sheet. This works for uploaded files too.
+     a new one sends the old one back to the sheet.
    Objects stay exactly where they are dropped (centre under the finger), anywhere on the stage.
    SLOTS: a picture whose file name contains "door" or "window" dropped on (or next to) the door or a tower window
      of the house snaps into it; one picture per slot. Anywhere else it is a normal object.
-   ALLOW_UPLOAD: true shows a "+" on the sheet to test PNGs from your computer
-                 (you can also drop files onto the sheet). Set false for the public site.
    ===================================================================== */
 /* FINALE: when the house is dressed a video plays in ONE room, cut to the room and covering it;
    the stickers and wallpaper of that room fade out while it plays. All other rooms keep their objects.
@@ -229,8 +224,6 @@ const isItem=name=>/^item-/.test(name);
 const STICKERS = [
   ...DEFAULT_LAYERS.filter(l=>isItem(l.name)).map(l=>({src:`layers/${l.name}.webp`, h:l.h, art:true})),
 ];
-const ALLOW_UPLOAD = true;
-const UPLOAD_HEIGHT = 240; // ×K below
 
 // House geometry = artboard units inside the house layer (house.webp at 3097 × 3040). 4 floors × 2 rooms + the tower above the door;
 // a wallpaper covers one of these areas. K = old room height (162) → new, keeps sticker sizes relative to a room.
@@ -258,8 +251,11 @@ const lsGet=(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==nu
 const lsSet=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
 lsSet("dollhouse-owner",null); // clean up the old remembered flag
 const OWNER=new URLSearchParams(location.search).get("owner")==="shelest";
-let removed=OWNER?lsGet("dollhouse-removed",[]):[];   // srcs of built-in stickers hidden by the owner (owner mode only)
-let types=lsGet("dollhouse-types",{});                // src (built-in) or upload id -> "door" | "window" | "stairs"
+// the tray holds only the built-in item-*.webp stickers: drop every old saved upload / hidden-sticker list in this browser
+try{for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i); if(k&&/^dollhouse-(removed|uploads?|stickers?|pieces)/i.test(k))localStorage.removeItem(k)}}catch(e){}
+try{indexedDB.deleteDatabase("dollhouse")}catch(e){}
+let types=lsGet("dollhouse-types",{});                // src (built-in) -> "door" | "window" | "stairs"
+for(const k in types) if(!/^layers\/item-/.test(k)) delete types[k]; lsSet("dollhouse-types",Object.keys(types).length?types:null); // old upload ids
 const typeKey=it=>it.upload?it.id:it.src;
 const typeOf=it=>types[typeKey(it)]||slotType(it.name);
 
@@ -271,8 +267,7 @@ const isWall=name=>/^wall/i.test(name);
 const neverWall=it=>!it.upload||isItem(it.name); // built-in tray items (item-*.webp) are always objects, whatever their pixels look like
 const isJpeg=(name,type)=>type==="image/jpeg"||/\.jpe?g$/i.test(name);
 const builtins=STICKERS.map((s,i)=>({id:"s"+i, src:s.src, name:s.src.split("/").pop(), h:s.art?s.h:(s.h||80)*3*K, snap:s.snap||"auto", ratio:1, wall:false, ready:false}));
-removed=removed.filter(src=>builtins.some(b=>b.src===src)); // ignore saved entries of stickers that no longer exist
-let items=builtins.filter(it=>!removed.includes(it.src));
+let items=[...builtins];
 let videoRoom=null;     // room whose stickers are hidden while its finale video plays
 const pos={};            // id -> {room, x, y}  (x = centre, y = bottom, canvas units, room = area or null, slot = slot id); wallpapers: {room}
 let alive=false;
@@ -341,25 +336,15 @@ function renderSheet(){
 }
 function sheetHTML(){
   sheet.innerHTML=items.map(it=>
-    `<button class="sticker${pos[it.id]?" used":""}${EDIT&&traySel&&trayKey(it)===traySel?" tsel":""}" type="button" data-id="${it.id}" aria-label="Sticker"><img src="${it.src}" alt="" draggable="false" style="height:calc(var(--t) * ${trayScaleOf(it).toFixed(3)});width:calc(var(--t) * ${(it.ratio*trayScaleOf(it)).toFixed(3)})">${OWNER?`<span class="del" role="button" tabindex="0" aria-label="Delete picture">×</span>`:""}${OWNER?`<span class="types">${["door","window","stairs"].map(t=>`<span role="button" tabindex="0" data-type="${t}" class="${types[typeKey(it)]===t?"on":""}" title="${t}" aria-label="${t}">${t[0].toUpperCase()}</span>`).join("")}</span>`:""}</button>`).join("")+
-    (items.length?"":`<p class="emptyNote">No stickers yet. Add PNG files in the settings${ALLOW_UPLOAD?" or press + to try some from your computer":""}.</p>`)+
-    (ALLOW_UPLOAD?`<label class="add" title="Add PNG">+<input type="file" id="upload" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" multiple aria-label="Add PNG stickers"></label>`:"")+
-    (OWNER?`<p class="ownerLine">removed: ${removed.length} - <a id="copyRemoved">copy list</a> - <a id="undoRemoved">undo all</a></p>`:"");
+    `<button class="sticker${pos[it.id]?" used":""}${EDIT&&traySel&&trayKey(it)===traySel?" tsel":""}" type="button" data-id="${it.id}" aria-label="Sticker"><img src="${it.src}" alt="" draggable="false" style="height:calc(var(--t) * ${trayScaleOf(it).toFixed(3)});width:calc(var(--t) * ${(it.ratio*trayScaleOf(it)).toFixed(3)})">${OWNER?`<span class="types">${["door","window","stairs"].map(t=>`<span role="button" tabindex="0" data-type="${t}" class="${types[typeKey(it)]===t?"on":""}" title="${t}" aria-label="${t}">${t[0].toUpperCase()}</span>`).join("")}</span>`:""}</button>`).join("");
 }
 function bindSheet(){
   sheet.querySelectorAll(".sticker").forEach(el=>{el.addEventListener("pointerdown",startDrag);
     el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();autoPlace(el.dataset.id)}})});
-  sheet.querySelectorAll(".del").forEach(x=>{const id=x.parentElement.dataset.id;
-    x.addEventListener("pointerdown",e=>e.stopPropagation());
-    x.addEventListener("click",e=>{e.stopPropagation();e.preventDefault();removeItem(id)});
-    x.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.stopPropagation();e.preventDefault();removeItem(id)}})});
   sheet.querySelectorAll(".types span").forEach(b=>{const id=b.closest(".sticker").dataset.id;
     b.addEventListener("pointerdown",e=>e.stopPropagation());
     b.addEventListener("click",e=>{e.stopPropagation();e.preventDefault();toggleType(id,b.dataset.type)});
     b.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.stopPropagation();e.preventDefault();toggleType(id,b.dataset.type)}})});
-  $("#copyRemoved")?.addEventListener("click",copyRemoved);
-  $("#undoRemoved")?.addEventListener("click",undoRemoved);
-  const up=$("#upload"); if(up) up.addEventListener("change",()=>{addFiles(up.files);up.value=""});
 }
 function renderPlaced(popId){
   // wallpapers live in the house viewBox: image = room rect, clipped by the room rect
@@ -423,50 +408,9 @@ function autoPlace(id){ if(alive)return; const it=items.find(i=>i.id===id); if(!
   render(id); checkDone();
 }
 
-/* ---------------- test uploads ---------------- */
-function addFiles(files){
-  [...files].filter(f=>/^image\//.test(f.type)).forEach(f=>{
-    const src=URL.createObjectURL(f), it={id:"u"+Math.random().toString(36).slice(2,8),src,name:f.name,type:f.type,h:UPLOAD_HEIGHT*K,snap:"auto",ratio:1,wall:false,ready:false,upload:true,blob:f,added:Date.now()};
-    items.push(it); measure(it);
-  }); render();
-}
-function removeUpload(id){
-  if(alive)return; const it=items.find(i=>i.id===id); if(!it||!it.upload)return;
-  items=items.filter(i=>i!==it); delete pos[id]; URL.revokeObjectURL(it.src); dbDel(id);
-  if(types[id]){delete types[id]; lsSet("dollhouse-types",types)} render();
-}
-function removeItem(id){ // owner mode only. uploads: delete; built-ins: hide in this browser
-  if(!OWNER)return; const it=items.find(i=>i.id===id); if(!it)return; if(it.upload)return removeUpload(id);
-  if(alive||!OWNER)return; items=items.filter(i=>i!==it); delete pos[id];
-  if(!removed.includes(it.src)){removed.push(it.src); lsSet("dollhouse-removed",removed)} render();
-}
-function undoRemoved(){ if(alive)return; removed=[]; lsSet("dollhouse-removed",null); items=[...builtins,...items.filter(i=>i.upload)]; render() }
-function copyRemoved(){
-  const text=removed.map(s=>s.split("/").pop()).join("\n"), done=()=>{const a=$("#copyRemoved"); if(a){a.textContent="copied"; setTimeout(()=>{if(a.isConnected)a.textContent="copy list"},1200)}};
-  const fallback=()=>{const t=document.createElement("textarea"); t.value=text; document.body.appendChild(t); t.select(); try{document.execCommand("copy")}catch(e){} t.remove(); done()};
-  navigator.clipboard?navigator.clipboard.writeText(text).then(done,fallback):fallback();
-}
 function toggleType(id,t){ // mark a picture as door / window / stairs (overrides the file-name rule); again clears it
   const it=items.find(i=>i.id===id); if(!it)return; const k=typeKey(it);
   if(types[k]===t)delete types[k]; else types[k]=t; lsSet("dollhouse-types",types); renderSheet();
-}
-// saved uploads: IndexedDB "dollhouse" / "uploads", key = item id. Any failure → behave as without saving.
-let dbP=null;
-function db(){ if(!dbP) dbP=new Promise((ok,no)=>{const r=indexedDB.open("dollhouse",1);
-    r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains("uploads"))r.result.createObjectStore("uploads")};
-    r.onsuccess=()=>ok(r.result); r.onerror=()=>no(r.error)}); return dbP }
-function dbTx(mode,fn){ try{ return db().then(d=>new Promise((ok,no)=>{const t=d.transaction("uploads",mode),req=fn(t.objectStore("uploads"));
-    t.oncomplete=()=>ok(req&&req.result); t.onerror=t.onabort=()=>no(t.error)})).catch(()=>{}) }catch(e){ return Promise.resolve() } }
-function dbPut(it){ if(items.includes(it)) dbTx("readwrite",s=>s.put({id:it.id,blob:it.blob,name:it.name,type:it.type,wall:it.wall,added:it.added},it.id)) }
-function dbDel(id){ dbTx("readwrite",s=>s.delete(id)) }
-function loadUploads(){ return dbTx("readonly",s=>s.getAll()).then(rows=>{ if(!rows||!rows.length)return;
-  rows.sort((a,b)=>(a.added||0)-(b.added||0)).forEach(r=>{ if(!r||!r.blob||items.some(i=>i.id===r.id))return;
-    const it={id:r.id,src:URL.createObjectURL(r.blob),name:r.name||"",type:r.type||r.blob.type,h:UPLOAD_HEIGHT*K,snap:"auto",ratio:1,wall:!!r.wall,ready:false,upload:true,blob:r.blob,added:r.added||0,saved:true};
-    items.push(it); measure(it); });
-  render(); }) }
-if(ALLOW_UPLOAD){
-  sheet.addEventListener("dragover",e=>{if([...e.dataTransfer.types].includes("Files"))e.preventDefault()});
-  sheet.addEventListener("drop",e=>{if(!e.dataTransfer.files.length)return;e.preventDefault();addFiles(e.dataTransfer.files)});
 }
 function opaque(im){ // fewer than 1% of pixels with alpha < 250 → no transparency
   const k=64/Math.max(im.naturalWidth||64,im.naturalHeight||64,64), w=Math.max(1,Math.round((im.naturalWidth||64)*k)), h=Math.max(1,Math.round((im.naturalHeight||64)*k));
@@ -477,14 +421,13 @@ function opaque(im){ // fewer than 1% of pixels with alpha < 250 → no transpar
 function measure(it){const im=new Image(); im.onload=()=>{it.ratio=im.naturalWidth/im.naturalHeight||1;
     if(neverWall(it)) it.wall=false;
     else if(!it.saved){ if(isWall(it.name)||isJpeg(it.name,it.type)) it.wall=true; else try{it.wall=opaque(im)}catch(e){it.wall=false} }
-    it.ready=true; if(it.upload&&!it.saved){it.saved=true; dbPut(it)} render(); checkLoaded()};
-  im.onerror=()=>{if(neverWall(it))it.wall=false; else if(!it.saved)it.wall=isWall(it.name)||isJpeg(it.name,it.type); it.ready=true; if(it.upload&&!it.saved){it.saved=true; dbPut(it)} render(); checkLoaded()}; im.src=it.src}
+    it.ready=true; render(); checkLoaded()};
+  im.onerror=()=>{if(neverWall(it))it.wall=false; else if(!it.saved)it.wall=isWall(it.name)||isJpeg(it.name,it.type); it.ready=true; render(); checkLoaded()}; im.src=it.src}
 
 /* ---------------- loading widget ---------------- */
-let uploadsDone=!ALLOW_UPLOAD;
 function hideLoader(){ const l=$("#loader"); if(!l||l.classList.contains("out"))return; l.classList.add("out"); setTimeout(()=>l.remove(),320) }
 let houseDone=false; // scene layers loaded and decoded (or failed)
-function checkLoaded(){ if(houseDone&&uploadsDone&&items.every(it=>it.ready)) hideLoader() }
+function checkLoaded(){ if(houseDone&&items.every(it=>it.ready)) hideLoader() }
 setTimeout(hideLoader,8000); // failsafe
 
 /* ---------------- the house comes alive ---------------- */
@@ -863,7 +806,7 @@ function startEditor(){
 }
 
 drawHouse(); builtins.forEach(measure); render();
-if(ALLOW_UPLOAD) loadUploads().finally(()=>{uploadsDone=true; checkLoaded()}); else checkLoaded();
+checkLoaded();
 </script>
 </body>
 </html>
