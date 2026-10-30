@@ -205,18 +205,18 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
    ===================================================================== */
 /* FINALE: when the house is dressed every room listed here plays its video at the same time, cut to the room
    and covering it; the stickers and wallpaper of those rooms fade out while they play. Other rooms keep their objects.
-   One line per room: room id -> video file. To add a video, put the file in videos/ and uncomment its room's line.
-   (r1 r2 = top floor left/right, r3 r4 = 2nd floor, r5 r6 = 3rd floor, r7 r8 = ground floor, tower = inside of the tower) */
+   One line per room r1..r8, file number = room number (videos/room-rN.mp4). To add a video, put the file in videos/
+   and uncomment its room's line; commented rooms request nothing. The tower gets no video.
+   (r1 r2 = top floor left/right, r3 r4 = 2nd floor, r5 r6 = 3rd floor, r7 r8 = ground floor) */
 const ROOM_VIDEOS = {
-  r1:    "finale.mp4",
-  r2:    "videos/room-r1.mp4",   // b/w film of two dolls in a bed
-  r3:    "videos/room-r2.mp4",
-  // r4:    "videos/room-r4.mp4",
-  // r5:    "videos/room-r5.mp4",
-  // r6:    "videos/room-r6.mp4",
-  // r7:    "videos/room-r7.mp4",
-  // r8:    "videos/room-r8.mp4",
-  // tower: "videos/room-tower.mp4",
+  r1: "videos/room-r1.mp4",      // b/w film: two dolls in a bed
+  r2: "videos/room-r2.mp4",      // b/w film: "Playthings of Childhood – Dressmaking" title card
+  r3: "videos/room-r3.mp4",      // b/w film: curly doll at the mirror
+  // r4: "videos/room-r4.mp4",   // placeholder, video to come
+  // r5: "videos/room-r5.mp4",   // placeholder, video to come
+  // r6: "videos/room-r6.mp4",   // placeholder, video to come
+  // r7: "videos/room-r7.mp4",   // placeholder, video to come
+  // r8: "videos/room-r8.mp4",   // placeholder, video to come
 };
 
 /* SCENE: layers/<name>.webp on an 8800 × 4946 artboard (the files are drawn at 50 %); x, y = top-left, w, h = size, z = stacking
