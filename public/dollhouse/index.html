@@ -251,6 +251,15 @@ const ROOMS = [
   {id:"r7",x:128,y:2426,w:910,h:416},{id:"r8",x:1066,y:2426,w:948,h:416},
 ];
 const K = 488/162;
+// room video boxes = the whole room interior measured on house.webp (house units): inner edge of the left wall to the inner edge of
+// the middle pillar / tower wall, underside of the ceiling or shelf above down to the front edge of the floor (the line where the
+// floor meets the shelf front / base), so the film covers the wallpaper, the skirting and the floor of its room
+const VIDEO_BOXES = {
+  r1:{x:128,y:824, w:909,h:447},r2:{x:1103,y:824, w:893,h:447},
+  r3:{x:128,y:1349,w:909,h:469},r4:{x:1103,y:1349,w:893,h:469},
+  r5:{x:128,y:1880,w:909,h:487},r6:{x:1103,y:1880,w:893,h:487},
+  r7:{x:128,y:2430,w:909,h:491},r8:{x:1103,y:2430,w:893,h:491},
+};
 const TOWER = {id:"tower",x:2108,y:768,w:674,h:1540}; // inside of the tower above the door, one wallpaper area
 
 // Slots: the door and the three tower windows of the house picture; box = its place in house units
@@ -490,7 +499,7 @@ function startFinale(){
     ["loadeddata","canplay","canplaythrough"].forEach(ev=>el.addEventListener(ev,()=>kick(el)));
     setSpeed(el); ["loadedmetadata","play","playing","ratechange"].forEach(ev=>el.addEventListener(ev,()=>setSpeed(el)));
     el.src=ROOM_VIDEOS[id];
-    el.dataset.room=id; Object.assign(el.style,boxStyle(boxOf(id))); screens.appendChild(el);
+    el.dataset.room=id; Object.assign(el.style,boxStyle(VIDEO_BOXES[id]||boxOf(id))); screens.appendChild(el);
     videoRooms.add(id); renderPlaced();
     setTimeout(()=>{if(gen===finaleGen)el.classList.add("on")},150);
     kick(el);
