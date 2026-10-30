@@ -173,12 +173,18 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
 .song .bar{position:relative;width:54px;height:16px;cursor:pointer;touch-action:manipulation}
 .song .bar::before{content:"";position:absolute;left:0;right:0;top:7px;height:2px;background:#f6c6dc}
 .song .fill{position:absolute;left:0;top:7px;height:2px;width:0;background:#e0559a}
+/* back link to the folders desktop (../#about, no intro there), right next to the song pill, same 22 px height, 28 px target via padding; shown with it */
+.back{position:fixed;top:1px;left:96px;z-index:17;padding:3px;display:none;text-decoration:none}
+.song.on~.back{display:block}
+.back span{display:flex;align-items:center;height:22px;box-sizing:border-box;padding:0 9px;background:#fff;border:1px solid var(--ink);border-radius:11px;color:var(--ink);font-size:12px;line-height:1}
+.back:hover span{background:#f6c6dc}
 </style>
 </head>
 <body>
 <div id="loader" role="status" aria-label="loading"><img src="loading-dollhouse.gif" alt="" width="150" height="100" fetchpriority="high"></div>
 
 <div class="song" id="song"><div class="pill"><button type="button" id="songBtn" aria-label="Play song"></button><div class="bar" id="songBar" role="slider" aria-label="Seek"><div class="fill" id="songFill"></div></div></div><audio id="songAudio" src="audio/song.m4a" preload="none" loop></audio></div>
+<a class="back" href="../#about" aria-label="Back to the folders"><span>&lt; back</span></a>
 
 <div class="app">
   <header>
