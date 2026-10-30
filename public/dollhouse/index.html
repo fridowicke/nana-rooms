@@ -162,10 +162,23 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
   .sheet{padding:2px 0 2px 4px;left:max(4px,env(safe-area-inset-left,0px));right:max(4px,env(safe-area-inset-right,0px))}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+/* song player: a tiny pill in the top-left corner (above the scene, below the avatar and her bubble, z 18); the 28 px touch target is the
+   transparent padding around the 22 px pill. Hidden until the loading screen is gone. The song never autoplays, only the play button starts it. */
+.song{position:fixed;top:1px;left:1px;z-index:17;padding:3px;display:none}
+.song.on{display:block}
+.song .pill{display:flex;align-items:center;gap:5px;height:22px;box-sizing:border-box;padding:0 8px 0 2px;background:#fff;border:1px solid var(--ink);border-radius:11px}
+.song button{width:18px;height:18px;padding:0;border:0;background:none;display:grid;place-items:center}
+.song button::before{content:"";width:0;height:0;border-style:solid;border-width:4px 0 4px 7px;border-color:transparent transparent transparent var(--ink);margin-left:2px}
+.song.playing button::before{width:2px;height:8px;border-width:0 2px;border-color:var(--ink);margin-left:0}
+.song .bar{position:relative;width:54px;height:16px;cursor:pointer;touch-action:manipulation}
+.song .bar::before{content:"";position:absolute;left:0;right:0;top:7px;height:2px;background:#f6c6dc}
+.song .fill{position:absolute;left:0;top:7px;height:2px;width:0;background:#e0559a}
 </style>
 </head>
 <body>
 <div id="loader" role="status" aria-label="loading"><img src="loading-dollhouse.gif" alt="" width="150" height="100" fetchpriority="high"></div>
+
+<div class="song" id="song"><div class="pill"><button type="button" id="songBtn" aria-label="Play song"></button><div class="bar" id="songBar" role="slider" aria-label="Seek"><div class="fill" id="songFill"></div></div></div><audio id="songAudio" src="audio/song.m4a" preload="none" loop></audio></div>
 
 <div class="app">
   <header>
@@ -875,6 +888,20 @@ function startEditor(){
 drawHouse(); builtins.forEach(measure); render();
 checkLoaded();
 </script>
+<script>/* song player (see .song): preload=none until the first tap anywhere, then only the metadata; plays only from the play button */
+(function(){ const el=document.getElementById("song"), a=document.getElementById("songAudio"), btn=document.getElementById("songBtn"),
+  bar=document.getElementById("songBar"), fill=document.getElementById("songFill");
+  ["pointerdown","click","touchstart"].forEach(t=>el.addEventListener(t,e=>e.stopPropagation()));
+  addEventListener("pointerdown",()=>{ if(a.preload==="none") a.preload="metadata" },{once:true,capture:true});
+  btn.addEventListener("click",()=>{ if(a.paused) a.play().catch(()=>{}); else a.pause() });
+  const sync=()=>{ el.classList.toggle("playing",!a.paused); btn.setAttribute("aria-label",a.paused?"Play song":"Pause song") };
+  a.addEventListener("play",sync); a.addEventListener("pause",sync);
+  a.addEventListener("timeupdate",()=>{ fill.style.width=(a.duration?a.currentTime/a.duration*100:0)+"%" });
+  bar.addEventListener("click",e=>{ const r=bar.getBoundingClientRect(), f=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width));
+    const go=()=>{ a.currentTime=f*a.duration; fill.style.width=f*100+"%" };
+    if(a.duration) go(); else{ a.preload="metadata"; a.addEventListener("loadedmetadata",go,{once:true}); a.load() } });
+  const show=()=>{ const l=document.getElementById("loader"); if(!l||l.classList.contains("out")) el.classList.add("on"); else setTimeout(show,200) }; show();
+})();</script>
 <script type="module" src="nana.js"></script>
 </body>
 </html>
