@@ -528,6 +528,14 @@ const FOLDER_DEFINITIONS = [
     icon: 'assets/folder-she-is-so-hot.gif',
     sections: [],
   },
+  {
+    id: 'dollhouse',
+    label: 'dollhouse makeover game',
+    title: 'Dollhouse Makeover Game',
+    // Nana's standalone game in public/dollhouse/, opened in the same tab
+    pageUrl: `${import.meta.env.BASE_URL}dollhouse/`,
+    sections: [],
+  },
 ]
 const DEFAULT_FOLDER_ICON = 'assets/folder-icon-macos.webp'
 const FOLDER_MAP = new Map(FOLDER_DEFINITIONS.map((folder) => [folder.id, folder]))
@@ -3422,7 +3430,7 @@ function AboutPage({
       mobileFolderTop + 7 * mobileFolderGap + 200)
 
   const folderArcLayout = isMobileLayout
-    ? ['press', 'writing', 'exhibitions', 'filmmaking', 'research', 'local-group', 'cv', 'she-is-so-hot'].map((id, index) => ({
+    ? ['press', 'writing', 'exhibitions', 'filmmaking', 'research', 'local-group', 'cv', 'she-is-so-hot', 'dollhouse'].map((id, index) => ({
         id,
         left: `${viewport.width - 12 - mobileFolderWidth / 2 - (index % 2 === 0 ? 5 : 0)}px`,
         top: `${mobileFolderTop + index * mobileFolderGap + (id === 'she-is-so-hot' ? 20 : 0)}px`,
@@ -3436,6 +3444,7 @@ function AboutPage({
         { id: 'local-group', left: '84%', top: '48%' },
         { id: 'cv', left: '84%', top: '65%' },
         { id: 'she-is-so-hot', left: '29%', top: '60%' },
+        { id: 'dollhouse', left: '56%', top: '40%' },
       ]
   const [folderPositions, setFolderPositions] = useState(
     () => new Map(folderArcLayout.map((p) => [p.id, { left: p.left, top: p.top }]))
@@ -3645,6 +3654,10 @@ function AboutPage({
     const folder = FOLDER_MAP.get(folderId)
     if (folder?.externalUrl) {
       window.open(folder.externalUrl, '_blank', 'noopener,noreferrer')
+      return
+    }
+    if (folder?.pageUrl) {
+      window.location.assign(folder.pageUrl)
       return
     }
 
@@ -4502,6 +4515,7 @@ const DESKTOP_LAYOUT_DEFAULT = {
     research: { left: '38.7%', top: '41.75%', s: 1 },
     'local-group': { left: '92.6%', top: '32.53%', s: 1 },
     cv: { left: '92%', top: '75.77%', s: 1 },
+    dollhouse: { left: '56%', top: '40%', s: 1 },
   },
 }
 // Phone layouts are placed in the frame of Nana's iPhone: 390 px wide, 669 px of visible page with Safari's bars
@@ -4532,6 +4546,7 @@ const MOBILE_LAYOUT_DEFAULT = {
     writing: { left: '88.2%', top: '97.31%', s: 1 },
     'local-group': { left: '88.7%', top: '63.83%', s: 1 },
     cv: { left: '87.9%', top: '119.73%', s: 1 },
+    dollhouse: { left: '88.2%', top: '130.94%', s: 1 },
   },
 }
 
