@@ -85,6 +85,8 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
    minus the sheet height at the DEFAULT sizes (--tbh, see renderSheet), so a bigger toolbar or bigger tray items just cover more of the scene */
 .sheet{position:fixed;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));bottom:max(4px,env(safe-area-inset-bottom,0px));--t:22px;--o:-4px;flex:0 0 auto;max-height:calc(17vh * var(--tb,1));max-height:calc(17dvh * var(--tb,1));overflow:hidden;box-sizing:border-box;padding:2px 2px 2px 6px;margin:0;display:flex;flex-wrap:wrap;align-items:flex-end;align-content:flex-start;gap:1px;transition:opacity .3s}
 .sheet.locked{opacity:.3;pointer-events:none}
+/* desktop (>860px, editor too): the tray is flush with the bottom corners and its items are spread evenly from the left to the right edge in one row (fitSheet shrinks --t if they don't fit) */
+@media (min-width:861px){ .sheet{left:0;right:0;bottom:0;flex-wrap:nowrap;justify-content:space-between;padding:2px 4px} .sheet .sticker{flex:none;margin-left:0} .varBtn{bottom:calc(var(--tbr,0px) + 8px)} }
 .sticker{position:relative;border:0;padding:0;margin:0 0 0 var(--o);display:grid;place-items:end center;background:transparent;touch-action:none;cursor:grab;min-width:0;transition:opacity .15s,transform .15s}
 .sticker:hover{opacity:.75;transform:scale(1.04)}
 .sticker:active{transform:scale(.97)}
@@ -325,9 +327,9 @@ function put(it,room,x,y){ // place a sticker (x,y = its centre); a wallpaper re
 /* ---------------- render ---------------- */
 function fitSheet(){ // largest thumbnail height (max 22px phone / 28px desktop, min 14px) at which all stickers fit without scrolling
   sheet.style.setProperty("--tb",TRAY.toolbarScale);
-  const max=Math.round((innerWidth<=860?22:28)*TRAY.toolbarScale), min=Math.min(14,max);
+  const desk=innerWidth>860, max=Math.round((desk?28:22)*TRAY.toolbarScale), min=Math.min(desk?4:14,max);
   for(let t=max;t>=min;t--){ sheet.style.setProperty("--t",t+"px"); sheet.style.setProperty("--o",-Math.min(4,Math.round(t*.18))+"px");
-    if(sheet.scrollHeight<=sheet.clientHeight+1) break; }
+    if(sheet.scrollHeight<=sheet.clientHeight+1&&(!desk||sheet.scrollWidth<=sheet.clientWidth+1)) break; } // desktop: one row across the full width
   document.querySelector(".app").style.setProperty("--tbr",sheet.offsetHeight+"px");
 }
 function renderSheet(){
