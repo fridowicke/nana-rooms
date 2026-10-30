@@ -59,6 +59,10 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .layer{position:absolute;inset:0;width:100%;height:100%}
 .screens{position:absolute;inset:0;pointer-events:none;z-index:1}
 .screens video{position:absolute;display:block;object-fit:cover;opacity:0;transition:opacity .7s ease;background:var(--ink)}
+/* never show the browser's own play buttons / controls on the room videos (Safari shows a round PLAY when autoplay is blocked) */
+.screens video::-webkit-media-controls,.screens video::-webkit-media-controls-start-playback-button,
+.screens video::-webkit-media-controls-overlay-play-button,.screens video::-webkit-media-controls-panel,
+.screens video::-webkit-media-controls-enclosure{display:none !important;-webkit-appearance:none;opacity:0;pointer-events:none}
 .screens .on{opacity:1}
 .stage .tag{position:absolute;z-index:2;pointer-events:none;margin:4px;padding:1px 4px;background:var(--ink);color:var(--bg);font-size:10px;line-height:1.3;white-space:nowrap}
 .zone{fill:transparent;stroke:none;transition:fill .15s}
@@ -452,16 +456,31 @@ function wake(){
 let finaleT, videos={}, soundRoom=null, finaleGen=0; // videos: room id -> <video>; soundRoom = the room whose sound is on
 const boxOf=id=>ROOMS.find(r=>r.id===id)||TOWER;
 const boxStyle=r=>({left:(r.x-VB.x)/VB.w*100+"%",top:(r.y-VB.y)/VB.h*100+"%",width:r.w/VB.w*100+"%",height:r.h/VB.h*100+"%"});
+/* autoplay can be blocked (Safari low power mode, autoplay policies): keep calling play() until every video runs:
+   on load events, every second, on the first tap / key anywhere, and when the page comes back into view */
+let keepAlive; const GESTURES=["touchstart","pointerdown","click","keydown"];
+function kick(v){ if(v.isConnected&&(v.paused||v.ended)){ const p=v.play(); if(p)p.catch(()=>{}) } }
+function kickAll(){ for(const k in videos) kick(videos[k]) }
+function stopGestures(){ GESTURES.forEach(ev=>removeEventListener(ev,onGesture,{capture:true})) }
+function onGesture(){ kickAll(); const vs=Object.values(videos); // stays armed until every video is actually playing
+  setTimeout(()=>{ if(vs.length&&vs.every(v=>!v.paused)) stopGestures() },300) }
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") kickAll() });
+addEventListener("pageshow",kickAll);
 function startFinale(){
   if(!alive)return; stopFinale(); const gen=finaleGen;
   const ids=Object.keys(ROOM_VIDEOS).filter(k=>[...ROOMS,TOWER].some(r=>r.id===k)); if(!ids.length)return;
+  keepAlive=setInterval(kickAll,1000); GESTURES.forEach(ev=>addEventListener(ev,onGesture,{capture:true,passive:true}));
   ids.forEach((id,i)=>setTimeout(()=>{ if(gen!==finaleGen)return;
     const el=videos[id]=document.createElement("video"); el.muted=true; el.loop=true; el.playsInline=true; el.autoplay=true; el.preload="auto";
-    ["muted","loop","playsinline","autoplay"].forEach(a=>el.setAttribute(a,"")); el.src=ROOM_VIDEOS[id];
+    el.controls=false; el.removeAttribute("controls"); el.disablePictureInPicture=true; el.disableRemotePlayback=true;
+    ["muted","loop","playsinline","webkit-playsinline","autoplay","disablepictureinpicture","disableremoteplayback"].forEach(a=>el.setAttribute(a,""));
+    el.setAttribute("x-webkit-airplay","deny");
+    ["loadeddata","canplay","canplaythrough"].forEach(ev=>el.addEventListener(ev,()=>kick(el)));
+    el.src=ROOM_VIDEOS[id];
     el.dataset.room=id; Object.assign(el.style,boxStyle(boxOf(id))); screens.appendChild(el);
     videoRooms.add(id); renderPlaced();
     setTimeout(()=>{if(gen===finaleGen)el.classList.add("on")},150);
-    el.play().catch(()=>{});
+    kick(el);
     if(!i) dispatchEvent(new Event("dollhouse:finale"));
   },i*150));
 }
@@ -473,7 +492,7 @@ function setSound(id){ // tapping a video room turns its sound on (and mutes the
     Object.assign(t.style,{left:(r.x-VB.x)/VB.w*100+"%",top:(r.y-VB.y)/VB.h*100+"%"}); stage.appendChild(t) }
 }
 function stopFinale(){
-  finaleGen++; clearTimeout(finaleT); soundRoom=null;
+  finaleGen++; clearTimeout(finaleT); clearInterval(keepAlive); stopGestures(); soundRoom=null;
   for(const k in videos){ const v=videos[k]; v.pause(); v.removeAttribute("src"); v.load() } videos={};
   screens.innerHTML=""; stage.querySelector(".tag")?.remove(); dispatchEvent(new Event("dollhouse:finale-stop"));
   if(videoRooms.size){ videoRooms.clear(); renderPlaced() }
