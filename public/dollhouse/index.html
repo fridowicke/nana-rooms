@@ -238,16 +238,24 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
   .back{right:max(10px,env(safe-area-inset-right,0px))}
   .varBtn{left:calc(50% - 50vw + max(8px,env(safe-area-inset-left,0px)));bottom:calc(var(--tbr,0px) + 8px);width:28px;height:28px;font-size:14px}
 }
-/* portrait phones: a one-time (per session) hint to turn the phone, top centre under the counter row and the player; fades after 6 s or on tap */
-#turnHint{display:none;position:fixed;left:50%;top:110px;z-index:19;transform:translateX(-50%);padding:5px 14px;border:1px solid #f4a7c8;border-radius:999px;
-  background:linear-gradient(#fff,#ffe3ef);color:#e0579a;font:300 12px/1.2 var(--font);letter-spacing:.04em;white-space:nowrap;cursor:pointer;
-  box-shadow:0 1px 0 #fff inset,0 2px 6px rgba(240,120,170,.25);transition:opacity .6s}
-#turnHint.out{opacity:0;pointer-events:none}
-@media (orientation:portrait) and (max-width:700px){#turnHint.on{display:block}}
+/* phones held upright (touch, width < 700px, taller than wide): the game is not shown; a copy of the loading screen covers it (Tiny Player too)
+   with "turn your phone or play on desktop". Loading and the song go on underneath; rotating to landscape uncovers it (see #turnCover script) */
+#turnCover{display:none;position:fixed;inset:0;z-index:1001;background:#fff;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+html.turn #turnCover{display:flex}
+#turnCover img{display:block;width:104px;height:auto;image-rendering:pixelated}
+#turnCover p{margin:0;max-width:80vw;text-align:center;color:#333;font:300 14px/1.4 "Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;letter-spacing:.06em;
+  animation:turnPulse 2.4s ease-in-out infinite}
+@keyframes turnPulse{0%,100%{opacity:1}50%{opacity:.55}}
 </style>
 </head>
 <body>
 <div id="loader" role="status" aria-label="loading"><img src="loading-dollhouse.gif" alt="" width="150" height="100" fetchpriority="high"><button id="enter" type="button">tap to enter ♡</button></div>
+<div id="turnCover" role="status"><img src="loading-dollhouse.gif" alt="" width="150" height="100"><p>turn your phone or play on desktop for the best experience</p></div>
+<script>/* portrait phone = narrow, taller than wide AND touch / mobile UA, so a narrow desktop window still shows the game */
+(function(){ const touch=matchMedia("(pointer:coarse)"), ua=/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const upd=()=>document.documentElement.classList.toggle("turn",innerWidth<700&&innerHeight>innerWidth&&(touch.matches||ua));
+  upd(); addEventListener("resize",upd); addEventListener("orientationchange",upd); touch.addEventListener&&touch.addEventListener("change",upd);
+  matchMedia("(orientation:portrait)").addEventListener?.("change",upd) })();</script>
 
 <div class="song" id="song"><div class="tb" id="songTb"><span class="dots"><i class="r" id="songMin" title="Hide player"></i><i class="y"></i><i class="g"></i></span><span class="tt">Tiny Player</span></div>
 <div class="bd"><div class="trk">Installation</div><div class="art">Coraline Soundtrack</div>
@@ -255,7 +263,6 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
 <div class="bar" id="songBar" role="slider" aria-label="Seek"><div class="fill" id="songFill"></div><div class="knob" id="songKnob"></div></div>
 <div class="tm"><span id="songEl">0:00</span><span id="songRem">-0:00</span></div></div>
 <div class="st"><span>128kbps</span><span>1 / 1</span></div><audio id="songAudio" src="audio/song.m4a" preload="auto" loop></audio></div>
-<button id="turnHint" type="button">turn your phone sideways ♡ for the big view</button>
 <a class="back" href="../#about" aria-label="Back to the folders"><img src="../assets/go-back.gif" width="42" height="54" alt=""></a>
 
 <div class="app">
@@ -1019,14 +1026,6 @@ checkLoaded();
     console.log("[song] play() attempt: ready");
     a.play().then(()=>{ console.log("[song] playing"); go() },err=>{ console.log("[song] play() blocked: "+err.name); clearTimeout(wait); ask() });
     const wait=setTimeout(go,4000) }; // allowed but still buffering: reveal anyway, it starts when it can
-  /* portrait phones: "turn your phone sideways" hint, once per session, after the reveal; gone after 6 s or on tap */
-  const hint=$("turnHint"), hintOff=()=>{ hint.classList.add("out"); setTimeout(()=>hint.remove(),700) };
-  const hintGo=()=>{ const l=$("loader"); if(l&&!l.classList.contains("out")){ setTimeout(hintGo,300); return }
-    let seen=false; try{ seen=sessionStorage.getItem("dollhouse-turn-hint")==="1" }catch(e){}
-    if(seen||/[?&]edit=1/.test(location.search)||!matchMedia("(orientation:portrait) and (max-width:700px)").matches){ hint.remove(); return }
-    try{ sessionStorage.setItem("dollhouse-turn-hint","1") }catch(e){}
-    hint.classList.add("on"); hint.addEventListener("click",hintOff); setTimeout(hintOff,6000) };
-  hintGo();
   const show=()=>{ const l=$("loader"); if(!l||l.classList.contains("out")){ el.classList.add("on"); draw(); tryPlay("reveal") } else setTimeout(show,200) }; show();
 })();</script>
 <script type="module" src="nana.js"></script>
