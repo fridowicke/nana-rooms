@@ -12,6 +12,13 @@
 #loader img{display:block;width:124px;height:auto;image-rendering:pixelated}
 @media (max-width:768px){#loader img{width:104px}}
 #loader.out{opacity:0;pointer-events:none}
+#loader{flex-direction:column;gap:14px}
+/* "tap to enter ♡": only when the browser blocks the song's autoplay; the tap starts the song, then the game is revealed */
+#enter{display:none;padding:6px 18px;border:1px solid #f4a7c8;border-radius:999px;background:linear-gradient(#fff,#ffe3ef);color:#e0579a;
+  font:300 13px/1.2 "Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;letter-spacing:.06em;box-shadow:0 1px 0 #fff inset,0 2px 6px rgba(240,120,170,.25);
+  cursor:pointer;animation:enterPulse 1.4s ease-in-out infinite}
+#loader.ask #enter{display:block}
+@keyframes enterPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
 </style>
 <link rel="preload" as="image" href="loading-dollhouse.gif" fetchpriority="high">
 <script>/* preload the wall of the colour variant chosen last time (see VARIANTS) */
@@ -201,7 +208,7 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
 </style>
 </head>
 <body>
-<div id="loader" role="status" aria-label="loading"><img src="loading-dollhouse.gif" alt="" width="150" height="100" fetchpriority="high"></div>
+<div id="loader" role="status" aria-label="loading"><img src="loading-dollhouse.gif" alt="" width="150" height="100" fetchpriority="high"><button id="enter" type="button">tap to enter ♡</button></div>
 
 <div class="song" id="song"><div class="tb" id="songTb"><span class="dots"><i class="r" id="songMin" title="Hide player"></i><i class="y"></i><i class="g"></i></span><span class="tt">Tiny Player</span></div>
 <div class="bd"><div class="trk">Installation</div><div class="art">Coraline Soundtrack</div>
@@ -495,7 +502,11 @@ function measure(it){const im=new Image(); im.onload=()=>{it.ratio=im.naturalWid
   im.onerror=()=>{if(neverWall(it))it.wall=false; else if(!it.saved)it.wall=isWall(it.name)||isJpeg(it.name,it.type); it.ready=true; render(); checkLoaded()}; im.src=it.src}
 
 /* ---------------- loading widget ---------------- */
-function hideLoader(){ const l=$("#loader"); if(!l||l.classList.contains("out"))return; l.classList.add("out"); setTimeout(()=>l.remove(),320) }
+// everything is ready: the song script first tries to start the song (see songGate), then the loader fades out
+let gating=false;
+function hideLoader(){ const l=$("#loader"); if(!l||l.classList.contains("out")||gating)return;
+  if(!window.songGate){ setTimeout(hideLoader,50); return }
+  gating=true; window.songGate(()=>{ l.classList.add("out"); setTimeout(()=>l.remove(),320) }) }
 let houseDone=false; // scene layers loaded and decoded (or failed)
 function checkLoaded(){ if(houseDone&&items.every(it=>it.ready)) hideLoader() }
 /* failsafe: after 12 s reveal anyway, but never without the wall and floor (they are the big files on a slow phone), hard cap 40 s */
@@ -952,6 +963,20 @@ checkLoaded();
   document.addEventListener("visibilitychange",()=>{
     if(document.hidden){ if(!a.paused){ hiddenPaused=true; a.pause() } }
     else{ if(hiddenPaused&&!userPaused) a.play().catch(()=>{}); hiddenPaused=false } });
+  /* called by hideLoader when everything is decoded: play() while the loader is still up; if autoplay is blocked, show "tap to enter ♡"
+     and start the song inside that first tap, then reveal. After one tap this session the prompt is skipped (the tap-anywhere fallback stays). */
+  window.songGate=reveal=>{ let done=false; const go=()=>{ if(!done){ done=true; reveal() } };
+    const ask=()=>{ if(done)return; let tapped=false; try{ tapped=sessionStorage.getItem("dollhouse-tapped")==="1" }catch(e){}
+      if(tapped){ go(); return }
+      const l=$("loader"); l.classList.add("ask"); const T=["pointerdown","touchstart","keydown"];
+      const tap=e=>{ T.forEach(t=>removeEventListener(t,tap,true)); e.stopPropagation(); try{ sessionStorage.setItem("dollhouse-tapped","1") }catch(e){}
+        console.log("[song] play() attempt: enter tap"); a.play().then(()=>console.log("[song] playing"),err=>console.log("[song] play() blocked: "+err.name));
+        if(e.type!=="keydown"){ const eat=ev=>{ ev.stopPropagation(); ev.preventDefault() }; addEventListener("click",eat,true); setTimeout(()=>removeEventListener("click",eat,true),600) }
+        go() };
+      T.forEach(t=>addEventListener(t,tap,true)) };
+    console.log("[song] play() attempt: ready");
+    a.play().then(()=>{ console.log("[song] playing"); go() },err=>{ console.log("[song] play() blocked: "+err.name); clearTimeout(wait); ask() });
+    const wait=setTimeout(go,4000) }; // allowed but still buffering: reveal anyway, it starts when it can
   const show=()=>{ const l=$("loader"); if(!l||l.classList.contains("out")){ el.classList.add("on"); draw(); tryPlay("reveal") } else setTimeout(show,200) }; show();
 })();</script>
 <script type="module" src="nana.js"></script>
