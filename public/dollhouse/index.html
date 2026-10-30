@@ -5,20 +5,19 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Dollhouse Game</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preload" as="image" href="loader-house.webp" type="image/webp" fetchpriority="high">
-<script>/* preload the wall of the colour variant chosen last time (see VARIANTS) */
-(function(){var d="";try{d={halloween:"halloween/"}[JSON.parse(localStorage.getItem("dollhouse-variant"))]||""}catch(e){}
-document.write('<link rel="preload" as="image" href="layers/'+d+'background-wall.webp" type="image/webp" fetchpriority="high">')})()</script>
-<link rel="preload" as="image" href="layers/house.webp" type="image/webp" fetchpriority="high">
 <style>
-/* loading widget: shown from the first paint until the scene layers, the stickers and saved uploads are ready */
-#loader{position:fixed;inset:0;z-index:1000;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .2s;
-  font-family:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;font-size:12px;color:#666}
-/* loader-house.webp: animated pixel art, 160 × 212, shown at an integer scale (2×, 1× on narrow screens), never cropped */
-#loader img{display:block;width:320px;height:424px;flex:none;object-fit:contain;image-rendering:pixelated}
-@media (max-width:479px),(max-height:519px){#loader img{width:160px;height:212px}}
+/* loading screen: only the small dollhouse gif on white, from the first paint until the scene layers and tray stickers are decoded, then fades out (300 ms).
+   Shown at the size of the hub's welcome gif: 124 px wide on desktop, 104 px on phones. */
+#loader{position:fixed;inset:0;z-index:1000;background:#fff;display:flex;align-items:center;justify-content:center;transition:opacity .3s}
+#loader img{display:block;width:124px;height:auto;image-rendering:pixelated}
+@media (max-width:768px){#loader img{width:104px}}
 #loader.out{opacity:0;pointer-events:none}
 </style>
+<link rel="preload" as="image" href="loading-dollhouse.gif" fetchpriority="high">
+<script>/* preload the wall of the colour variant chosen last time (see VARIANTS) */
+(function(){var d="";try{d={halloween:"halloween/"}[JSON.parse(localStorage.getItem("dollhouse-variant"))]||""}catch(e){}
+document.write('<link rel="preload" as="image" href="layers/'+d+'background-wall.webp" type="image/webp">')})()</script>
+<link rel="preload" as="image" href="layers/house.webp" type="image/webp">
 <style>
 /* Layout: the scene (separate picture layers on an 8800 × 4946 artboard, 16:9) fitted above the sticker sheet. Black on white, square corners. */
 :root{
@@ -158,7 +157,7 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
 </style>
 </head>
 <body>
-<div id="loader" role="status"><img src="loader-house.webp" alt="" width="320" height="424"><span>loading...</span></div>
+<div id="loader" role="status" aria-label="loading"><img src="loading-dollhouse.gif" alt="" width="150" height="100" fetchpriority="high"></div>
 
 <div class="app">
   <header>
@@ -483,7 +482,7 @@ function measure(it){const im=new Image(); im.onload=()=>{it.ratio=im.naturalWid
 
 /* ---------------- loading widget ---------------- */
 let uploadsDone=!ALLOW_UPLOAD;
-function hideLoader(){ const l=$("#loader"); if(!l||l.classList.contains("out"))return; l.classList.add("out"); setTimeout(()=>l.remove(),200) }
+function hideLoader(){ const l=$("#loader"); if(!l||l.classList.contains("out"))return; l.classList.add("out"); setTimeout(()=>l.remove(),320) }
 let houseDone=false; // scene layers loaded and decoded (or failed)
 function checkLoaded(){ if(houseDone&&uploadsDone&&items.every(it=>it.ready)) hideLoader() }
 setTimeout(hideLoader,8000); // failsafe
@@ -569,7 +568,7 @@ const VARIANT_LAYERS=["background-wall","floor","floor-splashes"], VARIANT_KEY="
 let variant=VARIANTS.find(v=>v.id===lsGet(VARIANT_KEY,""))||VARIANTS[0];
 const layerSrc=n=>`layers/${VARIANT_LAYERS.includes(n)?variant.dir:""}${n}.webp`;
 function buildLayers(){
-  layersEl.innerHTML=LAYERS.filter(shown).map(l=>`<img class="ly" data-name="${l.name}" src="${layerSrc(l.name)}" alt="" draggable="false">`).join("");
+  layersEl.innerHTML=LAYERS.filter(shown).map(l=>`<img class="ly" data-name="${l.name}" src="${layerSrc(l.name)}" alt="" draggable="false" decoding="async">`).join("");
 }
 function setVariant(v){ // cross-fade: the new picture loads on top (invisible), fades in over 300 ms, then the old one is removed
   if(v===variant)return; variant=v; lsSet(VARIANT_KEY,v.id); varBtn.textContent=v.icon;
