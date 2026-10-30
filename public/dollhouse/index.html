@@ -217,6 +217,9 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
    One line per room r1..r8, file number = room number (videos/room-rN.mp4). To add a video, put the file in videos/
    and uncomment its room's line; commented rooms request nothing. The tower gets no video.
    (r1 r2 = top floor left/right, r3 r4 = 2nd floor, r5 r6 = 3rd floor, r7 r8 = ground floor) */
+/* playback speed of every room video: the b/w films were shot at about 16-18 fps but are stored as 24 fps, so at 1
+   they look sped up. 0.75 ≈ 18 fps feel; 1 = file speed, smaller = slower. */
+const ROOM_VIDEO_SPEED = 0.75;
 const ROOM_VIDEOS = {
   r1: "videos/room-r1.mp4",      // b/w film: shot_030
   r2: "videos/room-r2.mp4",      // b/w film: shot_043
@@ -470,7 +473,9 @@ const boxStyle=r=>({left:(r.x-VB.x)/VB.w*100+"%",top:(r.y-VB.y)/VB.h*100+"%",wid
 /* autoplay can be blocked (Safari low power mode, autoplay policies): keep calling play() until every video runs:
    on load events, every second, on the first tap / key anywhere, and when the page comes back into view */
 let keepAlive; const GESTURES=["touchstart","pointerdown","click","keydown"];
-function kick(v){ if(v.isConnected&&(v.paused||v.ended)){ const p=v.play(); if(p)p.catch(()=>{}) } }
+function setSpeed(v){ if(v.defaultPlaybackRate!==ROOM_VIDEO_SPEED) v.defaultPlaybackRate=ROOM_VIDEO_SPEED;
+  if(v.playbackRate!==ROOM_VIDEO_SPEED) v.playbackRate=ROOM_VIDEO_SPEED } // some browsers reset it after src / load
+function kick(v){ setSpeed(v); if(v.isConnected&&(v.paused||v.ended)){ const p=v.play(); if(p)p.catch(()=>{}) } }
 function kickAll(){ for(const k in videos) kick(videos[k]) }
 function stopGestures(){ GESTURES.forEach(ev=>removeEventListener(ev,onGesture,{capture:true})) }
 function onGesture(){ kickAll(); const vs=Object.values(videos); // stays armed until every video is actually playing
@@ -487,6 +492,7 @@ function startFinale(){
     ["muted","loop","playsinline","webkit-playsinline","autoplay","disablepictureinpicture","disableremoteplayback"].forEach(a=>el.setAttribute(a,""));
     el.setAttribute("x-webkit-airplay","deny");
     ["loadeddata","canplay","canplaythrough"].forEach(ev=>el.addEventListener(ev,()=>kick(el)));
+    setSpeed(el); ["loadedmetadata","play","playing","ratechange"].forEach(ev=>el.addEventListener(ev,()=>setSpeed(el)));
     el.src=ROOM_VIDEOS[id];
     el.dataset.room=id; Object.assign(el.style,boxStyle(boxOf(id))); screens.appendChild(el);
     videoRooms.add(id); renderPlaced();
