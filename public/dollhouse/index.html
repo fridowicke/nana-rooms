@@ -201,12 +201,20 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
    SLOTS: a picture whose file name contains "door" or "window" dropped on (or next to) the door or a tower window
      of the house snaps into it; one picture per slot. Anywhere else it is a normal object.
    ===================================================================== */
-/* FINALE: when the house is dressed a video plays in ONE room, cut to the room and covering it;
-   the stickers and wallpaper of that room fade out while it plays. All other rooms keep their objects.
-   room id -> video file (r1 r2 = top floor left/right … r7 r8 = ground floor, tower = inside of the tower).
-   Only the first room listed gets a video. */
+/* FINALE: when the house is dressed every room listed here plays its video at the same time, cut to the room
+   and covering it; the stickers and wallpaper of those rooms fade out while they play. Other rooms keep their objects.
+   One line per room: room id -> video file. To add a video, put the file in videos/ and uncomment its room's line.
+   (r1 r2 = top floor left/right, r3 r4 = 2nd floor, r5 r6 = 3rd floor, r7 r8 = ground floor, tower = inside of the tower) */
 const ROOM_VIDEOS = {
-  r1:"finale.mp4",
+  r1:    "finale.mp4",
+  r2:    "videos/room-r1.mp4",   // b/w film of two dolls in a bed
+  r3:    "videos/room-r2.mp4",
+  // r4:    "videos/room-r4.mp4",
+  // r5:    "videos/room-r5.mp4",
+  // r6:    "videos/room-r6.mp4",
+  // r7:    "videos/room-r7.mp4",
+  // r8:    "videos/room-r8.mp4",
+  // tower: "videos/room-tower.mp4",
 };
 
 /* SCENE: layers/<name>.webp on an 8800 × 4946 artboard (the files are drawn at 50 %); x, y = top-left, w, h = size, z = stacking
@@ -268,7 +276,7 @@ const neverWall=it=>!it.upload||isItem(it.name); // built-in tray items (item-*.
 const isJpeg=(name,type)=>type==="image/jpeg"||/\.jpe?g$/i.test(name);
 const builtins=STICKERS.map((s,i)=>({id:"s"+i, src:s.src, name:s.src.split("/").pop(), h:s.art?s.h:(s.h||80)*3*K, snap:s.snap||"auto", ratio:1, wall:false, ready:false}));
 let items=[...builtins];
-let videoRoom=null;     // room whose stickers are hidden while its finale video plays
+const videoRooms=new Set(); // rooms whose stickers are hidden while their finale videos play
 const pos={};            // id -> {room, x, y}  (x = centre, y = bottom, canvas units, room = area or null, slot = slot id); wallpapers: {room}
 let alive=false;
 
@@ -353,7 +361,7 @@ function renderPlaced(popId){
   wallsEl.innerHTML=`<defs>${ROOMS.map(r=>`<clipPath id="clip-${r.id}"><rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"/></clipPath>`).join("")}
     <clipPath id="clip-tower"><rect x="${TOWER.x}" y="${TOWER.y}" width="${TOWER.w}" height="${TOWER.h}"/></clipPath></defs>`+
     items.filter(it=>it.wall&&pos[it.id]).map(it=>{const id=pos[it.id].room,b=ROOMS.find(r=>r.id===id)||TOWER;
-    const cls=(popId===it.id?"pop":"")+(videoRoom&&id===videoRoom?" gone":"");
+    const cls=(popId===it.id?"pop":"")+(videoRooms.has(id)?" gone":"");
     const img=`<image href="${it.src}" data-id="${it.id}" class="${cls}" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}"
       preserveAspectRatio="xMidYMid slice" clip-path="url(#clip-${id})"/>`;
     return SY===1?img:`<g clip-path="url(#clip-${id})"><image href="${it.src}" data-id="${it.id}" class="${cls}" x="${b.x}" y="${b.y*SY}" width="${b.w}" height="${b.h*SY}"
@@ -361,7 +369,7 @@ function renderPlaced(popId){
   wallsEl.querySelectorAll("image").forEach(el=>el.addEventListener("pointerdown",startDrag));
   placedEl.innerHTML=placedOrder().map(it=>{const p=pos[it.id],{hy}=sizeOf(it);
     if(p.slot){const sl=SLOTS.find(s=>s.id===p.slot); if(sl)slotPos(it,sl)}
-    return `<img src="${it.src}" alt="" draggable="false" data-id="${it.id}" class="${(popId===it.id?"pop":"")+(videoRoom&&p.room===videoRoom?" gone":"")}"
+    return `<img src="${it.src}" alt="" draggable="false" data-id="${it.id}" class="${(popId===it.id?"pop":"")+(videoRooms.has(p.room)?" gone":"")}"
       style="left:${(p.x-VB.x)/VB.w*100}%;top:${(p.y-VB.y)/VB.h*100}%;height:${hy/VB.h*100}%">`}).join("");
   placedEl.querySelectorAll("img").forEach(el=>el.addEventListener("pointerdown",startDrag));
   updateHud();
@@ -438,38 +446,42 @@ function wake(){
   wrap.classList.add("alive");
   finaleT=setTimeout(startFinale,1200);
 }
-/* room video: one muted autoplay <video> in the video room, nothing is loaded before the finale.
+/* room videos: one muted autoplay <video> per listed room, nothing is loaded before the finale.
    Its stickers fade out; tapping the room turns its sound on / off. */
-let finaleT, video=null, soundOn=false, finaleGen=0;
+let finaleT, videos={}, soundRoom=null, finaleGen=0; // videos: room id -> <video>; soundRoom = the room whose sound is on
 const HOW=$(".how").textContent, boxOf=id=>ROOMS.find(r=>r.id===id)||TOWER;
 const boxStyle=r=>({left:(r.x-VB.x)/VB.w*100+"%",top:(r.y-VB.y)/VB.h*100+"%",width:r.w/VB.w*100+"%",height:r.h/VB.h*100+"%"});
 function startFinale(){
   if(!alive)return; stopFinale(); const gen=finaleGen;
-  const id=Object.keys(ROOM_VIDEOS).find(k=>[...ROOMS,TOWER].some(r=>r.id===k)); if(!id)return;
-  const el=video=document.createElement("video"); el.muted=true; el.loop=true; el.playsInline=true; el.autoplay=true;
-  ["muted","loop","playsinline","autoplay"].forEach(a=>el.setAttribute(a,"")); el.src=ROOM_VIDEOS[id];
-  el.dataset.room=id; Object.assign(el.style,boxStyle(boxOf(id))); screens.appendChild(el);
-  videoRoom=id; renderPlaced();
-  setTimeout(()=>{if(gen===finaleGen)el.classList.add("on")},150);
-  el.play().catch(()=>{});
+  const ids=Object.keys(ROOM_VIDEOS).filter(k=>[...ROOMS,TOWER].some(r=>r.id===k)); if(!ids.length)return;
+  for(const id of ids){
+    const el=videos[id]=document.createElement("video"); el.muted=true; el.loop=true; el.playsInline=true; el.autoplay=true;
+    ["muted","loop","playsinline","autoplay"].forEach(a=>el.setAttribute(a,"")); el.src=ROOM_VIDEOS[id];
+    el.dataset.room=id; Object.assign(el.style,boxStyle(boxOf(id))); screens.appendChild(el);
+    videoRooms.add(id);
+    setTimeout(()=>{if(gen===finaleGen)el.classList.add("on")},150);
+    el.play().catch(()=>{});
+  }
+  renderPlaced();
   $(".how").textContent="Tap the room to hear it.";
 }
-function setSound(){ // tapping the video room turns its sound on; tapping it again mutes it
-  if(!video)return; soundOn=!soundOn; video.muted=!soundOn; if(soundOn) video.play().catch(()=>{});
+function setSound(id){ // tapping a video room turns its sound on (and mutes the others); tapping it again mutes it
+  if(!videos[id])return; soundRoom=soundRoom===id?null:id;
+  for(const k in videos) videos[k].muted=k!==soundRoom; if(soundRoom) videos[id].play().catch(()=>{});
   stage.querySelector(".tag")?.remove();
-  if(soundOn){ const r=boxOf(videoRoom), t=document.createElement("span"); t.className="tag"; t.textContent="sound on";
+  if(soundRoom){ const r=boxOf(id), t=document.createElement("span"); t.className="tag"; t.textContent="sound on";
     Object.assign(t.style,{left:(r.x-VB.x)/VB.w*100+"%",top:(r.y-VB.y)/VB.h*100+"%"}); stage.appendChild(t) }
 }
 function stopFinale(){
-  finaleGen++; clearTimeout(finaleT); soundOn=false;
-  if(video){ video.pause(); video.removeAttribute("src"); video.load(); video=null }
+  finaleGen++; clearTimeout(finaleT); soundRoom=null;
+  for(const k in videos){ const v=videos[k]; v.pause(); v.removeAttribute("src"); v.load() } videos={};
   screens.innerHTML=""; stage.querySelector(".tag")?.remove(); $(".how").textContent=HOW;
-  if(videoRoom){ videoRoom=null; renderPlaced() }
+  if(videoRooms.size){ videoRooms.clear(); renderPlaced() }
 }
-stage.addEventListener("click",e=>{ if(!alive||!video||e.target.closest("button"))return;
-  const [x,y]=toCanvas(e.clientX,e.clientY), r=roomAt(x,y); if(r&&r.id===videoRoom) setSound() });
+stage.addEventListener("click",e=>{ if(!alive||!videoRooms.size||e.target.closest("button"))return;
+  const [x,y]=toCanvas(e.clientX,e.clientY), r=roomAt(x,y); if(r&&videoRooms.has(r.id)) setSound(r.id) });
 function reset(){
-  clearTimeout(finaleT); if(video) video.muted=true;
+  clearTimeout(finaleT); for(const k in videos) videos[k].muted=true;
   screens.querySelectorAll(".on").forEach(v=>v.classList.remove("on")); stage.querySelector(".tag")?.remove(); wrap.classList.remove("alive");
   stage.querySelectorAll(".placed img,.walls image").forEach(i=>i.style.opacity="0");
   setTimeout(()=>{for(const k in pos)delete pos[k]; stopFinale(); alive=false; sheet.classList.remove("locked"); render()},350);
