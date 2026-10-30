@@ -11,8 +11,8 @@ const LINES = [
   "this dollhouse makeover game was developed by shelestvetrovki and designed by dripkastonline as a creative collaboration exploring old web girls games",
   'directed by shelestvetrovki based on the "Playthings of Childhood - The Doll\'s House, 1920. A vintage silent film archive showcasing early 20th-century toy and dollhouse manufacturing.',
 ];
-const FINALE_DELAY = 2000, FINALE_HOLD = 9000; // line 3: shown 2 s after the videos start, open ~9 s after it is spoken
-const PAUSE = 4000; // calm pause between the two bubbles (ms)
+const FINALE_DELAY = 2000; // line 3: shown 2 s after the videos start
+const READ_SHORT = 2500, READ_LONG = 5000; // bubble stays open this long after a line is typed (ms); line 1 is short, 2 and 3 long
 
 const BASE = new URL("./nana/", import.meta.url).href;
 const poster = new Image(); poster.fetchPriority = "low"; poster.src = BASE + "ass-poster.webp";
@@ -102,16 +102,16 @@ function renderWords(text) {
 }
 function say(text, done) {
   stop(); bubble.dataset.empty = "0";
-  const spans = renderWords(text), r = { cancel: false }; run = r; let i = 0;
+  const spans = renderWords(text), r = { cancel: false, spans, done }; run = r; let i = 0;
   const next = () => {
     if (r.cancel) return;
     if (i >= spans.length) { mouth.target = 0; run = null; done && done(); return; }
     const span = spans[i++], w = span.textContent; span.classList.add("on");
     const letters = [...w.replace(/[^\p{L}]/gu, "")]; let k = 0;
-    const per = Math.max(55, Math.min(95, 320 / Math.max(1, letters.length)));
+    const per = 19;
     const syl = () => {
       if (r.cancel) return;
-      if (k >= letters.length) { const end = /[.!?]$/.test(w); mouth.target = end ? 0 : .08; setTimeout(next, end ? 260 : /[,;:]$/.test(w) ? 140 : 40); return; }
+      if (k >= letters.length) { const end = /[.!?]$/.test(w); mouth.target = end ? 0 : .08; setTimeout(next, end ? 120 : /[,;:]$/.test(w) ? 60 : 12); return; }
       const c = letters[k++].toLowerCase();
       mouth.target = "aeiouy".includes(c) ? .65 + Math.random() * .35 : "mbp".includes(c) ? 0 : .18 + Math.random() * .2;
       setTimeout(syl, per);
@@ -120,11 +120,15 @@ function say(text, done) {
   };
   next();
 }
+function finishLine() { // tap on the bubble: show the rest of the current line at once
+  const r = run; if (!r) return; r.cancel = true; run = null; mouth.target = 0;
+  r.spans.forEach(s => s.classList.add("on")); r.done && r.done();
+}
 function stop() { if (run) { run.cancel = true; run = null; } mouth.target = 0; }
 function closeBubble() { stop(); clearTimeout(seqT); clearTimeout(hideT); bubble.dataset.empty = "1"; root.dataset.line = "0"; }
 function sayFinale() {
   closeBubble(); root.dataset.line = "3";
-  say(LINES[2], () => { hideT = setTimeout(closeBubble, FINALE_HOLD); });
+  say(LINES[2], () => { hideT = setTimeout(closeBubble, READ_LONG); });
 }
 function talk() {
   closeBubble(); clearTimeout(finaleT); root.dataset.line = "1";
@@ -132,10 +136,10 @@ function talk() {
     seqT = setTimeout(() => {
       root.dataset.line = "2";
       say(LINES[1], () => {
-        if (finale) seqT = setTimeout(sayFinale, PAUSE);
-        else hideT = setTimeout(closeBubble, 6000 + LINES[1].split(/\s+/).length * 200);
+        if (finale) seqT = setTimeout(sayFinale, READ_LONG);
+        else hideT = setTimeout(closeBubble, READ_LONG);
       });
-    }, PAUSE);
+    }, READ_SHORT);
   });
 }
 hit.addEventListener("click", talk);
@@ -145,6 +149,7 @@ addEventListener("dollhouse:finale-stop", () => {
   if (root.dataset.line === "3") closeBubble(); // a running line 1+2 replay just ends without line 3
 });
 closeBtn.addEventListener("click", e => { e.stopPropagation(); closeBubble(); });
+bubble.addEventListener("click", finishLine);
 
 /* ---------------- start once the game is shown (the loading gif has faded out) ---------------- */
 function gameShown() { const l = document.getElementById("loader"); return !l || l.classList.contains("out"); }
