@@ -168,6 +168,17 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
   body{padding-left:max(4px,env(safe-area-inset-left,0px));padding-right:max(4px,env(safe-area-inset-right,0px))}
   .sheet{padding:2px 0 2px 4px;left:max(4px,env(safe-area-inset-left,0px));right:max(4px,env(safe-area-inset-right,0px))}
 }
+/* portrait phones / tablets: the scene is fitted by WIDTH to the whole house group (mailbox … girl and her bubble = artboard x 1647…7682,
+   6035 wide, centre 4664.5) instead of cover, so nothing of the house is cut; it stays bottom-aligned above the sheet. The wall above is
+   continued by a mirrored copy of the upper 70% of the wall layer (--wall, set with the colour variant; the lower 30% is the skirting),
+   then by that 70% row stretched upwards (vertical stripes), so there is never a white gap. */
+@media (max-aspect-ratio:1/1){
+  .scene{width:calc(100cqw * 8800 / 6035);left:calc(100cqw * -264.5 / 6035)}
+  .scene::before,.scene::after{content:"";position:absolute;left:.0114%;width:100%;pointer-events:none}
+  .scene::before{z-index:-1;bottom:calc(100% + 100% * 95 / 4946);height:calc(70% * 4004 / 4946);
+    background:var(--wall) 0 0/100% calc(100% / .7) no-repeat;transform:scaleY(-1)}
+  .scene::after{z-index:-2;bottom:calc(100% + 100% * 95 / 4946 + 70% * 4004 / 4946 - 1px);height:400%;background:var(--wall) 0 70%/100% 100000% no-repeat}
+}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 /* song player: a 240×135 px macOS "Tiny Player" window pinned in the top-left corner (fixed px, not scaled with the house; above the scene,
    below the avatar and her bubble, z 18). Hidden until the loading screen is gone, then it tries to autoplay (see the script at the end). */
@@ -637,7 +648,7 @@ function setVariant(v){
   if(v===variant||varBusy)return; varBusy=true; varBtn.classList.add("busy");
   const ims=varImgs(v);
   Promise.race([Promise.all(ims.map(imgReady)),new Promise(r=>setTimeout(r,4000))]).then(()=>requestAnimationFrame(()=>{
-    const prev=variant, outs=[]; variant=v; lsSet(VARIANT_KEY,v.id); varBtn.textContent=v.icon;
+    const prev=variant, outs=[]; variant=v; lsSet(VARIANT_KEY,v.id); varBtn.textContent=v.icon; setWall();
     ims.forEach(im=>{ const old=[...layersEl.querySelectorAll(`[data-name="${im.dataset.name}"]`)].filter(o=>o!==im); if(!old.length)return;
       im.style.cssText=old[0].style.cssText; im.classList.add("vin"); old[old.length-1].after(im); outs.push(...old) });
     varShown=ims; void layersEl.offsetWidth; ims.forEach(im=>im.style.opacity=1);
@@ -647,6 +658,7 @@ function setVariant(v){
       const keep=VARIANT_LAYERS.map(n=>outs.find(o=>o.dataset.name===n)); if(keep.every(Boolean)) varCache[prev.id]=keep;
       varBusy=false; varBtn.classList.remove("busy"); warmNext() },270) }));
 }
+const setWall=()=>sceneEl.style.setProperty("--wall",`url(${layerSrc("background-wall")})`); setWall(); // the phone wall extension
 const varBtn=$("#varBtn"); varBtn.textContent=variant.icon;
 varBtn.addEventListener("pointerdown",e=>e.stopPropagation());
 varBtn.addEventListener("click",()=>setVariant(nextVariant()));
