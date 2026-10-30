@@ -12,7 +12,7 @@ const LINES = [
   'directed by shelestvetrovki based on the "Playthings of Childhood - The Doll\'s House, 1920. A vintage silent film archive showcasing early 20th-century toy and dollhouse manufacturing.',
 ];
 const FINALE_DELAY = 2000; // line 3: shown 2 s after the videos start
-const READ_SHORT = 2500, READ_LONG = 5000; // bubble stays open this long after a line is typed (ms); line 1 is short, 2 and 3 long
+const READ_SHORT = 1000, READ_LONG = 5000; // pause after short line 1 before line 2; bubble stays open this long after lines 2 and 3 are typed (ms)
 
 const BASE = new URL("./nana/", import.meta.url).href;
 const poster = new Image(); poster.fetchPriority = "low"; poster.src = BASE + "ass-poster.webp";
@@ -108,10 +108,10 @@ function say(text, done) {
     if (i >= spans.length) { mouth.target = 0; run = null; done && done(); return; }
     const span = spans[i++], w = span.textContent; span.classList.add("on");
     const letters = [...w.replace(/[^\p{L}]/gu, "")]; let k = 0;
-    const per = 19;
+    const per = 9;
     const syl = () => {
       if (r.cancel) return;
-      if (k >= letters.length) { const end = /[.!?]$/.test(w); mouth.target = end ? 0 : .08; setTimeout(next, end ? 120 : /[,;:]$/.test(w) ? 60 : 12); return; }
+      if (k >= letters.length) { const end = /[.!?]$/.test(w); mouth.target = end ? 0 : .08; setTimeout(next, end ? 60 : /[,;:]$/.test(w) ? 30 : 6); return; }
       const c = letters[k++].toLowerCase();
       mouth.target = "aeiouy".includes(c) ? .65 + Math.random() * .35 : "mbp".includes(c) ? 0 : .18 + Math.random() * .2;
       setTimeout(syl, per);
