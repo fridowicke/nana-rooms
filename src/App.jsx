@@ -7000,8 +7000,8 @@ export default function App() {
         overflow: 'hidden',
       }}
     >
-      {/* phone intro (public/narrator/narrator.js): house, hint and doors stay hidden while she says hi */}
-      <style>{'@media (max-width:640px){.hub-house,.hub-hint{transition:opacity .6s ease!important}[data-ass-intro="1"] .hub-house,[data-ass-intro="1"] .hub-hint{opacity:0!important;pointer-events:none!important}}'}</style>
+      {/* intro (public/narrator/narrator.js): house, hint and doors stay hidden (but keep loading) while she tells the story */}
+      <style>{'.hub-house,.hub-hint{transition:opacity .6s ease!important}[data-ass-intro="1"] .hub-house,[data-ass-intro="1"] .hub-hint{opacity:0!important;pointer-events:none!important}'}</style>
       <div
         className="hub-house"
         style={{

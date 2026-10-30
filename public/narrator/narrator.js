@@ -13,8 +13,10 @@
 import { LINES, SETTINGS } from "./lines.js";
 
 const BASE = new URL("./", import.meta.url).href;
-const THREE_URL = "https://cdn.jsdelivr.net/npm/three@0.160.0/+esm";
-const LOADER_URL = "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js/+esm";
+// three.js r170 is self-hosted next to this file (vendor/), ass.glb is meshopt-compressed
+const THREE_URL = BASE + "vendor/three.module.min.js";
+const LOADER_URL = BASE + "vendor/GLTFLoader.js";
+const MESHOPT_URL = BASE + "vendor/meshopt_decoder.module.js";
 
 if (!window.__assNarrator) { window.__assNarrator = true; boot(); }
 
@@ -48,7 +50,11 @@ function boot() {
   .ass-n__body canvas{width:100%!important;height:100%!important;display:block}
   .ass-n.min .ass-n__bubble{display:none}
   .ass-n.min .ass-n__body{width:64px}
-  .ass-n__fallback{position:absolute;inset:12% 20%;border-radius:50% 50% 46% 46%;background:#e8b3bf}
+  /* still picture of her shown at once; the live 3D model fades in over it when ready (if WebGL fails it just stays) */
+  .ass-n__poster{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;transition:opacity .35s ease}
+  .ass-n__body canvas{opacity:0;transition:opacity .35s ease}
+  .ass-n.live .ass-n__body canvas{opacity:1}
+  .ass-n.live .ass-n__poster{opacity:0}
   @media (max-width:640px){
     .ass-n__bubble{max-width:min(260px,calc(100vw - 24px));font-size:12.5px}
     .ass-n__body{width:min(336px,calc(100vw - 24px))}
@@ -62,9 +68,16 @@ function boot() {
   .ass-n.mob.min .ass-n__bubble{display:block;max-width:min(200px,calc(100vw - 24px));padding:7px 9px 8px;font-size:11.5px}
   .ass-n.mob.min .ass-n__body{width:60px}
   .ass-n.mob.min .ass-n__hit{inset:0!important;width:auto!important;height:auto!important}
-  /* phone intro on the house page: she alone, big and centred; then she flies to her corner */
-  .ass-n.intro .ass-n__body{width:90vw;pointer-events:auto}
-  .ass-n.intro .ass-n__close{display:none}
+  /* intro on the house page: she alone, big and centred, until the story is told; then she flies to her corner */
+  .ass-n.intro .ass-n__body{width:min(90vw,100vh);pointer-events:auto;cursor:pointer}
+  .ass-n.intro .ass-n__bubble{cursor:pointer}
+  .ass-n.intro.hint .ass-n__bubble{animation:ass-n-pulse 1.6s ease-in-out infinite}
+  .ass-n.intro.hint .ass-n__close{display:none}
+  @keyframes ass-n-pulse{0%,100%{box-shadow:0 6px 24px rgba(0,0,0,.08),0 0 0 0 rgba(61,255,184,.7)}50%{box-shadow:0 6px 24px rgba(0,0,0,.08),0 0 0 7px rgba(61,255,184,0)}}
+  .ass-n__next{display:none;margin:8px 0 0 auto;padding:4px 10px;border:1px solid rgba(0,0,0,.25);border-radius:999px;background:#fff;color:#111;
+    font:12px/1.2 "Helvetica Neue",Helvetica,Arial,sans-serif;font-weight:400;cursor:pointer}
+  .ass-n.intro.story .ass-n__next{display:block}
+  .ass-n.intro.story .ass-n__next::before{content:"";position:absolute;inset:-10px}
   .ass-n.intro-out{transition:transform .9s cubic-bezier(.5,0,.2,1)}
   .ass-n.intro-out .ass-n__body{transition:width .9s cubic-bezier(.5,0,.2,1)}
   @media (prefers-reduced-motion:reduce){.ass-n *{transition:none!important}}`;
@@ -72,19 +85,18 @@ function boot() {
 
   const root = document.createElement("div"); root.className = "ass-n"; root.setAttribute("aria-label", "Narrator");
   root.innerHTML = `
-    <div class="ass-n__bubble" data-empty="1"><button class="ass-n__close" type="button" aria-label="Hide her">×</button><p class="ass-n__text" aria-live="polite" style="margin:0"></p></div>
-    <div class="ass-n__body" title="Tap her, drag her"><div class="ass-n__hit"></div></div>`;
+    <div class="ass-n__bubble" data-empty="1"><button class="ass-n__close" type="button" aria-label="Hide her">×</button><p class="ass-n__text" aria-live="polite" style="margin:0"></p><button class="ass-n__next" type="button">next ›</button></div>
+    <div class="ass-n__body" title="Tap her, drag her"><img class="ass-n__poster" src="${BASE}ass-poster.webp" alt="" draggable="false" fetchpriority="high"><div class="ass-n__hit"></div></div>`;
   document.body.appendChild(root);
   const bubble = root.querySelector(".ass-n__bubble"), textEl = root.querySelector(".ass-n__text"),
         body = root.querySelector(".ass-n__body"),
-        closeBtn = root.querySelector(".ass-n__close"), hit = root.querySelector(".ass-n__hit");
+        closeBtn = root.querySelector(".ass-n__close"), hit = root.querySelector(".ass-n__hit"), nextBtn = root.querySelector(".ass-n__next");
   // phones and touch screens: she shrinks to a small avatar instead of going silent
   const mobQ = matchMedia("(max-width:640px), (pointer:coarse)"), mob = () => mobQ.matches;
   root.classList.toggle("mob", mob());
-  // phone intro: only on a fresh load that opens on the house (index.html already set the flag)
-  const INTRO_TAPS = 3;
-  let intro = document.documentElement.dataset.assIntro === "1", introTaps = 0;
-  if (intro) root.classList.add("intro");
+  // intro: first visit that opens on the house, or ?intro=1 (index.html already set the flag)
+  let intro = document.documentElement.dataset.assIntro === "1", storyAt = -1, storyT;
+  if (intro) root.classList.add("intro", "hint");
 
   const store = {
     get(k, d) { try { const v = localStorage.getItem("assN:" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -112,15 +124,15 @@ function boot() {
     const bw = body.offsetWidth, bh = body.offsetHeight;
     // phone: stay below the site's top bar, and the small avatar below the house icon
     const T = mob() ? (minimized ? 100 : 44) : M;
-    let x = pos ? pos.x : vw - bw - M, y = pos ? pos.y : T;
+    let x = pos ? pos.x : M, y = pos ? pos.y : T;
     x = Math.max(M, Math.min(x, vw - bw - M)); y = Math.max(T, Math.min(y, vh - bh - M));
     if (vw - bw - M < M) x = Math.max(0, (vw - bw) / 2);
-    if (intro) { x = (vw - bw) / 2; y = Math.max(T, (vh - bh) / 2 - 60); }
+    if (intro) { x = (vw - bw) / 2; y = Math.max(T, (vh - bh) / 2 - (mob() ? 60 : 30)); }
     root.style.transform = `translate(${Math.round(x)}px,${Math.round(y)}px)`;
     // bubble a few px from her silhouette, tail pointing at her: beside her (left, then right), else below/above;
     // always kept inside the screen
     const pw = bubble.offsetWidth, ph = bubble.offsetHeight, gap = 4, tail = 7, off = gap + tail;
-    const f = fig || { l: bw * .2, t: bh * .12, r: bw * .8, b: bh * .88 };
+    const f = fig || { l: bw * .11, t: bh * .29, r: bw * .89, b: bh * .68 }; // her box in the poster
     const cx = (f.l + f.r) / 2, cy = f.t + (f.b - f.t) * .3;
     const side = x + f.l - off - pw >= M ? "left" : x + f.r + off + pw <= vw - M ? "right"
       : y + f.b + off + ph <= vh - M || y + f.t - off - ph < T ? "down" : "up";
@@ -176,6 +188,7 @@ function boot() {
   mobQ.addEventListener?.("change", () => { root.classList.toggle("mob", mob()); setMin(minimized); });
   closeBtn.addEventListener("click", e => {
     e.stopPropagation();
+    if (intro) return endIntro();
     if (mob()) { stop(); queue = []; clearTimeout(hideT); bubble.dataset.empty = "1"; }
     setMin(true);
   });
@@ -192,21 +205,31 @@ function boot() {
   const pokeLine = () => (route && route.kind === "room" && LINES.roomPoke?.length) ? roomDeckLine() : pick(LINES.poke, "poke");
   body.addEventListener("click", () => { if (dragged) { dragged = false; return; } if (intro) return introTap(); if (minimized && !mob()) setMin(false); say(pokeLine()); });
   bubble.addEventListener("click", () => { if (intro) introTap(); });
+  nextBtn.addEventListener("click", e => { e.stopPropagation(); if (intro) introTap(); });
+  // the story = the house lines from lines.js in order (home.story if she writes one, else welcome + first)
+  const STORY = (LINES.home.story || [...(LINES.home.welcome || []), ...(LINES.home.first || [])]).filter(Boolean);
+  function introHint() { bubble.dataset.empty = "0"; renderWords("Hi! Click on me and I'll tell you the story").forEach(s => s.classList.add("on")); layout(); }
+  // first tap starts the story, every next tap goes on; between taps she goes on by herself at a calm pace
   function introTap() {
-    introTaps++;
-    say(introTaps === 1 ? pick(LINES.home.first, "home") : pick(LINES.poke, "poke"));
-    if (introTaps >= INTRO_TAPS) endIntro();
+    clearTimeout(storyT);
+    if (++storyAt >= STORY.length) return endIntro();
+    root.classList.remove("hint"); root.classList.add("story");
+    nextBtn.textContent = storyAt === STORY.length - 1 ? "enter the house ›" : "next ›";
+    const line = STORY[storyAt]; say(line); hideT && clearTimeout(hideT);
+    const words = line.text.split(/\s+/).length;
+    storyT = setTimeout(function wait() { if (busy) return (storyT = setTimeout(wait, 500)); clearTimeout(hideT); storyT = setTimeout(introTap, 3500 + words * 60); }, 800);
   }
-  // ends the intro (taps, or a failsafe): she shrinks to the small corner avatar and the house fades in
+  // ends the intro (story told, × or leaving the house): she shrinks to the small corner avatar and the house fades in
   function endIntro() {
-    if (!intro) return; intro = false;
-    root.classList.remove("intro"); root.classList.add("intro-out");
+    if (!intro) return; intro = false; clearTimeout(storyT); stop();
+    store.set("introSeen", 1);
+    root.classList.remove("intro", "hint", "story"); root.classList.add("intro-out");
+    bubble.dataset.empty = "1"; pos = null; store.set("pos", null);
     setMin(true);
     setTimeout(() => root.classList.remove("intro-out"), 1000);
     delete document.documentElement.dataset.assIntro;
     dispatchEvent(new Event("ass-intro-done"));
   }
-  if (intro) setTimeout(endIntro, 90000);
 
   addEventListener("pointerdown", () => {
     if (unlocked) return; unlocked = true;
@@ -234,7 +257,7 @@ function boot() {
 
   let hideT;
   function say(line, opt = {}) {
-    if (!line || (minimized && !mob())) return false;
+    if (!line || (minimized && !mob() && !intro)) return false;
     if (opt.optional && (busy || performance.now() - lastTalk < 6000)) return false;
     stop(); clearTimeout(hideT); busy = true; lastTalk = performance.now();
     bubble.dataset.empty = "0";
@@ -277,7 +300,7 @@ function boot() {
   }
   function finish(run) {
     if (run !== current) return; busy = false; lastEnd = performance.now(); mouth.target = 0; run.spans.forEach(s => s.classList.add("on")); current = null;
-    const n = run.spans.length; hideT = setTimeout(() => { if (!busy) bubble.dataset.empty = "1"; }, 5000 + n * 280);
+    const n = run.spans.length; if (!intro) hideT = setTimeout(() => { if (!busy) bubble.dataset.empty = "1"; }, 5000 + n * 280);
   }
   function stop() { if (!current) return; current.cancel = true; current.audio?.pause(); current.spans.forEach(s => s.classList.add("on")); current = null; busy = false; mouth.target = 0; }
   function tick() {
@@ -311,7 +334,8 @@ function boot() {
     route = r; hunt = null; queue = []; clearTimeout(stuckT);
     setTimeout(() => {
       if (route !== r) return;
-      if (r.kind === "home" && intro) { welcomed = true; say(pick(LINES.home.welcome, "welcome")); }
+      if (intro && r.kind !== "home") endIntro();
+      if (r.kind === "home" && intro) { welcomed = true; if (storyAt < 0) introHint(); }
       else if (r.kind === "home") {
         const next = markSeen("home") ? LINES.home.first : LINES.home.again;
         if (!welcomed) { welcomed = true; say(pick(LINES.home.welcome, "welcome")); queueAfter(() => pick(next, "home")); }
@@ -410,15 +434,14 @@ function boot() {
 
   /* ---------------- her body (three.js) ---------------- */
   (async () => {
-    let THREE, GLTFLoader, loaded = false;
-    // no model within 8 s: don't keep the house hidden behind an intro that can't play
-    setTimeout(() => { if (!loaded) endIntro(); }, 8000);
-    try { THREE = await import(THREE_URL); ({ GLTFLoader } = await import(LOADER_URL)); }
-    catch (e) { endIntro(); body.insertAdjacentHTML("afterbegin", '<div class="ass-n__fallback"></div>'); return; }
+    // without three.js, WebGL or the model the poster simply stays: the intro and the house work the same
+    let THREE, GLTFLoader, MeshoptDecoder;
+    try { [THREE, { GLTFLoader }, { MeshoptDecoder }] = await Promise.all([import(THREE_URL), import(LOADER_URL), import(MESHOPT_URL)]); }
+    catch (e) { return; }
     const canvas = document.createElement("canvas"); body.prepend(canvas);
     let renderer;
     try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "low-power" }); }
-    catch (e) { endIntro(); canvas.remove(); body.insertAdjacentHTML("afterbegin", '<div class="ass-n__fallback"></div>'); return; }
+    catch (e) { canvas.remove(); return; }
     renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.setClearColor(0x000000, 0);
     const scene = new THREE.Scene();
     scene.add(new THREE.HemisphereLight(0xffffff, 0xb08aa0, 2.2));
@@ -427,13 +450,15 @@ function boot() {
     const cam = new THREE.PerspectiveCamera(26, 4 / 3, .01, 100);
     const rig = new THREE.Group(); scene.add(rig);
     let mouths = [], wings = [], size = null;
-    new GLTFLoader().load(BASE + "ass.glb", g => {
-      loaded = true;
+    const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
+    loader.load(BASE + "ass.glb", g => {
       const m = g.scene, b = new THREE.Box3().setFromObject(m), c = b.getCenter(new THREE.Vector3()); size = b.getSize(new THREE.Vector3());
       m.position.sub(c); rig.add(m);
       m.traverse(o => { if (o.isMesh && o.morphTargetDictionary && "jawOpen" in o.morphTargetDictionary) mouths.push(o); if (/wing/.test(o.name)) wings.push({ o, rz: o.rotation.z }); });
       frame();
-    }, undefined, () => { endIntro(); canvas.remove(); body.insertAdjacentHTML("afterbegin", '<div class="ass-n__fallback"></div>'); });
+      // swap the poster for the live model once she has been drawn
+      requestAnimationFrame(() => requestAnimationFrame(() => root.classList.add("live")));
+    }, undefined, () => { canvas.remove(); });
     const setM = (o, n, v) => { const i = o.morphTargetDictionary[n]; if (i !== undefined) o.morphTargetInfluences[i] = v; };
     const fit = () => { const w = body.clientWidth, h = body.clientHeight; if (!w || !h) return; renderer.setPixelRatio(Math.min(2, devicePixelRatio)); renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); frame(); };
     // every corner of her box at both ends of the idle sway (turn + bob), so wings are never cropped
