@@ -204,9 +204,10 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
 .song.min{height:auto}.song.min .bd,.song.min .st{display:none}.song.min .tb{border-bottom:0;border-radius:6px;cursor:pointer}
 /* back link to the folders desktop (../#about, no intro there): the site's pink bear gif with the "Back" bubble (../assets/go-back.gif,
    GO_BACK_GIF in App.jsx), lower-right corner just above the sticker tray (--tbr, set in fitSheet) so it never covers tray items */
-.back{position:fixed;right:8px;bottom:calc(var(--tbr,0px) + 8px + env(safe-area-inset-bottom,0px));z-index:17;display:none;min-width:44px;min-height:44px;padding:0;border:0;background:transparent;line-height:0}
+.back{position:fixed;right:10px;bottom:calc(var(--tbr,0px) + 8px + env(safe-area-inset-bottom,0px));z-index:17;display:none;min-width:44px;min-height:44px;padding:0 1px;box-sizing:border-box;border:0;background:transparent;line-height:0;
+  isolation:isolate;transform:translateZ(0);will-change:transform} /* own compositing layer: stays painted above the scene videos (WebKit), still under the avatar (z 18) and the loader (z 1000) */
 .song.on~.back{display:block}
-.back img{display:block;width:56px;height:auto;image-rendering:pixelated}
+.back img{display:block;width:42px;height:auto;image-rendering:pixelated}
 /* phones: the Random / Reset / counter row needs the top edge, so the player sits just below it */
 @media (max-width:470px){.song{top:36px}}
 </style>
@@ -220,7 +221,7 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
 <div class="bar" id="songBar" role="slider" aria-label="Seek"><div class="fill" id="songFill"></div><div class="knob" id="songKnob"></div></div>
 <div class="tm"><span id="songEl">0:00</span><span id="songRem">-0:00</span></div></div>
 <div class="st"><span>128kbps</span><span>1 / 1</span></div><audio id="songAudio" src="audio/song.m4a" preload="auto" loop></audio></div>
-<a class="back" href="../#about" aria-label="Back to the folders"><img src="../assets/go-back.gif" width="56" height="72" alt=""></a>
+<a class="back" href="../#about" aria-label="Back to the folders"><img src="../assets/go-back.gif" width="42" height="54" alt=""></a>
 
 <div class="app">
   <header>
