@@ -191,13 +191,11 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
   border-radius:0 0 6px 6px;font-size:8px;color:#777}
 /* red dot: only the title bar stays, clicking the title bar opens it again */
 .song.min{height:auto}.song.min .bd,.song.min .st{display:none}.song.min .tb{border-bottom:0;border-radius:6px;cursor:pointer}
-/* back link to the folders desktop (../#about, no intro there): Nana's pixel-art open door (img/back-door.png) with "back" under it,
-   in the lower-right corner just above the sticker tray (--tbr, set in fitSheet) so it never covers tray items, 46x71 px target via padding */
-.back{position:fixed;right:8px;bottom:calc(var(--tbr,0px) + max(8px,env(safe-area-inset-bottom,0px) + 4px));z-index:17;padding:4px 9px;display:none;flex-direction:column;align-items:center;gap:1px;min-width:34px;min-height:44px;box-sizing:border-box;text-decoration:none;background:transparent;
-  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;font-size:10px;line-height:1;color:#333;text-shadow:0 0 2px #fff,0 0 3px #fff}
-.song.on~.back{display:flex}
-.back img{display:block;width:28px;height:auto;image-rendering:pixelated;transition:transform .15s ease}
-.back:hover img{transform:translateY(-1px)}
+/* back link to the folders desktop (../#about, no intro there): the site's pink bear gif with the "Back" bubble (../assets/go-back.gif,
+   GO_BACK_GIF in App.jsx), lower-right corner just above the sticker tray (--tbr, set in fitSheet) so it never covers tray items */
+.back{position:fixed;right:8px;bottom:calc(var(--tbr,0px) + 8px + env(safe-area-inset-bottom,0px));z-index:17;display:none;min-width:44px;min-height:44px;padding:0;border:0;background:transparent;line-height:0}
+.song.on~.back{display:block}
+.back img{display:block;width:56px;height:auto;image-rendering:pixelated}
 /* phones: the Random / Reset / counter row needs the top edge, so the player sits just below it */
 @media (max-width:470px){.song{top:36px}}
 </style>
@@ -211,7 +209,7 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
 <div class="bar" id="songBar" role="slider" aria-label="Seek"><div class="fill" id="songFill"></div><div class="knob" id="songKnob"></div></div>
 <div class="tm"><span id="songEl">0:00</span><span id="songRem">-0:00</span></div></div>
 <div class="st"><span>128kbps</span><span>1 / 1</span></div><audio id="songAudio" src="audio/song.m4a" preload="auto" loop></audio></div>
-<a class="back" href="../#about" aria-label="Back to the folders"><img src="img/back-door.png" width="28" height="52" alt=""><span>back</span></a>
+<a class="back" href="../#about" aria-label="Back to the folders"><img src="../assets/go-back.gif" width="56" height="72" alt=""></a>
 
 <div class="app">
   <header>
