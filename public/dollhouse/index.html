@@ -48,10 +48,13 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .stageWrap{position:relative;width:100vw;margin-left:calc(50% - 50vw);flex:none;height:calc(100% - var(--tbh,0px));min-height:0;container-type:size;display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
 .scene{position:relative;z-index:0;flex:none;width:max(100vw,calc((100dvh - 120px) * 8800 / 4946));width:max(100cqw,100cqh * 8800 / 4946);aspect-ratio:8800/4946}
 .ly{position:absolute;display:block;max-width:none;pointer-events:none;-webkit-user-drag:none}
-.ly.vin{opacity:0;transition:opacity .3s ease}
+.ly.vin{opacity:0;transition:opacity .25s ease}
 /* colour variant button: in .app, 12px above the top of the sticker toolbar (--tbr = its real height, set in fitSheet), under the editor panel (z 20) */
 .varBtn{position:absolute;left:calc(50% - 50vw + 12px);bottom:calc(var(--tbr,0px) + 12px);z-index:15;width:34px;height:34px;border-radius:50%;border:1px solid var(--ink);background:var(--bg);padding:0;cursor:pointer;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center}
 .varBtn:hover{background:var(--ink)}
+.varBtn.busy{cursor:progress}
+.varBtn.busy::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:2px solid transparent;border-top-color:var(--ink);animation:varSpin .7s linear infinite;pointer-events:none}
+@keyframes varSpin{to{transform:rotate(360deg)}}
 /* the game area = the box of the house layer; stickers live in its units (VB). z 30 = above every scene layer (house, stairs, girl,
    legs, mailbox, items: z ≤ 21, raised layers in the editor 29), so dropped stickers always stay in front; the sheet and editor UI are above the scene */
 .stage{position:absolute;z-index:30}
@@ -552,19 +555,33 @@ const layerSrc=n=>`layers/${VARIANT_LAYERS.includes(n)?variant.dir:""}${n}.webp`
 function buildLayers(){
   layersEl.innerHTML=LAYERS.filter(shown).map(l=>`<img class="ly" data-name="${l.name}" src="${layerSrc(l.name)}" alt="" draggable="false" decoding="async">`).join("");
 }
-function setVariant(v){ // cross-fade: the new picture loads on top (invisible), fades in over 300 ms, then the old one is removed
-  if(v===variant)return; variant=v; lsSet(VARIANT_KEY,v.id); varBtn.textContent=v.icon;
-  VARIANT_LAYERS.forEach(n=>{ const old=[...layersEl.querySelectorAll(`[data-name="${n}"]`)]; if(!old.length)return;
-    const im=old[0].cloneNode(); im.classList.add("vin"); im.src=layerSrc(n); old[old.length-1].after(im);
-    (im.decode?im.decode():Promise.resolve()).catch(()=>{}).then(()=>{ if(!im.isConnected)return; requestAnimationFrame(()=>im.style.opacity=1);
-      setTimeout(()=>{ old.forEach(o=>o.remove()); im.classList.remove("vin"); im.style.opacity="" },320) }) });
+/* switching: all files of the next set are loaded and decoded first (preloaded in the background after the reveal, waited for on
+   click with a 4 s cap, a spinner on the button meanwhile), then every layer is swapped in the same frame with one 250 ms fade */
+const varCache={}; // variant id -> its <img> elements, kept so they stay loaded (the shown set is cached when it goes out)
+function varImgs(v){ return varCache[v.id]||(varCache[v.id]=VARIANT_LAYERS.map(n=>{ const i=new Image(); i.className="ly"; i.dataset.name=n;
+  i.alt=""; i.draggable=false; i.decoding="async"; i.src=`layers/${v.dir}${n}.webp`; return i })) }
+const nextVariant=()=>VARIANTS[(VARIANTS.indexOf(variant)+1)%VARIANTS.length];
+const warmNext=()=>(window.requestIdleCallback||(f=>setTimeout(f,1000)))(()=>varImgs(nextVariant()).forEach(imgReady),{timeout:3000});
+let varBusy=false, varShown=[]; // varShown = the set swapped in last (never removed by an older pending swap)
+function setVariant(v){
+  if(v===variant||varBusy)return; varBusy=true; varBtn.classList.add("busy");
+  const ims=varImgs(v);
+  Promise.race([Promise.all(ims.map(imgReady)),new Promise(r=>setTimeout(r,4000))]).then(()=>requestAnimationFrame(()=>{
+    const prev=variant, outs=[]; variant=v; lsSet(VARIANT_KEY,v.id); varBtn.textContent=v.icon;
+    ims.forEach(im=>{ const old=[...layersEl.querySelectorAll(`[data-name="${im.dataset.name}"]`)].filter(o=>o!==im); if(!old.length)return;
+      im.style.cssText=old[0].style.cssText; im.classList.add("vin"); old[old.length-1].after(im); outs.push(...old) });
+    varShown=ims; void layersEl.offsetWidth; ims.forEach(im=>im.style.opacity=1);
+    delete varCache[v.id];
+    // the old layer stays underneath until its replacement is loaded (only matters when the 4 s cap was hit), never a blank wall
+    setTimeout(()=>{ ims.forEach(im=>{ im.classList.remove("vin"); im.style.opacity=""; imgReady(im).then(()=>outs.filter(o=>o.dataset.name===im.dataset.name&&!varShown.includes(o)).forEach(o=>o.remove())) });
+      const keep=VARIANT_LAYERS.map(n=>outs.find(o=>o.dataset.name===n)); if(keep.every(Boolean)) varCache[prev.id]=keep;
+      varBusy=false; varBtn.classList.remove("busy"); warmNext() },270) }));
 }
 const varBtn=$("#varBtn"); varBtn.textContent=variant.icon;
 varBtn.addEventListener("pointerdown",e=>e.stopPropagation());
-varBtn.addEventListener("click",()=>setVariant(VARIANTS[(VARIANTS.indexOf(variant)+1)%VARIANTS.length]));
-// desktop: once the page is idle, warm the cache with the other sets so the switch is instant (phones load on demand)
-if(matchMedia("(hover:hover) and (pointer:fine)").matches) addEventListener("load",()=>(window.requestIdleCallback||(f=>setTimeout(f,2000)))(()=>
-  VARIANTS.filter(v=>v!==variant).forEach(v=>VARIANT_LAYERS.forEach(n=>{ new Image().src=`layers/${v.dir}${n}.webp` }))));
+varBtn.addEventListener("click",()=>setVariant(nextVariant()));
+// once the game is revealed (loader gone) and the page is idle, load + decode the next set in the background
+(function waitReveal(){ const l=$("#loader"); if(!l||l.classList.contains("out")) warmNext(); else setTimeout(waitReveal,500) })();
 function placeBox(el,l){ el.style.left=pct(l.x,ART.w); el.style.top=pct(l.y,ART.h); el.style.width=pct(l.w,ART.w); el.style.height=pct(l.h,ART.h) }
 function applyLayers(){
   LAYERS.forEach(l=>layersEl.querySelectorAll(`[data-name="${l.name}"]`).forEach(el=>{ placeBox(el,eff(l)); el.style.zIndex=lift.has(l.name)||lift.has(HG)&&inGroup(l.name)?29:l.z+1; el.style.visibility=edHidden(l.name)?"hidden":"" }));
