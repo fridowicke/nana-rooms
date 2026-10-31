@@ -246,6 +246,15 @@ html.turn #turnCover{display:flex}
 #turnCover p{margin:0;max-width:80vw;text-align:center;color:#333;font:300 14px/1.4 "Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;letter-spacing:.06em;
   animation:turnPulse 2.4s ease-in-out infinite}
 @keyframes turnPulse{0%,100%{opacity:1}50%{opacity:.55}}
+/* 2:00 countdown: small white pill top-centre, shown once the game is revealed, stops when the house comes alive, restarts on Reset;
+   pink and softly pulsing in the last 10 s, stays at 0:00 (no fail state) */
+.timer{position:fixed;top:6px;left:50%;z-index:17;transform:translateX(-50%);padding:2px 10px;background:#fff;border:1px solid var(--ink);border-radius:999px;
+  font:700 16px/1.25 ui-monospace,"SF Mono",Menlo,Consolas,"Courier New",monospace;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none;
+  box-shadow:1px 1px 0 rgba(0,0,0,.18)}
+.timer[hidden]{display:none}
+.timer.late,.timer.zero{color:#e8236f;border-color:#e8236f}
+.timer.late{animation:timerPulse 1s ease-in-out infinite}
+@keyframes timerPulse{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.08);box-shadow:0 0 8px rgba(232,35,111,.45)}}
 </style>
 </head>
 <body>
@@ -265,6 +274,7 @@ html.turn #turnCover{display:flex}
 <div class="st"><span>128kbps</span><span>1 / 1</span></div><audio id="songAudio" src="audio/song.m4a" preload="auto" loop></audio></div>
 <a class="back" href="../#about" aria-label="Back to the folders"><img src="../assets/go-back.gif" width="42" height="54" alt=""></a>
 
+<div class="timer" id="timer" role="timer" aria-label="time left" hidden>⏱ <b>2:00</b></div>
 <div class="app">
   <header>
     <div class="hud">
@@ -554,7 +564,14 @@ function measure(it){const im=new Image(); im.onload=()=>{it.ratio=im.naturalWid
 let gating=false;
 function hideLoader(){ const l=$("#loader"); if(!l||l.classList.contains("out")||gating)return;
   if(!window.songGate){ setTimeout(hideLoader,50); return }
-  gating=true; window.songGate(()=>{ l.classList.add("out"); setTimeout(()=>l.remove(),320) }) }
+  gating=true; window.songGate(()=>{ l.classList.add("out"); startTimer(); setTimeout(()=>l.remove(),320) }) }
+/* 2:00 countdown (see .timer): starts when the game is revealed, stops in startFinale, restarts after Reset */
+const TIME_LIMIT=120; let timerEnd=0, timerI=null;
+function drawTimer(s){ const t=$("#timer"); t.querySelector("b").textContent=`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+  t.classList.toggle("late",s>0&&s<=10); t.classList.toggle("zero",s===0) }
+function tickTimer(){ const s=Math.max(0,Math.ceil((timerEnd-performance.now())/1000)); drawTimer(s); if(!s)stopTimer() }
+function startTimer(){ if(EDIT)return; stopTimer(); timerEnd=performance.now()+TIME_LIMIT*1000; drawTimer(TIME_LIMIT); $("#timer").hidden=false; timerI=setInterval(tickTimer,250) }
+function stopTimer(){ clearInterval(timerI); timerI=null }
 let houseDone=false; // scene layers loaded and decoded (or failed)
 function checkLoaded(){ if(houseDone&&items.every(it=>it.ready)) hideLoader() }
 /* failsafe: after 12 s reveal anyway, but never without the wall and floor (they are the big files on a slow phone), hard cap 40 s */
@@ -591,7 +608,7 @@ function onGesture(){ kickAll(); const vs=Object.values(videos); // stays armed 
 document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") kickAll() });
 addEventListener("pageshow",kickAll);
 function startFinale(){
-  if(!alive)return; stopFinale(); const gen=finaleGen;
+  if(!alive)return; stopTimer(); stopFinale(); const gen=finaleGen;
   const ids=Object.keys(ROOM_VIDEOS).filter(k=>[...ROOMS,TOWER].some(r=>r.id===k)); if(!ids.length)return;
   keepAlive=setInterval(kickAll,1000); GESTURES.forEach(ev=>addEventListener(ev,onGesture,{capture:true,passive:true}));
   ids.forEach((id,i)=>setTimeout(()=>{ if(gen!==finaleGen)return;
@@ -625,10 +642,10 @@ function stopFinale(){
 stage.addEventListener("click",e=>{ if(!alive||!videoRooms.size||e.target.closest("button"))return;
   const [x,y]=toCanvas(e.clientX,e.clientY), r=roomAt(x,y); if(r&&videoRooms.has(r.id)) setSound(r.id) });
 function reset(){
-  clearTimeout(finaleT); for(const k in videos) videos[k].muted=true;
+  stopTimer(); $("#timer").hidden=true; clearTimeout(finaleT); for(const k in videos) videos[k].muted=true;
   screens.querySelectorAll(".on").forEach(v=>v.classList.remove("on")); stage.querySelector(".tag")?.remove(); wrap.classList.remove("alive");
   stage.querySelectorAll(".placed img,.walls image").forEach(i=>i.style.opacity="0");
-  setTimeout(()=>{for(const k in pos)delete pos[k]; stopFinale(); alive=false; sheet.classList.remove("locked"); render()},350);
+  setTimeout(()=>{for(const k in pos)delete pos[k]; stopFinale(); alive=false; sheet.classList.remove("locked"); render(); startTimer()},350);
 }
 $("#reset").addEventListener("click",reset);
 $("#random").addEventListener("click",()=>{ if(alive)return; items.filter(it=>!pos[it.id]).forEach((it,i)=>setTimeout(()=>autoPlace(it.id),i*60)) });

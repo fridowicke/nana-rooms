@@ -2,17 +2,18 @@
    NANA · small talking avatar for the dollhouse game
    A copy of the hub narrator (public/narrator/), cut down: she flies slowly around the upper-left corner,
    says the first two LINES below after the game has faded in (every visit), tap her to hear them again, × closes.
-   The third line is said ~2 s after the room videos start (window event "dollhouse:finale" from index.html), on every finale.
+   The third line is said at once, typed fast, when the room videos start (window event "dollhouse:finale" from index.html), on every finale;
+   it cuts off any line in progress. The bubble keeps clear of the countdown pill (#timer) at the top centre.
    Poster first (nana/ass-poster.webp), the 3D model (nana/ass.glb + self-hosted three.js in nana/vendor/)
    is loaded only after the game is shown and swaps in when ready; if WebGL or the model fails the poster stays.
    ===================================================================== */
 const LINES = [
   "Happy Birthday Nana and Happy Halloween!!",
-  "this dollhouse makeover game was developed by shelestvetrovki and designed by dripkastonline as a creative collaboration exploring old web girls games",
+  "hurry up to dress a house to see how it becomes alive!",
   'directed by shelestvetrovki based on the "Playthings of Childhood - The Doll\'s House, 1920. A vintage silent film archive showcasing early 20th-century toy and dollhouse manufacturing.',
 ];
-const FINALE_DELAY = 2000; // line 3: shown 2 s after the videos start
 const READ_SHORT = 1000, READ_LONG = 5000; // pause after short line 1 before line 2; bubble stays open this long after lines 2 and 3 are typed (ms)
+const FAST = 3; // ms per letter for line 3 (normal lines: 9)
 
 const BASE = new URL("./nana/", import.meta.url).href;
 const poster = new Image(); poster.fetchPriority = "low"; poster.src = BASE + "ass-poster.webp";
@@ -86,6 +87,9 @@ function placeBubble(vw, vh, bw, bh) {
     by = f.b + off; bx = clamp((f.l + f.r) / 2 - pw / 2, M, vw - M - pw);
     bubble.style.setProperty("--ax", Math.round(clamp((f.l + f.r) / 2 - bx - 6, 10, pw - 22)) + "px");
   }
+  const tm = document.getElementById("timer"); // never over the countdown pill: drop below it when they share columns
+  if (tm && !tm.hidden) { const t = tm.getBoundingClientRect(); if (bx < t.right + 6 && bx + pw > t.left - 6 && by < t.bottom + 6) {
+    by = t.bottom + 6; if (right) bubble.style.setProperty("--ay", Math.round(clamp((f.t + f.b) / 2 - by - 6, 8, ph - 20)) + "px"); } }
   bubble.classList.toggle("right", right);
   bubble.style.transform = `translate(${Math.round(bx)}px,${Math.round(by)}px)`;
 }
@@ -100,7 +104,7 @@ function renderWords(text) {
   });
   return spans;
 }
-function say(text, done) {
+function say(text, done, per = 9) {
   stop(); bubble.dataset.empty = "0";
   const spans = renderWords(text), r = { cancel: false, spans, done }; run = r; let i = 0;
   const next = () => {
@@ -108,10 +112,9 @@ function say(text, done) {
     if (i >= spans.length) { mouth.target = 0; run = null; done && done(); return; }
     const span = spans[i++], w = span.textContent; span.classList.add("on");
     const letters = [...w.replace(/[^\p{L}]/gu, "")]; let k = 0;
-    const per = 9;
     const syl = () => {
       if (r.cancel) return;
-      if (k >= letters.length) { const end = /[.!?]$/.test(w); mouth.target = end ? 0 : .08; setTimeout(next, end ? 60 : /[,;:]$/.test(w) ? 30 : 6); return; }
+      if (k >= letters.length) { const end = /[.!?]$/.test(w); mouth.target = end ? 0 : .08; setTimeout(next, per < 9 ? 2 : end ? 60 : /[,;:]$/.test(w) ? 30 : 6); return; }
       const c = letters[k++].toLowerCase();
       mouth.target = "aeiouy".includes(c) ? .65 + Math.random() * .35 : "mbp".includes(c) ? 0 : .18 + Math.random() * .2;
       setTimeout(syl, per);
@@ -128,7 +131,7 @@ function stop() { if (run) { run.cancel = true; run = null; } mouth.target = 0; 
 function closeBubble() { stop(); clearTimeout(seqT); clearTimeout(hideT); bubble.dataset.empty = "1"; root.dataset.line = "0"; }
 function sayFinale() {
   closeBubble(); root.dataset.line = "3";
-  say(LINES[2], () => { hideT = setTimeout(closeBubble, READ_LONG); });
+  say(LINES[2], () => { hideT = setTimeout(closeBubble, READ_LONG); }, FAST);
 }
 function talk() {
   closeBubble(); clearTimeout(finaleT); root.dataset.line = "1";
@@ -143,7 +146,7 @@ function talk() {
   });
 }
 hit.addEventListener("click", talk);
-addEventListener("dollhouse:finale", () => { finale = true; clearTimeout(finaleT); finaleT = setTimeout(sayFinale, FINALE_DELAY); });
+addEventListener("dollhouse:finale", () => { finale = true; clearTimeout(finaleT); sayFinale(); });
 addEventListener("dollhouse:finale-stop", () => {
   if (!finale) return; finale = false; clearTimeout(finaleT);
   if (root.dataset.line === "3") closeBubble(); // a running line 1+2 replay just ends without line 3
@@ -157,7 +160,7 @@ function start() {
   img.src = poster.src; document.body.appendChild(root);
   const loop = now => { requestAnimationFrame(loop); if (!document.hidden) fly(now); };
   requestAnimationFrame(loop);
-  setTimeout(() => { root.classList.add("on"); setTimeout(talk, 700); setTimeout(model, 400); }, 350);
+  setTimeout(() => { root.classList.add("on"); setTimeout(() => { if (root.dataset.line !== "3") talk(); }, 700); setTimeout(model, 400); }, 350);
 }
 (function wait() { gameShown() ? start() : setTimeout(wait, 150); })();
 
