@@ -5,6 +5,18 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Dollhouse Game</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<script>/* phones (mobile UA, or a coarse pointer on a screen whose short side is < 600 px): the game is closed. Nothing else on this page is parsed or
+   loaded (no layers, videos, audio, tray); only the loading gif with "made for desktop" on white and the pink Back bear (../#about).
+   Tablets / iPads and every desktop window, however narrow, get the game. */
+(function(){ if(!(/iPhone|Android.*Mobile|iPod/.test(navigator.userAgent)||(matchMedia("(pointer: coarse)").matches&&Math.min(screen.width,screen.height)<600)))return;
+  window.stop(); const d=document; if(!d.body)d.documentElement.appendChild(d.createElement("body"));
+  d.body.innerHTML='<style>body{margin:0;background:#fff}#phone{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}'+
+    '#phone img{display:block;width:104px;height:auto;image-rendering:pixelated}#phone p{margin:0;max-width:80vw;text-align:center;color:#e0579a;'+
+    'font:300 14px/1.5 "Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;letter-spacing:.06em}'+
+    '#phoneBack{position:fixed;right:max(10px,env(safe-area-inset-right,0px));bottom:calc(8px + env(safe-area-inset-bottom,0px));line-height:0}'+
+    '#phoneBack img{display:block;width:42px;height:auto;image-rendering:pixelated}</style>'+
+    '<div id="phone" role="status"><img src="loading-dollhouse.gif" alt="" width="150" height="100"><p>the dollhouse game is made for desktop \u2661<br>please come play on your computer</p></div>'+
+    '<a id="phoneBack" href="../#about" aria-label="Back to the folders"><img src="../assets/go-back.gif" width="42" height="54" alt=""></a>' })();</script>
 <style>
 /* loading screen: only the small dollhouse gif on white, from the first paint until the scene layers and tray stickers are decoded, then fades out (300 ms).
    Shown at the size of the hub's welcome gif: 124 px wide on desktop, 104 px on phones. */
@@ -238,14 +250,6 @@ body.edrag .epanel,body.edrag .epanelBtn{pointer-events:none;opacity:.25}
   .back{right:max(10px,env(safe-area-inset-right,0px))}
   .varBtn{left:calc(50% - 50vw + max(8px,env(safe-area-inset-left,0px)));bottom:calc(var(--tbr,0px) + 8px);width:28px;height:28px;font-size:14px}
 }
-/* phones held upright (touch, width < 700px, taller than wide): the game is not shown; a copy of the loading screen covers it (Tiny Player too)
-   with "turn your phone or play on desktop". Loading and the song go on underneath; rotating to landscape uncovers it (see #turnCover script) */
-#turnCover{display:none;position:fixed;inset:0;z-index:1001;background:#fff;flex-direction:column;align-items:center;justify-content:center;gap:14px}
-html.turn #turnCover{display:flex}
-#turnCover img{display:block;width:104px;height:auto;image-rendering:pixelated}
-#turnCover p{margin:0;max-width:80vw;text-align:center;color:#333;font:300 14px/1.4 "Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;letter-spacing:.06em;
-  animation:turnPulse 2.4s ease-in-out infinite}
-@keyframes turnPulse{0%,100%{opacity:1}50%{opacity:.55}}
 /* 2:00 countdown: small white pill top-centre, shown once the game is revealed, stops when the house comes alive, restarts on Reset;
    pink and softly pulsing in the last 10 s, stays at 0:00 (no fail state) */
 .timer{position:fixed;top:6px;left:50%;z-index:17;transform:translateX(-50%);padding:2px 10px;background:#fff;border:1px solid var(--ink);border-radius:999px;
@@ -259,12 +263,6 @@ html.turn #turnCover{display:flex}
 </head>
 <body>
 <div id="loader" role="status" aria-label="loading"><img src="loading-dollhouse.gif" alt="" width="150" height="100" fetchpriority="high"><button id="enter" type="button">tap to enter ♡</button></div>
-<div id="turnCover" role="status"><img src="loading-dollhouse.gif" alt="" width="150" height="100"><p>turn your phone or play on desktop for the best experience</p></div>
-<script>/* portrait phone = narrow, taller than wide AND touch / mobile UA, so a narrow desktop window still shows the game */
-(function(){ const touch=matchMedia("(pointer:coarse)"), ua=/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  const upd=()=>document.documentElement.classList.toggle("turn",innerWidth<700&&innerHeight>innerWidth&&(touch.matches||ua));
-  upd(); addEventListener("resize",upd); addEventListener("orientationchange",upd); touch.addEventListener&&touch.addEventListener("change",upd);
-  matchMedia("(orientation:portrait)").addEventListener?.("change",upd) })();</script>
 
 <div class="song" id="song"><div class="tb" id="songTb"><span class="dots"><i class="r" id="songMin" title="Hide player"></i><i class="y"></i><i class="g"></i></span><span class="tt">Tiny Player</span></div>
 <div class="bd"><div class="trk">Installation</div><div class="art">Coraline Soundtrack</div>
