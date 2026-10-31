@@ -2,8 +2,8 @@
    NANA · small talking avatar for the dollhouse game
    A copy of the hub narrator (public/narrator/), cut down: she flies slowly around the upper-left corner,
    says the first two LINES below after the game has faded in (every visit), tap her to hear them again, × closes.
-   The third line is said at once, typed fast, when the room videos start (window event "dollhouse:finale" from index.html), on every finale;
-   it cuts off any line in progress. The bubble keeps clear of the countdown pill (#timer) at the top centre.
+   The third line is shown in full at once (the mouth still talks it), when the room videos start (window event "dollhouse:finale" from index.html), on every finale;
+   it cuts off any line in progress, ignores an earlier × and stays READ_FINALE ms. The bubble keeps clear of the countdown pill (#timer) at the top centre.
    Poster first (nana/ass-poster.webp), the 3D model (nana/ass.glb + self-hosted three.js in nana/vendor/)
    is loaded only after the game is shown and swaps in when ready; if WebGL or the model fails the poster stays.
    ===================================================================== */
@@ -12,8 +12,9 @@ const LINES = [
   "hurry up to dress a house to see how it becomes alive!",
   'directed by shelestvetrovki based on the "Playthings of Childhood - The Doll\'s House, 1920. A vintage silent film archive showcasing early 20th-century toy and dollhouse manufacturing.',
 ];
-const READ_SHORT = 1000, READ_LONG = 5000; // pause after short line 1 before line 2; bubble stays open this long after lines 2 and 3 are typed (ms)
-const FAST = 3; // ms per letter for line 3 (normal lines: 9)
+const READ_SHORT = 1000, READ_LONG = 5000; // pause after short line 1 before line 2; bubble stays open this long after line 2 is typed (ms)
+const READ_FINALE = 15000; // the archive quote (line 3) stays open this long after it is typed (× closes it earlier)
+const FAST = 3; // ms per letter of the mouth for line 3 (normal lines: 9)
 
 const BASE = new URL("./nana/", import.meta.url).href;
 const poster = new Image(); poster.fetchPriority = "low"; poster.src = BASE + "ass-poster.webp";
@@ -130,8 +131,11 @@ function finishLine() { // tap on the bubble: show the rest of the current line 
 function stop() { if (run) { run.cancel = true; run = null; } mouth.target = 0; }
 function closeBubble() { stop(); clearTimeout(seqT); clearTimeout(hideT); bubble.dataset.empty = "1"; root.dataset.line = "0"; }
 function sayFinale() {
+  if (!started) start(true); // the house came alive before the intro: show her at once
   closeBubble(); root.dataset.line = "3";
-  say(LINES[2], () => { hideT = setTimeout(closeBubble, READ_LONG); }, FAST);
+  // the whole quote is shown at once (letter-by-letter timers lag while the videos spin up), only the mouth still "types" it
+  say(LINES[2], null, FAST); run && run.spans.forEach(s => s.classList.add("on"));
+  hideT = setTimeout(closeBubble, READ_FINALE);
 }
 function talk() {
   closeBubble(); clearTimeout(finaleT); root.dataset.line = "1";
@@ -156,7 +160,10 @@ bubble.addEventListener("click", finishLine);
 
 /* ---------------- start once the game is shown (the loading gif has faded out) ---------------- */
 function gameShown() { const l = document.getElementById("loader"); return !l || l.classList.contains("out"); }
-function start() {
+let started = false;
+function start(now) {
+  if (started) return; started = true;
+  if (now) root.classList.add("on");
   img.src = poster.src; document.body.appendChild(root);
   const loop = now => { requestAnimationFrame(loop); if (!document.hidden) fly(now); };
   requestAnimationFrame(loop);
