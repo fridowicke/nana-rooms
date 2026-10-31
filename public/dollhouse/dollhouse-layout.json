@@ -17,8 +17,8 @@
    "name": "background-wall",
    "group": "background",
    "z": 0,
-   "x": 1,
-   "y": -95,
+   "x": -1,
+   "y": 37,
    "w": 8800,
    "h": 4004
   },
@@ -26,19 +26,19 @@
    "name": "floor",
    "group": "background",
    "z": 1,
-   "x": -8,
-   "y": 3693,
-   "w": 8800,
-   "h": 1274
+   "x": -107,
+   "y": 3783,
+   "w": 8967,
+   "h": 1298
   },
   {
    "name": "floor-splashes",
    "group": "background",
    "z": 2,
-   "x": 0,
-   "y": 3665,
-   "w": 8800,
-   "h": 1281
+   "x": -8,
+   "y": 3797,
+   "w": 8840,
+   "h": 1287
   },
   {
    "name": "leg-left",
