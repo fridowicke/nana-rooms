@@ -68,6 +68,12 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .scene{position:relative;z-index:0;flex:none;width:max(100vw,calc((100dvh - 120px) * 8800 / 4946));width:max(100cqw,100cqh * 8800 / 4946);aspect-ratio:8800/4946}
 .ly{position:absolute;display:block;max-width:none;pointer-events:none;-webkit-user-drag:none}
 .ly.vin{opacity:0;transition:opacity .25s ease}
+/* desktop / landscape: the wall layer starts at artboard y 37, so its top row is stretched upwards behind it (1 unit overlap): no white strip
+   at the top edge whatever the window size (the portrait and phone-sideways rules below draw their own extensions) */
+@media (min-aspect-ratio:10001/10000) and (min-height:500px),(min-aspect-ratio:10001/10000) and (min-width:1000px){
+  .scene::before{content:"";position:absolute;z-index:0;left:calc(-100% / 8800);width:100%;bottom:calc(100% - 100% * 38 / 4946);height:400%;
+    pointer-events:none;background:var(--wall) 0 0/100% 100000% no-repeat}
+}
 /* colour variant button: in .app, 12px above the top of the sticker toolbar (--tbr = its real height, set in fitSheet), under the editor panel (z 20) */
 .varBtn{position:absolute;left:calc(50% - 50vw + 12px);bottom:calc(var(--tbr,0px) + 12px);z-index:15;width:34px;height:34px;border-radius:50%;border:1px solid var(--ink);background:var(--bg);padding:0;cursor:pointer;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center}
 .varBtn:hover{background:var(--ink)}
@@ -81,8 +87,8 @@ button{font:inherit;cursor:pointer;color:var(--ink)}
 .layer{position:absolute;inset:0;width:100%;height:100%}
 .screens{position:absolute;inset:0;pointer-events:none;z-index:1}
 /* room videos fill their room box edge to edge (cover, centre 45%): the top and bottom of the film are cropped so no wallpaper
-   shows around it; the box bleeds 1 px past the room box on every side (boxStyle) so no thin strip remains at the walls. */
-.screens video{position:absolute;display:block;object-fit:cover;object-position:center 45%;opacity:0;transition:opacity .7s ease;background:transparent}
+   shows around it; the box bleeds 2 px past the room box on every side (boxStyle), under the frame's edge highlights, so no thin strip remains at the walls. */
+.screens video{position:absolute;display:block;object-fit:cover;object-position:center 45%;opacity:0;transition:opacity .7s ease;background:transparent;border:0;outline:0;box-shadow:none}
 /* never show the browser's own play buttons / controls on the room videos (Safari shows a round PLAY when autoplay is blocked) */
 .screens video::-webkit-media-controls,.screens video::-webkit-media-controls-start-playback-button,
 .screens video::-webkit-media-controls-overlay-play-button,.screens video::-webkit-media-controls-panel,
@@ -591,8 +597,8 @@ function wake(){
    do not spin up in the same frame; window events "dollhouse:finale" / "dollhouse:finale-stop" tell the avatar (nana.js). */
 let finaleT, videos={}, soundRoom=null, finaleGen=0; // videos: room id -> <video>; soundRoom = the room whose sound is on
 const boxOf=id=>ROOMS.find(r=>r.id===id)||TOWER;
-const boxStyle=r=>({left:`calc(${(r.x-VB.x)/VB.w*100}% - 1px)`,top:`calc(${(r.y-VB.y)/VB.h*100}% - 1px)`,
-  width:`calc(${r.w/VB.w*100}% + 2px)`,height:`calc(${r.h/VB.h*100}% + 2px)`}); // 1 px bleed past the room box
+const boxStyle=r=>({left:`calc(${(r.x-VB.x)/VB.w*100}% - 2px)`,top:`calc(${(r.y-VB.y)/VB.h*100}% - 2px)`,
+  width:`calc(${r.w/VB.w*100}% + 4px)`,height:`calc(${r.h/VB.h*100}% + 4px)`}); // 2 px bleed past the room box (covers sub-pixel rounding)
 /* autoplay can be blocked (Safari low power mode, autoplay policies): keep calling play() until every video runs:
    on load events, every second, on the first tap / key anywhere, and when the page comes back into view */
 let keepAlive; const GESTURES=["touchstart","pointerdown","click","keydown"];
